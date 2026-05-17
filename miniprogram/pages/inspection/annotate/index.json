@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "annotation-canvas": "/components/annotation-canvas/index",
+    "page-nav-bar": "/components/page-nav-bar/index"
+  }
+}

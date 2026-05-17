@@ -1,0 +1,17 @@
+<view class="page inspection-detail-page">
+  <page-nav-bar title="巡查详情" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="card">
+    <view class="section-title">{{inspection.title}}</view>
+    <view class="section-subtitle">{{inspection.projectNameText}}</view>
+    <view class="section-subtitle">{{inspection.createdAtText}}</view>
+    <view class="section-subtitle">问题数量：{{items.length}}</view>
+  </view>
+
+  <view class="list">
+    <inspection-item-card wx:for="{{items}}" wx:key="_id" item="{{item}}" index="{{index}}" />
+  </view>
+
+  <view class="footer-actions footer-actions--fixed">
+    <button class="primary-button" bindtap="goReport">{{reportId ? '查看已生成报告' : '生成巡查报告'}}</button>
+  </view>
+</view>

@@ -1,0 +1,16 @@
+<view class="voice-card">
+  <view class="voice-title">语音备注</view>
+  <view class="toolbar">
+    <view class="voice-hold-button {{recording ? 'voice-hold-button--active' : ''}}" bindlongpress="handleRecordLongPress" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordTouchEnd">
+      <image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" />
+      <text class="voice-hold-button__text">{{recording ? '松开结束并转文字' : '按住说话'}}</text>
+    </view>
+    <view class="voice-tip">{{transcribing ? '正在转写，请稍等...' : (recording ? '已开始录音，松手后自动转文字' : '长按按钮开始录音，支持震动反馈')}}</view>
+  </view>
+  <textarea
+    class="voice-textarea"
+    placeholder="请输入语音转写或补充说明"
+    value="{{value.voiceText}}"
+    bindinput="handleTextInput"
+  />
+</view>

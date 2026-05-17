@@ -1,0 +1,22 @@
+<view class="page memo-form-page">
+  <page-nav-bar title="{{pageTitle}}" showBack="{{true}}" />
+
+  <voice-recorder value="{{voice}}" bindchange="handleVoiceChange" />
+
+  <view class="card memo-form__card">
+    <view class="memo-form__field-head">
+      <image class="memo-form__icon" src="/images/icons/icon-note.svg" mode="aspectFit" />
+      <view class="section-title memo-form__section-title">提醒日期</view>
+    </view>
+    <view class="field">
+      <picker mode="date" value="{{remindAt}}" bindchange="handleDateChange">
+        <view class="field-input">{{remindAtDisplay}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="footer-actions">
+    <button class="secondary-button" bindtap="handleSubscribe">订阅提醒消息</button>
+    <button class="primary-button" bindtap="handleSubmit">{{memoId ? '保存修改' : '保存待办'}}</button>
+  </view>
+</view>

@@ -1,0 +1,12 @@
+<view class="page report-list-page">
+  <page-nav-bar title="项目报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+
+  <view wx:if="{{reports.length}}" class="list">
+    <view wx:for="{{reports}}" wx:key="_id" class="report-row" data-report-id="{{item._id}}" data-report-title="{{item.title}}" bindtap="openReport" bindlongpress="handleReportLongPress">
+      <view class="report-row__title">{{item.title}}</view>
+      <view class="report-row__desc">{{item.generatedAtDisplay}}</view>
+    </view>
+  </view>
+
+  <empty-state wx:else title="暂无报告" description="当前项目下还没有生成报告" />
+</view>

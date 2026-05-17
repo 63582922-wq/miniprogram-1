@@ -1,0 +1,13 @@
+<view class="page inspection-page">
+  <page-nav-bar title="{{pageTitle}}" showBack="{{true}}" />
+
+  <view wx:if="{{inspectionList.length}}" class="list">
+    <view wx:for="{{inspectionList}}" wx:key="_id" class="inspection-row" data-inspection-id="{{item._id}}" data-inspection-title="{{item.title}}" bindtap="openDetail" bindlongpress="handleInspectionLongPress">
+      <view class="inspection-row__title">{{item.title}}</view>
+      <view class="inspection-row__desc">{{item.projectNameText}}</view>
+      <view class="inspection-row__desc">{{item.createdAtText}}</view>
+    </view>
+  </view>
+
+  <empty-state wx:else title="暂无巡查记录" description="从这里开始新建巡查，拍照、标注、整理问题并生成报告" />
+</view>

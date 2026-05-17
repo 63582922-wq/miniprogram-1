@@ -1,0 +1,122 @@
+<view class="page inspection-create-page">
+  <page-nav-bar title="快速巡查" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleReturn" />
+  <view class="card create-card create-card--overview">
+    <view class="create-card__stats">
+      <view class="create-card__stat">
+        <view class="create-card__stat-value">{{form.issueDrafts.length}}</view>
+        <view class="create-card__stat-label">问题照片</view>
+      </view>
+      <view class="create-card__stat">
+        <view class="create-card__stat-value">{{form.projectName || '未选'}}</view>
+        <view class="create-card__stat-label">当前项目</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card create-card create-card--project">
+    <view class="field">
+      <view class="create-card__field-head">
+        <image class="create-card__section-icon" src="/images/icons/icon-project.svg" mode="aspectFit" />
+        <view class="create-card__section-title">选择项目</view>
+      </view>
+      <picker range="{{projects}}" range-key="name" value="{{projectIndex}}" bindchange="handleProjectChange">
+        <view class="field-input">{{currentProjectNameText}}</view>
+      </picker>
+      <view wx:if="{{projectLoadError}}" class="section-subtitle">{{projectLoadError}}</view>
+      <button wx:if="{{projectLoadError}}" class="secondary-button" bindtap="retryLoadProjects">重新加载项目</button>
+    </view>
+  </view>
+
+  <view class="card create-card">
+    <view class="create-card__section-head">
+      <view class="create-card__section-lead">
+        <image class="create-card__section-icon" src="/images/icons/icon-note.svg" mode="aspectFit" />
+        <view class="create-card__section-title">现场补充</view>
+      </view>
+      <view class="create-card__toggle" bindtap="toggleSupplementFields">{{showSupplementFields ? '收起' : '展开'}}</view>
+    </view>
+    <view wx:if="{{showSupplementFields}}" class="create-card__supplement-fields">
+      <view class="field">
+        <view class="field-label">巡查标题</view>
+        <input class="field-input" value="{{form.title}}" data-field="title" bindinput="handleInput" placeholder="例如：4月2日木作巡查" />
+      </view>
+      <view class="field">
+        <view class="field-label">现场补充</view>
+        <textarea class="field-textarea" value="{{form.note}}" data-field="note" bindinput="handleInput" placeholder="选填：补充本次巡查范围、客户特别关注点或现场背景。最终小结由 AI 自动生成。" />
+      </view>
+    </view>
+  </view>
+
+  <view class="card create-card create-card--issues">
+    <view class="create-card__issue-bar">
+      <view class="create-card__section-lead">
+        <image class="create-card__section-icon" src="/images/icons/icon-issue.svg" mode="aspectFit" />
+        <view class="create-card__section-title">问题采集</view>
+      </view>
+      <view class="create-card__photo-button {{coachHighlightAddPhoto ? 'coach-highlight' : ''}}" bindtap="chooseImages">添加照片</view>
+      <view class="create-card__issue-count">已添加 {{form.issueDrafts.length}} / 20</view>
+    </view>
+  </view>
+
+  <view wx:if="{{form.issueDrafts.length}}" class="issue-draft-list">
+    <view wx:for="{{form.issueDrafts}}" wx:key="id" class="card issue-draft-card">
+      <view class="issue-draft-card__header">
+        <view class="issue-draft-card__title-wrap">
+          <view class="issue-draft-card__index">{{index + 1}}</view>
+          <view class="issue-draft-card__title-main">
+            <view class="issue-draft-card__title">问题{{issueSectionTitles[index] || (index + 1)}}</view>
+          </view>
+        </view>
+        <view class="issue-draft-card__header-actions">
+          <view class="issue-draft-card__collapse" data-index="{{index}}" bindtap="toggleIssueExpanded">{{issueExpandedStates[index] ? '收起' : '展开'}}</view>
+          <view class="issue-draft-card__delete" data-index="{{index}}" bindtap="removeIssue">删除</view>
+        </view>
+      </view>
+
+      <view wx:if="{{issueExpandedStates[index]}}" class="issue-draft-card__body">
+        <view class="issue-draft-card__media" data-index="{{index}}" bindtap="openAnnotate">
+          <image class="issue-draft-card__image" src="{{item.imagePath}}" mode="aspectFill" />
+          <view class="issue-draft-card__media-tip">点击照片进入标注</view>
+          <view class="issue-draft-card__media-action" data-index="{{index}}" catchtap="replaceIssueImage">更换照片</view>
+        </view>
+        <view class="issue-draft-card__editor">
+          <view wx:if="{{item.annotations.length || item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badges">
+            <view wx:if="{{item.annotations.length}}" class="issue-draft-card__badge">已标注 {{item.annotations.length}} 处</view>
+            <view wx:if="{{item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badge">已录音</view>
+          </view>
+          <view class="voice-hold">
+            <view class="voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}}" data-index="{{index}}" bindlongpress="handleRecordLongPress" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordTouchEnd">
+              <image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" />
+            </view>
+            <text class="voice-hold-button__text">{{transcribingIssueId === item.id ? '松开结束' : '按住说话'}}</text>
+          </view>
+          <view wx:if="{{item.isTranscribing}}" class="section-subtitle issue-draft-card__transcribing">正在识别中...</view>
+          <textarea class="issue-draft-card__textarea" value="{{item.voiceText}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="录完音后，文字会附在这里；也可以直接手动补充和修改" />
+        </view>
+      </view>
+    </view>
+  </view>
+  <empty-state wx:else title="还没有问题照片" description="先添加问题照片，再逐条补充现场信息和录音留档。" />
+
+  <view class="footer-actions">
+    <view class="create-card__photo-button inspection-create__submit-button {{coachHighlightAnalyze ? 'coach-highlight' : ''}}" bindtap="handleAnalyze">分析整理</view>
+  </view>
+  <view wx:if="{{coachTipVisible}}" class="coach-tip">
+    <view class="coach-tip__title">{{coachTipTitle}}</view>
+    <view class="coach-tip__arrow">{{coachTipArrow}}</view>
+    <view class="coach-tip__desc">{{coachTipText}}</view>
+    <view class="coach-tip__actions">
+      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachPrev">上一步</view>
+      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过</view>
+      <view class="coach-tip__btn" bindtap="handleCoachNext">下一步</view>
+    </view>
+  </view>
+  <view wx:if="{{analyzing}}" class="analyze-mask">
+    <view class="analyze-panel">
+      <view class="analyze-panel__spinner"></view>
+      <view class="analyze-panel__title">AI 整理中</view>
+      <view class="analyze-panel__desc">{{analyzeStageText}}</view>
+    </view>
+  </view>
+  <app-tab-bar />
+</view>

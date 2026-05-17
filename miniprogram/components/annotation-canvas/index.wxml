@@ -1,0 +1,52 @@
+<view class="annotation-card">
+  <view wx:if="{{imageUrl}}" class="canvas-stage">
+    <view
+      class="canvas-viewport"
+      style="{{viewportStyle}}"
+      bindtouchstart="handleStageTouchStart"
+      catchtouchmove="handleStageTouchMove"
+      bindtouchend="handleStageTouchEnd"
+      bindtouchcancel="handleStageTouchEnd"
+    >
+      <image class="canvas-image" src="{{imageUrl}}" mode="aspectFit" bindload="handleImageReady" />
+      <view class="canvas-overlay">
+        <view
+          wx:for="{{renderItems}}"
+          wx:key="id"
+          class="mark mark--{{item.tool}} {{item.preview ? 'mark--preview' : ''}}"
+          style="{{item.style}}"
+          data-id="{{item.rawId}}"
+          data-tool="{{item.tool}}"
+          catchtouchstart="handleMarkTouchStart"
+          catchtouchmove="handleMarkTouchMove"
+          catchtouchend="handleMarkTouchEnd"
+          catchtouchcancel="handleMarkTouchEnd"
+          catchtap="handleEditText"
+        >
+          <view wx:if="{{item.tool === 'arrow'}}" class="mark__arrow-head"></view>
+          <text wx:if="{{item.tool === 'text'}}">{{item.text}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+  <view wx:else class="annotation-empty">请先选择巡查图片</view>
+  <view class="annotation-toolbar">
+    <view class="tool {{tool === 'move' ? 'tool--active' : ''}}" data-tool="move" bindtap="setTool">移动</view>
+    <view class="tool {{tool === 'box' ? 'tool--active' : ''}}" data-tool="box" bindtap="setTool">框选</view>
+    <view class="tool {{tool === 'arrow' ? 'tool--active' : ''}}" data-tool="arrow" bindtap="setTool">箭头</view>
+    <view class="tool {{tool === 'text' ? 'tool--active' : ''}}" data-tool="text" bindtap="setTool">文字</view>
+    <view class="tool tool--muted" bindtap="undo">撤销</view>
+    <view class="tool tool--muted" bindtap="redo">重做</view>
+    <view class="tool tool--muted" bindtap="resetViewport">复位</view>
+  </view>
+  <view wx:if="{{textEditorVisible}}" class="text-editor-mask">
+    <view class="text-editor">
+      <view class="text-editor__title">编辑文字</view>
+      <input class="text-editor__input" value="{{editingText}}" bindinput="handleTextInput" placeholder="请输入标注文字" focus />
+      <view class="text-editor__actions">
+        <button class="text-editor__button text-editor__button--ghost" bindtap="handleCancelTextEdit">取消</button>
+        <button class="text-editor__button text-editor__button--primary" bindtap="handleConfirmTextEdit">确定</button>
+      </view>
+    </view>
+  </view>
+</view>

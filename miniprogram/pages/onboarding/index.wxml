@@ -1,0 +1,33 @@
+<view class="page onboarding-page">
+  <page-nav-bar title="使用向导" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+
+  <view class="card onboarding-summary">
+    <view class="onboarding-summary__title">首次使用建议按以下流程完成</view>
+    <view class="onboarding-summary__desc">已完成 {{completedCount}} / {{steps.length}} 步，完成后你就可以独立使用全流程。</view>
+  </view>
+
+  <view class="onboarding-steps">
+    <view wx:for="{{steps}}" wx:key="key" class="{{item.cardClass}}">
+      <view class="onboarding-step__head">
+        <view class="onboarding-step__title">{{item.title}}</view>
+        <view class="onboarding-step__status">{{item.statusText}}</view>
+      </view>
+      <view class="onboarding-step__desc">{{item.desc}}</view>
+      <view class="onboarding-step__tip-trigger" data-step="{{item.key}}" bindtap="handleStepTip">说明</view>
+      <view wx:if="{{item.showAction}}" class="primary-button onboarding-step__action" data-step="{{item.key}}" bindtap="handleStepAction">{{item.actionText}}</view>
+    </view>
+  </view>
+
+  <view class="onboarding-actions">
+    <view class="secondary-button" bindtap="finishAndExit">稍后再做</view>
+    <view class="primary-button" bindtap="handleCompleteTap">我已完成，开始使用</view>
+  </view>
+
+  <view wx:if="{{tipVisible}}" class="guide-tip-mask" bindtap="closeStepTip">
+    <view class="guide-tip-panel" catchtap="noop">
+      <view class="guide-tip-title">{{tipTitle}}</view>
+      <view class="guide-tip-content">{{tipContent}}</view>
+      <view class="guide-tip-button" bindtap="closeStepTip">我知道了</view>
+    </view>
+  </view>
+</view>

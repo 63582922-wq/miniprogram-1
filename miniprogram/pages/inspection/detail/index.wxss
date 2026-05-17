@@ -1,0 +1,6 @@
+.inspection-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  padding-bottom: 180rpx;
+}

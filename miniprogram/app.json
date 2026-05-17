@@ -1,0 +1,79 @@
+{
+  "pages": [
+    "pages/project/list/index",
+    "pages/onboarding/index",
+    "pages/legal/index",
+    "pages/memo/list/index",
+    "pages/inspection/create/index",
+    "pages/profile/index",
+    "pages/project/form/index",
+    "pages/project/detail/index",
+    "pages/memo/project/index",
+    "pages/report/project/index",
+    "pages/project/gallery/index",
+    "pages/inspection/list/index",
+    "pages/inspection/annotate/index",
+    "pages/inspection/result/index",
+    "pages/inspection/detail/index",
+    "pages/report/detail/index",
+    "pages/report/list/index",
+    "pages/chat-analysis/index",
+    "pages/memo/form/index",
+    "pages/settings/index"
+  ],
+  "window": {
+    "backgroundColor": "#F5F5F5",
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTitleText": "工地巡查AI工具",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#999999",
+    "selectedColor": "#2563EB",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/project/list/index",
+        "text": "项目",
+        "iconPath": "images/icons/business.png",
+        "selectedIconPath": "images/icons/business-active.png"
+      },
+      {
+        "pagePath": "pages/memo/list/index",
+        "text": "待办",
+        "iconPath": "images/icons/goods.png",
+        "selectedIconPath": "images/icons/goods-active.png"
+      },
+      {
+        "pagePath": "pages/report/list/index",
+        "text": "报告",
+        "iconPath": "images/icons/examples.png",
+        "selectedIconPath": "images/icons/examples-active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的",
+        "iconPath": "images/icons/usercenter.png",
+        "selectedIconPath": "images/icons/usercenter-active.png"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json",
+  "permission": {
+    "scope.camera": {
+      "desc": "用于巡查拍照和图片标注"
+    },
+    "scope.record": {
+      "desc": "用于语音备注转文字"
+    },
+    "scope.writePhotosAlbum": {
+      "desc": "用于保存巡查报告"
+    }
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "__usePrivacyCheck__": true
+}

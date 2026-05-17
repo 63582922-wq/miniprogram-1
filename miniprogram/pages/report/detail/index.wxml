@@ -1,0 +1,80 @@
+<view wx:if="{{loading}}" class="page report-page">
+  <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="card report-state">
+    <view class="section-title">正在加载报告</view>
+    <view class="section-subtitle">正在整理本次巡查报告数据，请稍等。</view>
+  </view>
+</view>
+
+<view wx:elif="{{loadError}}" class="page report-page">
+  <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="card report-state">
+    <view class="section-title">报告暂时无法打开</view>
+    <view class="section-subtitle">{{loadError}}</view>
+  </view>
+</view>
+
+<view class="page report-page" wx:elif="{{report}}">
+  <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="card report-hero">
+    <view class="report-hero__head">
+      <view>
+        <view class="section-title">{{report.title}}</view>
+        <view class="section-subtitle">{{report.projectName}}</view>
+        <view class="section-subtitle">{{report.inspectionDateDisplay}}</view>
+        <view wx:if="{{report.inspectorPhone}}" class="section-subtitle">巡查人电话：{{report.inspectorPhone}}</view>
+        <view class="section-subtitle">状态：{{report.statusText}}</view>
+      </view>
+      <image wx:if="{{report.logoFileId}}" class="report-hero__logo" src="{{report.logoFileId}}" mode="aspectFit" />
+    </view>
+    <view wx:if="{{report.generatedAtDisplay}}" class="report-hero__meta">PDF生成时间：{{report.generatedAtDisplay}}</view>
+  </view>
+
+  <view wx:if="{{report.companyName || report.companyPhone || report.companyAddress}}" class="card report-company">
+    <view class="section-title">出具信息</view>
+    <view wx:if="{{report.companyName}}" class="detail-text">公司：{{report.companyName}}</view>
+    <view wx:if="{{report.companyPhone}}" class="detail-text">电话：{{report.companyPhone}}</view>
+    <view wx:if="{{report.companyAddress}}" class="detail-text">地址：{{report.companyAddress}}</view>
+  </view>
+
+  <report-section title="AI 巡查小结" content="{{report.summary}}" />
+
+  <report-section wx:if="{{report.contextNote}}" title="现场补充" content="{{report.contextNote}}" />
+
+  <view class="card">
+    <view class="section-title">问题清单</view>
+    <view class="list">
+      <inspection-item-card wx:for="{{report.items}}" wx:key="_id" item="{{item}}" index="{{index}}" />
+    </view>
+  </view>
+
+  <view class="footer-actions footer-actions--fixed">
+    <view wx:if="{{report.isPdfGenerating}}" class="report-action-button report-action-button--primary report-action-button--disabled {{coachHighlightGenerate ? 'coach-highlight' : ''}}">PDF 生成中</view>
+    <view wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--primary {{coachHighlightGenerate ? 'coach-highlight' : ''}}" bindtap="openPdf">打开已生成 PDF</view>
+    <view wx:else class="report-action-button report-action-button--primary {{coachHighlightGenerate ? 'coach-highlight' : ''}}" bindtap="generatePdf">{{report.isPdfOutdated ? '重新生成最新版 PDF' : '提交生成 PDF'}}</view>
+    <view class="report-action-row" wx:if="{{report.pdfFileId && !report.isPdfOutdated}}">
+      <view class="report-action-button report-action-button--secondary" bindtap="savePdfToLocal">保存到本地</view>
+      <view wx:if="{{!report.isPdfGenerating}}" class="report-action-button report-action-button--secondary" bindtap="generatePdf">重新生成 PDF</view>
+      <button wx:if="{{report.canShare}}" class="report-action-button report-action-button--secondary report-action-button--share" open-type="share">转发到微信</button>
+      <view class="report-action-button report-action-button--secondary" bindtap="handleHomeTap">返回首页</view>
+    </view>
+  </view>
+  <view wx:if="{{coachTipVisible}}" class="coach-tip">
+    <view class="coach-tip__title">{{coachTipTitle}}</view>
+    <view class="coach-tip__arrow">{{coachTipArrow}}</view>
+    <view class="coach-tip__desc">{{coachTipDesc}}</view>
+    <view class="coach-tip__actions">
+      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachPrev">上一步</view>
+      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过</view>
+      <view class="coach-tip__btn" bindtap="handleCoachNext">下一步</view>
+    </view>
+  </view>
+</view>
+
+<view wx:else class="page report-page">
+  <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="card report-state">
+    <view class="section-title">暂无报告数据</view>
+    <view class="section-subtitle">请先确认巡查问题，再生成报告。</view>
+  </view>
+</view>

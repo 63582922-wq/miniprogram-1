@@ -1,0 +1,5 @@
+<view class="empty-state">
+  <image class="empty-state__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />
+  <view class="empty-state__title">{{title}}</view>
+  <view wx:if="{{description}}" class="empty-state__description">{{description}}</view>
+</view>

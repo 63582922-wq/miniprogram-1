@@ -1,0 +1,276 @@
+.project-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding-bottom: 44rpx;
+}
+
+.detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.detail-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.detail-card__status {
+  width: 172rpx;
+  height: 48rpx;
+  padding: 0 18rpx;
+  border-radius: 0;
+  background: transparent;
+  border: 0.5px solid #B8A882;
+  color: #6B6355;
+  font-size: 18rpx;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-card__meta {
+  font-size: 20rpx;
+  color: #6B6355;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.workspace-stats {
+  margin-top: 4rpx;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10rpx;
+}
+
+.workspace-stats__item {
+  padding: 18rpx 10rpx;
+  border-radius: 2rpx;
+  background: transparent;
+  border-bottom: 0.5px solid #E8E2D8;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  align-items: center;
+}
+
+.workspace-stats__value {
+  font-size: 28rpx;
+  font-weight: 400;
+  color: #1A1814;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-stats__label {
+  font-size: 18rpx;
+  color: #6B6355;
+  font-weight: 400;
+}
+
+.project-detail__action-button {
+  width: auto;
+  min-width: 240rpx;
+  height: 84rpx;
+  margin: 0 auto;
+  padding: 0 44rpx;
+  border-radius: 0;
+  background: #1A1814;
+  color: #D4C5A0;
+  font-size: 24rpx;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  margin-top: 8rpx;
+}
+
+.shortcut-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.shortcut-item {
+  position: relative;
+  padding: 20rpx;
+  border-radius: 2rpx;
+  background: #F2EDE4;
+  border: none;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  min-height: 152rpx;
+}
+
+.shortcut-item__icon {
+  width: 46rpx;
+  height: 46rpx;
+  flex-shrink: 0;
+}
+
+.shortcut-item__title {
+  font-size: 26rpx;
+  color: #1A1814;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.shortcut-item__meta {
+  font-size: 18rpx;
+  color: #6B6355;
+  font-weight: 400;
+  line-height: 1.5;
+  padding-right: 24rpx;
+}
+
+.shortcut-item__arrow {
+  position: absolute;
+  right: 20rpx;
+  bottom: 22rpx;
+  width: 14rpx;
+  height: 14rpx;
+}
+
+.shortcut-card__edit {
+  margin-top: 4rpx;
+}
+
+.workspace-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.workspace-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.workspace-card__header--compact {
+  align-items: center;
+}
+
+.workspace-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.workspace-card__link {
+  width: 172rpx;
+  height: 48rpx;
+  border-radius: 0;
+  background: transparent;
+  color: #6B6355;
+  font-size: 18rpx;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 18rpx;
+  border: 0.5px solid #B8A882;
+}
+
+.detail-row {
+  padding: 20rpx;
+  border-radius: 2rpx;
+  background: transparent;
+  border: none;
+  border-bottom: 0.5px solid #E8E2D8;
+}
+
+.detail-row__title {
+  font-size: 26rpx;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: #1A1814;
+}
+
+.detail-row__desc {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: #6B6355;
+  font-weight: 400;
+}
+
+.workspace-card__button {
+  margin-top: 8rpx;
+}
+
+.empty-hint {
+  font-size: 22rpx;
+  color: #6B6355;
+  font-weight: 400;
+}
+
+.coach-tip {
+  margin: 0 24rpx;
+  background: #1A1814;
+  color: #FAF9F7;
+  border-radius: 0;
+  padding: 18rpx 20rpx;
+}
+
+.coach-tip__title {
+  font-size: 26rpx;
+  font-weight: 400;
+}
+
+.coach-tip__arrow {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #B8A882;
+}
+
+.coach-tip__desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.coach-tip__actions {
+  margin-top: 14rpx;
+  display: flex;
+  gap: 10rpx;
+}
+
+.coach-tip__btn {
+  flex: 1;
+  height: 64rpx;
+  border-radius: 0;
+  background: #1A1814;
+  color: #FAF9F7;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coach-tip__btn--ghost {
+  background: transparent;
+  border: 0.5px solid #B8A882;
+  color: #6B6355;
+}
+
+.coach-highlight {
+  position: relative;
+  z-index: 120;
+  box-shadow: 0 0 0 6rpx rgba(184, 168, 130, 0.35), 0 0 0 12rpx rgba(184, 168, 130, 0.2);
+}

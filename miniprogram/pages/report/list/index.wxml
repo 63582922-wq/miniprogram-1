@@ -1,0 +1,19 @@
+<view class="page report-list-page">
+  <page-nav-bar title="{{pageTitle}}" showBack="{{!isProjectMode}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+
+  <view wx:if="{{isProjectMode && projects.length}}" class="list">
+    <view wx:for="{{projects}}" wx:key="_id" class="report-row" data-project-id="{{item._id}}" data-project-name="{{item.name}}" bindtap="openProjectReports">
+      <view class="report-row__title">{{item.name}}</view>
+      <view class="report-row__desc">{{item.reportsCount}} 份报告</view>
+    </view>
+  </view>
+
+  <view wx:elif="{{!isProjectMode && reports.length}}" class="list">
+    <view wx:for="{{reports}}" wx:key="_id" class="report-row" data-report-id="{{item._id}}" data-report-title="{{item.title}}" bindtap="openReport" bindlongpress="handleReportLongPress">
+      <view class="report-row__title">{{item.title}}</view>
+      <view class="report-row__desc">{{item.generatedAtDisplay}}</view>
+    </view>
+  </view>
+
+  <empty-state wx:else title="暂无报告" description="{{isProjectMode ? '先选择项目，再查看该项目下的全部报告' : '当前项目下还没有生成报告'}}" />
+</view>

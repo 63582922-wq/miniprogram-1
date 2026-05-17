@@ -1,0 +1,92 @@
+.custom-tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(132rpx + env(safe-area-inset-bottom));
+  padding: 14rpx 20rpx calc(18rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1A1814;
+  border-top: 0.5px solid rgba(184, 168, 130, 0.2);
+  box-shadow: none;
+  z-index: 999;
+}
+
+.custom-tab-bar__item {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.custom-tab-bar__inner {
+  width: 100rpx;
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-tab-bar__inner--primary {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 0;
+  background: #1A1814;
+  border: 1rpx solid #B8A882;
+  box-shadow: none;
+}
+
+.custom-tab-bar__inner--selected:not(.custom-tab-bar__inner--primary) {
+  transform: translateY(2rpx);
+}
+
+.custom-tab-bar__icon-shell {
+  width: 82rpx;
+  height: 82rpx;
+  border-radius: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.custom-tab-bar__icon-shell--selected:not(.custom-tab-bar__icon-shell--primary) {
+  background: transparent;
+}
+
+.custom-tab-bar__icon-shell--selected:not(.custom-tab-bar__icon-shell--primary)::after {
+  content: "";
+  position: absolute;
+  bottom: -6rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6rpx;
+  height: 6rpx;
+  border-radius: 50%;
+  background: #B8A882;
+}
+
+.custom-tab-bar__icon-shell--primary {
+  width: 82rpx;
+  height: 82rpx;
+  background: transparent;
+}
+
+.custom-tab-bar__icon {
+  width: 40rpx;
+  height: 40rpx;
+  opacity: 0.45;
+}
+
+.custom-tab-bar__camera-icon {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.custom-tab-bar__inner--selected .custom-tab-bar__icon {
+  opacity: 1;
+}

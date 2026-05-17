@@ -1,0 +1,47 @@
+.install_tip_back {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.32);
+  z-index: 30;
+}
+
+.install_tip_close {
+  position: absolute;
+  right: 20rpx;
+  top: 20rpx;
+  width: 40rpx;
+  height: 40rpx;
+  opacity: 0.45;
+}
+
+.install_tip_detail {
+  position: fixed;
+  background-color: #F2EDE4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 4rpx 4rpx 0 0;
+  padding: 56rpx 40rpx 64rpx;
+  z-index: 40;
+  border-top: none;
+  box-shadow: none;
+}
+
+.install_tip_detail_title {
+  font-weight: 400;
+  font-size: 30rpx;
+  color: #1A1814;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.install_tip_detail_tip {
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #6B6355;
+  margin-top: 20rpx;
+  text-align: left;
+}

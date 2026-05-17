@@ -1,0 +1,24 @@
+<view class="project-card" bindtap="handleTap">
+  <view class="project-card__header">
+    <view class="project-card__header-main">
+      <view class="project-card__name">{{project.name}}</view>
+      <view class="project-card__meta">{{project.address}}</view>
+    </view>
+    <view class="project-card__arrow"></view>
+  </view>
+  <view class="project-card__client">甲方 · {{clientNameText}}</view>
+  <view class="project-card__stats">
+    <view class="project-card__stat">
+      <view class="project-card__stat-value">{{inspectionsCount}}</view>
+      <view class="project-card__stat-label">巡查</view>
+    </view>
+    <view class="project-card__stat">
+      <view class="project-card__stat-value">{{issuesCount}}</view>
+      <view class="project-card__stat-label">问题</view>
+    </view>
+    <view class="project-card__stat project-card__stat--wide">
+      <view class="project-card__stat-value project-card__stat-value--small">{{dateText}}</view>
+      <view class="project-card__stat-label">最近巡查</view>
+    </view>
+  </view>
+</view>

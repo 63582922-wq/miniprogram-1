@@ -1,0 +1,16 @@
+<view class="page profile-page">
+  <page-nav-bar title="我的" />
+  <view class="card profile-card">
+    <image class="profile-avatar" src="{{displayUserInfo.avatarUrl}}" mode="aspectFill" />
+    <view class="profile-name">{{displayUserInfo.nickname}}</view>
+    <view class="section-subtitle">{{profileSubtitle}}</view>
+  </view>
+
+  <view class="card settings-entry" bindtap="goSettings">
+    <view>
+      <view class="section-title">我的设置</view>
+    </view>
+    <view class="settings-entry__arrow">›</view>
+  </view>
+  <app-tab-bar />
+</view>

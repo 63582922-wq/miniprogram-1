@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "logo-uploader": "/components/logo-uploader/index",
+    "page-nav-bar": "/components/page-nav-bar/index"
+  }
+}

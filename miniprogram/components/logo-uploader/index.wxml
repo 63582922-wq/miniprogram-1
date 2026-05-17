@@ -1,0 +1,4 @@
+<view class="logo-card">
+  <button class="logo-button" bindtap="chooseLogo">上传Logo</button>
+  <image wx:if="{{value}}" class="logo-preview" src="{{value}}" mode="aspectFit" />
+</view>

@@ -1,0 +1,138 @@
+.onboarding-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  padding-bottom: 32rpx;
+}
+
+.onboarding-summary {
+  margin: 0 24rpx;
+}
+
+.onboarding-summary__title {
+  font-size: 32rpx;
+  font-weight: 400;
+  color: #1A1814;
+  letter-spacing: 0.04em;
+}
+
+.onboarding-summary__desc {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: #6B6355;
+}
+
+.onboarding-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 0 24rpx;
+}
+
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.onboarding-step--done {
+  border: 0.5px solid #B8A882;
+  background: transparent;
+}
+
+.onboarding-step__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.onboarding-step__title {
+  font-size: 30rpx;
+  font-weight: 400;
+  color: #1A1814;
+  letter-spacing: 0.04em;
+}
+
+.onboarding-step__status {
+  font-size: 24rpx;
+  color: #B8A882;
+}
+
+.onboarding-step__desc {
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: #6B6355;
+}
+
+.onboarding-step__tip-trigger {
+  align-self: flex-start;
+  margin-top: 2rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 0;
+  border: 0.5px solid #B8A882;
+  color: #6B6355;
+  font-size: 22rpx;
+  background: transparent;
+}
+
+.onboarding-step__action {
+  margin-top: 4rpx;
+}
+
+.onboarding-actions {
+  display: flex;
+  gap: 16rpx;
+  padding: 0 24rpx;
+  margin-top: 4rpx;
+}
+
+.guide-tip-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 999;
+}
+
+.guide-tip-panel {
+  width: 100%;
+  padding: 28rpx 24rpx calc(env(safe-area-inset-bottom) + 24rpx);
+  border-top-left-radius: 4rpx;
+  border-top-right-radius: 4rpx;
+  background: #F2EDE4;
+  box-sizing: border-box;
+}
+
+.guide-tip-title {
+  font-size: 30rpx;
+  font-weight: 400;
+  color: #1A1814;
+  letter-spacing: 0.04em;
+}
+
+.guide-tip-content {
+  margin-top: 16rpx;
+  font-size: 27rpx;
+  line-height: 1.8;
+  color: #6B6355;
+}
+
+.guide-tip-button {
+  margin-top: 24rpx;
+  height: 84rpx;
+  border-radius: 0;
+  background: #1A1814;
+  color: #D4C5A0;
+  font-size: 28rpx;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.2em;
+}

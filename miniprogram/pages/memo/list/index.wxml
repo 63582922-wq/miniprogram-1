@@ -1,0 +1,31 @@
+<view class="page memo-page">
+  <page-nav-bar title="{{projectId ? '项目待办' : '全部待办'}}" showBack="{{!!projectId}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="card memo-header">
+    <view class="memo-header__count">{{memoList.length}} 条</view>
+  </view>
+  <view class="footer-actions">
+    <view class="memo-create-button" bindtap="goCreate">{{projectId ? '新增该项目待办' : '新增待办'}}</view>
+  </view>
+
+  <view wx:if="{{memoList.length}}" class="list">
+    <view wx:for="{{memoList}}" wx:key="_id" class="memo-row" data-memo-id="{{item._id}}" data-memo-content="{{item.content}}" bindlongpress="handleMemoLongPress">
+      <view class="memo-row__head">
+        <view class="memo-row__title">{{item.content}}</view>
+        <view class="memo-row__status">{{item.statusText}}</view>
+      </view>
+      <view class="memo-row__meta">
+        <view class="memo-row__badge">{{item.remindAtDisplay}}</view>
+        <view class="memo-row__badge">{{item.subscribeStatusDisplay}}</view>
+      </view>
+      <view class="memo-row__actions">
+        <view class="memo-row__action" data-memo-id="{{item._id}}" bindtap="goEdit">编辑</view>
+        <view wx:if="{{item.status !== 'completed'}}" class="memo-row__action memo-row__action--primary" data-memo-id="{{item._id}}" data-status="completed" bindtap="updateMemoStatus">完成</view>
+        <view wx:if="{{item.status !== 'closed'}}" class="memo-row__action" data-memo-id="{{item._id}}" data-status="closed" bindtap="updateMemoStatus">关闭</view>
+        <view wx:if="{{item.status !== 'pending'}}" class="memo-row__action" data-memo-id="{{item._id}}" data-status="pending" bindtap="updateMemoStatus">恢复</view>
+      </view>
+    </view>
+  </view>
+
+  <empty-state wx:else title="{{projectId ? '暂无项目待办' : '暂无待办'}}" />
+  <app-tab-bar wx:if="{{!projectId}}" />
+</view>

@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "app-tab-bar": "/custom-tab-bar/index",
+    "page-nav-bar": "/components/page-nav-bar/index"
+  }
+}

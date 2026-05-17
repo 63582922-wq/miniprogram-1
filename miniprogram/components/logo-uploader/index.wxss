@@ -1,0 +1,28 @@
+.logo-card {
+  background: #F2EDE4;
+  border-radius: 4rpx;
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  border: none;
+  box-shadow: none;
+}
+
+.logo-button {
+  height: 72rpx;
+  border-radius: 0;
+  background: transparent;
+  color: #6B6355;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.5px solid #B8A882;
+}
+
+.logo-preview {
+  width: 180rpx;
+  height: 180rpx;
+  border-radius: 2rpx;
+  background: #F2EDE4;
+}

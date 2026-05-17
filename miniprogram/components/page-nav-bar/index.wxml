@@ -1,0 +1,30 @@
+<view class="page-nav-bar" style="padding-top: {{statusBarHeight}}px;">
+  <view class="page-nav-bar__content" style="height: {{navContentHeight}}px;">
+    <view class="page-nav-bar__left">
+      <view wx:if="{{showBack}}" class="page-nav-bar__back" bindtap="handleBackTap">
+        <image class="page-nav-bar__back-icon" src="/images/icons/nav-back.svg" mode="aspectFit" />
+      </view>
+      <view
+        wx:elif="{{rightText && actionSide === 'left'}}"
+        class="page-nav-bar__action page-nav-bar__action--left"
+        bindtap="handleRightTap"
+      >
+        <image wx:if="{{actionIconOnly}}" class="page-nav-bar__action-plus-icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />
+        <text wx:else>{{rightText}}</text>
+      </view>
+    </view>
+    <view class="page-nav-bar__center">
+      <text class="page-nav-bar__title">{{title}}</text>
+    </view>
+    <view class="page-nav-bar__right">
+      <button
+        wx:if="{{rightText && actionSide === 'right'}}"
+        class="page-nav-bar__action {{actionIconOnly ? 'page-nav-bar__action--icon-only' : ''}}"
+        bindtap="handleRightTap"
+      >
+        <image wx:if="{{actionIconOnly}}" class="page-nav-bar__action-plus-icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />
+        <text wx:else>{{rightText}}</text>
+      </button>
+    </view>
+  </view>
+</view>

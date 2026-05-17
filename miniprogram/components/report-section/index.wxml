@@ -1,0 +1,4 @@
+<view class="report-section">
+  <view class="report-section__title">{{title}}</view>
+  <view class="report-section__content">{{content}}</view>
+</view>

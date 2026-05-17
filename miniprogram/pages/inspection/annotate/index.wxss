@@ -1,0 +1,27 @@
+.annotate-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  padding-bottom: 32rpx;
+}
+
+.annotate-hint {
+  padding: 18rpx 22rpx;
+  border-radius: 0;
+  background: #F2EDE4;
+  border: 0.5px solid #E8E2D8;
+  font-size: 22rpx;
+  color: #6B6355;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.export-canvas {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}

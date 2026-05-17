@@ -1,0 +1,63 @@
+<view class="item-card">
+  <view class="item-card__header">
+    <view class="item-card__header-main">
+      <view wx:if="{{showLeadingIndex}}" class="item-card__index">{{displayIndex || (index + 1)}}.</view>
+      <view>
+        <view wx:if="{{!hideTitle}}" class="item-card__title">{{resolvedTitle}}</view>
+      </view>
+    </view>
+  </view>
+  <view class="item-card__field-grid">
+    <view class="item-card__row">
+      <text class="item-card__label">严重级</text>
+      <picker wx:if="{{editable}}" mode="selector" range="{{severityOptions}}" range-key="label" value="{{severityIndex}}" bindchange="handleSeverityChange">
+        <view class="item-card__picker">{{severityOptions[severityIndex].label}}</view>
+      </picker>
+      <view wx:else class="item-card__text">{{severityText}}</view>
+    </view>
+    <view class="item-card__row">
+      <text class="item-card__label">责任方</text>
+      <picker wx:if="{{editable}}" mode="selector" range="{{responsiblePartyOptions}}" range-key="label" value="{{responsiblePartyIndex}}" bindchange="handleResponsiblePartyChange">
+        <view class="item-card__picker">{{responsiblePartyOptions[responsiblePartyIndex].label}}</view>
+      </picker>
+      <view wx:else class="item-card__text">{{responsiblePartyOptions[responsiblePartyIndex].label}}</view>
+    </view>
+    <view class="item-card__row">
+      <text class="item-card__label">区域</text>
+      <input class="item-card__input" value="{{item.area}}" data-field="area" disabled="{{!editable}}" bindinput="handleChange" />
+    </view>
+    <view class="item-card__row">
+      <text class="item-card__label">分类</text>
+      <input class="item-card__input" value="{{item.category}}" data-field="category" disabled="{{!editable}}" bindinput="handleChange" />
+    </view>
+  </view>
+  <view class="item-card__section">
+    <view class="item-card__section-title">问题描述</view>
+    <textarea class="item-card__textarea" value="{{item.description}}" data-field="description" disabled="{{!editable}}" bindinput="handleChange" />
+  </view>
+  <view class="item-card__section">
+    <view class="item-card__section-title">整改建议</view>
+    <textarea class="item-card__textarea" value="{{item.suggestion}}" data-field="suggestion" disabled="{{!editable}}" bindinput="handleChange" />
+  </view>
+  <view wx:if="{{item.visualEvidence}}" class="item-card__row">
+    <text class="item-card__label">AI 依据</text>
+    <view class="item-card__text">{{item.visualEvidence}}</view>
+  </view>
+  <view wx:if="{{item.evidenceSource}}" class="item-card__meta">
+    <view class="item-card__badge">{{item.evidenceSource === 'image+note' ? '图片 + 现场补充' : (item.evidenceSource === 'note' ? '现场补充' : '图片识别')}}</view>
+  </view>
+  <view wx:if="{{item.voiceText}}" class="item-card__row">
+    <text class="item-card__label">语音备注</text>
+    <view class="item-card__text">{{item.voiceText}}</view>
+  </view>
+  <view wx:if="{{showImages && item.images && item.images.length}}" class="item-card__row">
+    <text class="item-card__label">巡查照片</text>
+    <scroll-view class="item-card__image-scroll" scroll-x>
+      <view class="item-card__image-list">
+        <view wx:for="{{item.images}}" wx:key="*this" class="item-card__image-wrap">
+          <image class="item-card__image" src="{{item}}" mode="aspectFill" />
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

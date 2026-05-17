@@ -1,0 +1,69 @@
+<view class="page settings-page">
+  <page-nav-bar title="设置" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+
+  <logo-uploader value="{{form.logoPreview}}" bindchange="handleLogoChange" />
+
+  <view class="card form-card">
+    <view class="section-title">巡查人信息</view>
+    <view class="link-row" bindtap="openInspectorInfo">
+      <view class="link-row__text">{{form.inspectorName || '设置巡查人信息'}}</view>
+      <view class="link-row__arrow">›</view>
+    </view>
+  </view>
+
+  <view class="card form-card">
+    <view class="section-title">公司信息</view>
+    <view class="link-row" bindtap="openCompanyInfo">
+      <view class="link-row__text">{{form.companyName || '设置公司信息'}}</view>
+      <view class="link-row__arrow">›</view>
+    </view>
+  </view>
+
+  <view class="card form-card">
+    <view class="section-title">帮助与合规</view>
+    <view class="link-row" bindtap="openOnboarding">
+      <view class="link-row__text">查看使用向导</view>
+      <view class="link-row__arrow">›</view>
+    </view>
+    <view class="link-row" bindtap="openLegalPage">
+      <view class="link-row__text">隐私与服务说明</view>
+      <view class="link-row__arrow">›</view>
+    </view>
+  </view>
+
+  <view class="footer-actions" id="coach-save-target">
+    <view class="primary-button {{coachHighlightSave ? 'coach-highlight' : ''}}" bindtap="handleSubmit">{{isSaving ? '保存中' : '保存设置'}}</view>
+  </view>
+
+  <view wx:if="{{editingField}}" class="edit-modal-mask" bindtap="closeEditModal"></view>
+  <view wx:if="{{editingField}}" class="edit-modal">
+    <view class="section-title">{{editModalTitle}}</view>
+    <view class="field">
+      <view class="field-label">{{editModalLabel1}}</view>
+      <input class="field-input" value="{{editModalValue1}}" bindinput="handleModalInput1" placeholder="{{editModalPlaceholder1}}" />
+    </view>
+    <view wx:if="{{editModalLabel2}}" class="field">
+      <view class="field-label">{{editModalLabel2}}</view>
+      <input class="field-input" value="{{editModalValue2}}" bindinput="handleModalInput2" placeholder="{{editModalPlaceholder2}}" />
+    </view>
+    <view wx:if="{{editModalLabel3}}" class="field">
+      <view class="field-label">{{editModalLabel3}}</view>
+      <textarea class="field-textarea" value="{{editModalValue3}}" bindinput="handleModalInput3" placeholder="{{editModalPlaceholder3}}" />
+    </view>
+    <view class="edit-modal__actions">
+      <view class="edit-modal__btn edit-modal__btn--ghost" bindtap="closeEditModal">取消</view>
+      <view class="edit-modal__btn" bindtap="confirmEditModal">确定</view>
+    </view>
+  </view>
+
+  <view wx:if="{{coachTipVisible}}" class="coach-mask" catchtap="noop"></view>
+  <view wx:if="{{coachTipVisible}}" class="coach-target-hint">
+    <text class="coach-target-hint__arrow">👇</text>
+    <text>请点击这里：{{coachTargetLabel}}</text>
+  </view>
+  <view wx:if="{{coachTipVisible}}" class="coach-tip">
+    <view class="coach-tip__title">{{coachTipTitle}}</view>
+    <view class="coach-tip__desc">{{coachTipDesc}}</view>
+    <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过引导</view>
+  </view>
+</view>

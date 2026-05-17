@@ -1,0 +1,22 @@
+<view class="page project-page">
+  <page-nav-bar title="项目" rightText="新建" actionSide="left" actionIconOnly="{{true}}" bind:righttap="goCreate" />
+  <view class="project-search">
+    <input class="field-input project-search__input" placeholder="搜索项目名称或地址" value="{{keyword}}" bindinput="handleKeywordInput" confirm-type="search" bindconfirm="handleSearch" />
+  </view>
+
+  <view wx:if="{{projectList.length}}" class="list">
+    <view
+      wx:for="{{projectList}}"
+      wx:key="_id"
+      class="project-row"
+      data-project-id="{{item._id}}"
+      data-project-name="{{item.name}}"
+      bindlongpress="handleProjectLongPress"
+    >
+      <project-card project="{{item}}" bindopen="openDetail" />
+    </view>
+  </view>
+
+  <empty-state wx:else title="暂无项目" />
+  <app-tab-bar />
+</view>

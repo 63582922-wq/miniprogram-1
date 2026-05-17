@@ -1,0 +1,43 @@
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding-bottom: 180rpx;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+  padding-top: 32rpx;
+  padding-bottom: 32rpx;
+}
+
+.profile-avatar {
+  width: 136rpx;
+  height: 136rpx;
+  border-radius: 50%;
+  background: transparent;
+  border: 0.5px solid #E8E2D8;
+}
+
+.profile-name {
+  font-size: 30rpx;
+  font-weight: 400;
+  color: #1A1814;
+  letter-spacing: 0.04em;
+}
+
+.settings-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.settings-entry__arrow {
+  font-size: 30rpx;
+  line-height: 1;
+  color: #B8A882;
+}

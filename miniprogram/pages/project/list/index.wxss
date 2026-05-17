@@ -1,0 +1,20 @@
+.project-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding-bottom: 180rpx;
+}
+
+.project-search {
+  padding: 0;
+}
+
+.project-search__input {
+  background: transparent;
+}
+
+.project-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}

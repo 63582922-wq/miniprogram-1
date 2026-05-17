@@ -1,0 +1,22 @@
+<view class="page project-gallery-page">
+  <page-nav-bar title="巡查相册" showBack="{{true}}" />
+  <view class="card gallery-summary">
+    <view class="section-title">{{project.nameText}}</view>
+    <view class="section-subtitle">累计巡查 {{stats.inspectionsTotal}} 次 · 累计照片 {{stats.total}} 张</view>
+  </view>
+
+  <view wx:if="{{photos.length}}" class="gallery-grid">
+    <view wx:for="{{photos}}" wx:key="id" class="gallery-card">
+      <image class="gallery-card__image" src="{{item.imageUrl}}" mode="aspectFill" data-current="{{item.imageUrl}}" bindtap="previewPhoto" />
+      <view class="gallery-card__meta">
+        <view class="gallery-card__title">{{item.inspectionTitle}}</view>
+        <view class="gallery-card__desc">{{item.areaText}}</view>
+        <view class="gallery-card__desc">{{item.createdAtText}}</view>
+        <view wx:if="{{item.voiceText}}" class="gallery-card__desc">{{item.voiceText}}</view>
+        <view class="gallery-card__link" data-inspection-id="{{item.inspectionId}}" bindtap="openInspection">查看对应巡查</view>
+      </view>
+    </view>
+  </view>
+
+  <empty-state wx:else title="暂无巡查照片" description="完成一次巡查并提交后，这里会自动汇总该项目所有历史照片" />
+</view>

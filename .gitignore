@@ -1,0 +1,11 @@
+node_modules/
+.report-pdf-service-latest.tar.gz
+report-pdf-service.tar.gz
+report-pdf-service-patch.tgz
+*.tar.gz
+*.tgz
+.trae/
+.claude/settings.local.json
+.claude/worktrees/
+project.private.config.json
+.DS_Store

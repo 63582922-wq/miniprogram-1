@@ -1,0 +1,31 @@
+.report-list-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.report-row {
+  padding: 20rpx;
+  border-radius: 2rpx;
+  background: transparent;
+  border: none;
+  border-bottom: 0.5px solid #E8E2D8;
+}
+
+.report-row__title {
+  font-size: 26rpx;
+  font-weight: 400;
+  color: #1A1814;
+}
+
+.report-row__desc {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: #6B6355;
+}

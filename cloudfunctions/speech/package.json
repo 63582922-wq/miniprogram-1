@@ -1,0 +1,9 @@
+{
+  "name": "speech",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "tencentcloud-sdk-nodejs": "^4.1.205",
+    "wx-server-sdk": "~2.4.0"
+  }
+}
