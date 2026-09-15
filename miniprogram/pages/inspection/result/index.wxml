@@ -57,19 +57,28 @@
         <image class="result-group__image" src="{{group.image}}" mode="aspectFill" />
       </view>
       <view class="result-group__issues">
-        <inspection-item-card
+        <view
           wx:for="{{group.issues}}"
           wx:for-item="subIssue"
           wx:for-index="subIndex"
           wx:key="originalIndex"
-          item="{{subIssue}}"
-          index="{{subIssue.originalIndex}}"
-          displayIndex="{{subIssue.subIssueIndex || (subIndex + 1)}}"
-          hideTitle="{{true}}"
-          showImages="{{false}}"
-          editable="{{true}}"
-          bindchange="handleItemChange"
-        />
+          class="issue-entry"
+        >
+          <inspection-item-card
+            item="{{subIssue}}"
+            index="{{subIssue.originalIndex}}"
+            displayIndex="{{subIssue.subIssueIndex || (subIndex + 1)}}"
+            hideTitle="{{true}}"
+            showImages="{{false}}"
+            editable="{{true}}"
+            bindchange="handleItemChange"
+          />
+          <view
+            class="issue-entry__delete"
+            data-index="{{subIssue.originalIndex}}"
+            bindtap="handleDeleteIssue"
+          >删除这条</view>
+        </view>
       </view>
     </view>
   </view>

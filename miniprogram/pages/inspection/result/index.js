@@ -199,6 +199,57 @@ Page({
       issueGroups: buildIssueGroups(issues)
     });
   },
+
+  /**
+   * 删除误报。
+   *
+   * AI 难免有识别不准的条目（比如把反光当裂缝），必须有办法去掉，
+   * 否则用户只能带着错的问题去提交巡查。
+   *
+   * 注意 issues 与 originalIssues 是平行数组（后者是 AI 原始输出，
+   * 提交时按索引回填 aiRawResult 供后续学习修正习惯）。只删前者会让
+   * 两者错位、把别人的 AI 结果挂到这条问题上，所以必须同步删。
+   */
+  handleDeleteIssue(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const issues = (this.data.issues || []).slice();
+
+    if (!Number.isInteger(index) || index < 0 || index >= issues.length) {
+      return;
+    }
+
+    const target = issues[index] || {};
+    const preview = `${target.description || ""}`.trim().slice(0, 30);
+
+    wx.showModal({
+      title: "删除这条问题？",
+      content: preview || "该问题将从本次巡查中移除。",
+      confirmText: "删除",
+      confirmColor: "#B3402E",
+      cancelText: "取消",
+      success: (res) => {
+        if (!res.confirm) {
+          return;
+        }
+
+        const nextIssues = issues.filter((_, i) => i !== index);
+        const nextOriginals = (this.data.originalIssues || []).filter((_, i) => i !== index);
+
+        this.setData({
+          issues: nextIssues,
+          originalIssues: nextOriginals,
+          issueGroups: buildIssueGroups(nextIssues),
+          "summary.issueCount": nextIssues.length
+        });
+
+        wx.showToast({
+          title: "已删除",
+          icon: "none"
+        });
+      }
+    });
+  },
+
   async handleSubmit() {
     wx.showLoading({
       title: "提交中"

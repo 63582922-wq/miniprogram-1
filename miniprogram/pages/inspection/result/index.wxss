@@ -238,3 +238,29 @@
   z-index: 120;
   box-shadow: 0 0 0 6rpx rgba(184, 168, 130, 0.35), 0 0 0 12rpx rgba(184, 168, 130, 0.2);
 }
+
+/* 每条问题带一个删除入口：AI 误报必须能去掉 */
+.issue-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.issue-entry + .issue-entry {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 0.5px solid #E8E2D8;
+}
+
+.issue-entry__delete {
+  align-self: flex-end;
+  padding: 8rpx 16rpx;
+  font-size: 22rpx;
+  color: #B3402E;
+  letter-spacing: 0.04em;
+}
+
+.issue-entry__delete:active {
+  opacity: 0.6;
+}
+

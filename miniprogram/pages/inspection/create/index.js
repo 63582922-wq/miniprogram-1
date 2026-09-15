@@ -144,28 +144,73 @@ Page({
     coachHighlightAnalyze: false
   },
   onLoad(query) {
-    recorderManager.onStop((result) => {
+    // recorderManager 是全局单例，必须成对注册/解绑（见 onUnload），
+    // 否则页面每次进入都会再挂一个 onStop，同一段录音被重复转写。
+    this.boundRecorderStop = (result) => {
       const transcribingIssueId = this.data.transcribingIssueId;
 
-      if (transcribingIssueId) {
-        const duration = Math.max(0, Date.now() - (this.data.transcribeStartedAt || 0));
-        
-        const issueDrafts = this.data.form.issueDrafts.map(item => {
-          if (item.id === transcribingIssueId) {
-            return { ...item, isTranscribing: true, voiceFilePath: result.tempFilePath };
-          }
-          return item;
-        });
-        
-        this.setData({
-          transcribingIssueId: "",
-          "form.issueDrafts": issueDrafts
-        });
-
-        this.triggerRecordVibration();
-        this.handleIssueTranscription(transcribingIssueId, result.tempFilePath, duration);
+      if (!transcribingIssueId) {
+        return;
       }
-    });
+
+      if (!result || !result.tempFilePath) {
+        this.setData({ transcribingIssueId: "" });
+        wx.showToast({
+          title: "没有录到声音，请重试",
+          icon: "none"
+        });
+        return;
+      }
+
+      const duration = Math.max(0, Date.now() - (this.data.transcribeStartedAt || 0));
+
+      const issueDrafts = this.data.form.issueDrafts.map(item => {
+        if (item.id === transcribingIssueId) {
+          return { ...item, isTranscribing: true, voiceFilePath: result.tempFilePath };
+        }
+        return item;
+      });
+
+      this.setData({
+        transcribingIssueId: "",
+        "form.issueDrafts": issueDrafts
+      });
+
+      this.triggerRecordVibration();
+      this.handleIssueTranscription(transcribingIssueId, result.tempFilePath, duration);
+    };
+
+    // recorderManager.start 没有 success/fail 回调，失败只能靠 onError 感知。
+    // 原来没监听，麦克风权限被拒后会一直停在录音状态，用户退不出来。
+    this.boundRecorderError = (error) => {
+      console.error("[inspection-create] recorder error", error);
+      this.setData({ transcribingIssueId: "" });
+
+      const text = `${(error && error.errMsg) || (error && error.message) || ""}`;
+      if (/auth deny|authorize|permission|拒绝|未授权/i.test(text)) {
+        wx.showModal({
+          title: "需要麦克风权限",
+          content: "请在设置中允许使用麦克风，然后再录音。",
+          confirmText: "去设置",
+          cancelText: "知道了",
+          success: (res) => {
+            if (res.confirm && typeof wx.openSetting === "function") {
+              wx.openSetting({});
+            }
+          }
+        });
+        return;
+      }
+
+      wx.showToast({
+        title: "录音失败，请重试",
+        icon: "none"
+      });
+    };
+
+    recorderManager.onStop(this.boundRecorderStop);
+    recorderManager.onError(this.boundRecorderError);
+
     const initialReturnContext = decodeReturnContext(query.returnContext) || null;
     if (query.sessionKey) {
       this.setData({
@@ -350,6 +395,17 @@ Page({
   },
   onUnload() {
     this.clearAnalyzeTaskPolling();
+
+    // 与 onLoad 成对解绑：recorderManager 是全局单例，
+    // 不解绑会导致下一次进入本页时同一段录音被重复处理
+    if (this.boundRecorderStop && typeof recorderManager.offStop === "function") {
+      recorderManager.offStop(this.boundRecorderStop);
+    }
+    if (this.boundRecorderError && typeof recorderManager.offError === "function") {
+      recorderManager.offError(this.boundRecorderError);
+    }
+    this.boundRecorderStop = null;
+    this.boundRecorderError = null;
   },
   persistDraft() {
     if (!this.data.sessionKey) {
