@@ -508,8 +508,7 @@ Component({
         tool: item.tool,
         preview,
         text: item.text || "问题",
-        style: `left:${item.x}px;top:${item.y}px;`,
-        rawId: item.id
+        style: `left:${item.x}px;top:${item.y}px;`
       };
     },
     undo() {

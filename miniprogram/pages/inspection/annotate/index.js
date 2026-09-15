@@ -1,3 +1,5 @@
+const { readDraft, updateIssueDraft } = require("../../../utils/inspection-draft");
+
 Page({
   data: {
     sessionKey: "",
@@ -15,19 +17,23 @@ Page({
     this.loadIssue();
   },
   loadIssue() {
-    const form = wx.getStorageSync(this.data.sessionKey);
-    const issueDrafts = form && form.issueDrafts ? form.issueDrafts : [];
+    // 走统一入口读草稿。
+    // 原实现直接 wx.getStorageSync 后取 .issueDrafts，但创建页存的是
+    // { form, returnContext } 形状，这里永远取到 undefined，
+    // 于是必然报「照片草稿不存在」——标注功能一直是坏的。
+    const { form } = readDraft(this.data.sessionKey);
+    const issueDrafts = (form && form.issueDrafts) || [];
     const issueIndex = issueDrafts.findIndex((item) => item.id === this.data.issueId);
     const issue = issueDrafts[issueIndex];
 
-    if (!issue) {
+    if (issueIndex < 0 || !issue) {
       wx.showToast({
-        title: "照片草稿不存在",
+        title: "照片草稿不存在或已过期",
         icon: "none"
       });
       setTimeout(() => {
         wx.navigateBack();
-      }, 300);
+      }, 800);
       return;
     }
 
@@ -204,21 +210,20 @@ Page({
     });
   },
   async handleSave() {
-    const form = wx.getStorageSync(this.data.sessionKey);
-    const issueDrafts = form && form.issueDrafts ? form.issueDrafts : [];
-
-    if (this.data.issueIndex < 0 || !issueDrafts[this.data.issueIndex]) {
+    const issueId = this.data.issueId;
+    if (!issueId) {
       wx.showToast({
-        title: "保存失败",
+        title: "保存失败：找不到对应照片",
         icon: "none"
       });
       return;
     }
 
-    let annotatedImagePath = issueDrafts[this.data.issueIndex].annotatedImagePath || "";
+    let annotatedImagePath = "";
     try {
       annotatedImagePath = await this.createAnnotatedImage();
     } catch (error) {
+      console.error("[annotate] 导出标注图失败", error);
       wx.showToast({
         title: "标注图片导出失败",
         icon: "none"
@@ -226,17 +231,22 @@ Page({
       return;
     }
 
-    issueDrafts[this.data.issueIndex] = {
-      ...issueDrafts[this.data.issueIndex],
+    // 通过统一入口局部更新，只改这一条草稿。
+    // 原实现自己拼 { ...form, issueDrafts }，既写歪了形状，
+    // 创建页又因为形状不匹配而读不到这次改动 —— 白标一场。
+    const nextForm = updateIssueDraft(this.data.sessionKey, issueId, {
       annotations: this.data.annotations,
       annotationStage: this.data.annotationStage,
       annotatedImagePath
-    };
-
-    wx.setStorageSync(this.data.sessionKey, {
-      ...form,
-      issueDrafts
     });
+
+    if (!nextForm) {
+      wx.showToast({
+        title: "保存失败：草稿已失效",
+        icon: "none"
+      });
+      return;
+    }
 
     if (typeof wx.disableAlertBeforeUnload === "function") {
       wx.disableAlertBeforeUnload();

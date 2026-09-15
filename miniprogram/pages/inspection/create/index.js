@@ -58,26 +58,13 @@ function createInitialForm() {
   };
 }
 
-function createDraftSnapshot(form = {}, returnContext = null) {
-  return {
-    form,
-    returnContext: returnContext || null
-  };
-}
-
-function extractDraftForm(snapshot) {
-  if (snapshot && snapshot.form && snapshot.form.issueDrafts) {
-    return snapshot.form;
-  }
-  return snapshot || null;
-}
-
-function extractDraftReturnContext(snapshot) {
-  if (snapshot && snapshot.form && snapshot.returnContext) {
-    return snapshot.returnContext;
-  }
-  return null;
-}
+// 草稿形状统一定义在 utils/inspection-draft.js。
+// 此前创建页存 { form, returnContext }、标注页读扁平结构，导致标注永远打不开。
+const {
+  createDraftSnapshot,
+  extractDraftForm,
+  extractDraftReturnContext
+} = require("../../../utils/inspection-draft");
 
 function buildLatestDraftMeta(sessionKey, form = {}) {
   return {
