@@ -1,7 +1,64 @@
 const { requirePrivacy } = require("../utils/privacy");
+const { listProjects } = require("../services/project");
 
 Component({
   methods: {
+    /**
+     * 开相机之前先确认有项目可挂靠。
+     *
+     * 「拍照」是 tab 上的一个动作，但巡查结果必须归属到某个项目。
+     * 原实现直接把用户丢进巡查创建页，没有项目时要在那里才发现，
+     * 照片已经拍完了却没有归属，只能干瞪眼。
+     *
+     * 查不到就放行——不要因为一次查询失败挡住用户拍照。
+     */
+    async ensureProjectBeforeCapture() {
+      try {
+        const result = await listProjects({ pageSize: 1 });
+        const projects = (result && result.list) || [];
+
+        if (projects.length) {
+          return true;
+        }
+
+        wx.showModal({
+          title: "还没有项目",
+          content: "巡查结果要归属到一个项目，请先创建项目，再回来拍照。",
+          confirmText: "去创建",
+          cancelText: "取消",
+          success: (res) => {
+            if (res.confirm) {
+              wx.navigateTo({
+                url: "/pages/project/form/index"
+              });
+            }
+          }
+        });
+        return false;
+      } catch (error) {
+        console.warn("[tab-bar] 项目检查失败，继续拍照流程", error);
+        return true;
+      }
+    },
+
+    openCamera() {
+      wx.chooseMedia({
+        count: 9,
+        mediaType: ["image"],
+        sourceType: ["album", "camera"],
+        success: (res) => {
+          const photos = res.tempFiles.map((item) => item.tempFilePath);
+          wx.setStorageSync("pendingPhotos", photos);
+          wx.navigateTo({
+            url: "/pages/inspection/create/index"
+          });
+        },
+        fail: (error) => {
+          this.handleChooseMediaError(error);
+        }
+      });
+    },
+
     handleChooseMediaError(error) {
       const text = `${(error && error.errMsg) || (error && error.message) || ""}`;
       if (/api scope is not declared in the privacy agreement/i.test(text) || `${error && error.errno}` === "112") {
@@ -27,23 +84,15 @@ Component({
       }
 
       if (pagePath === "action:take_photo") {
-        requirePrivacy().then(() => {
-          wx.chooseMedia({
-            count: 9,
-            mediaType: ["image"],
-            sourceType: ["album", "camera"],
-            success: (res) => {
-              const photos = res.tempFiles.map(item => item.tempFilePath);
-              wx.setStorageSync("pendingPhotos", photos);
-              wx.navigateTo({
-                url: "/pages/inspection/create/index"
-              });
-            },
-            fail: (error) => {
-              this.handleChooseMediaError(error);
+        requirePrivacy()
+          .then(async () => {
+            const canCapture = await this.ensureProjectBeforeCapture();
+            if (!canCapture) {
+              return;
             }
-          });
-        }).catch(() => {});
+            this.openCamera();
+          })
+          .catch(() => {});
         return;
       }
 

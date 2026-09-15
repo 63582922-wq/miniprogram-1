@@ -4,14 +4,19 @@ const { uploadUserFile } = require("../../../services/cloud");
 const { transcribeVoiceFile, mergeSpeechText, formatSpeechError } = require("../../../services/speech");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { isCoachStep, moveCoach, stopCoach, getNextCoachStep, getPrevCoachStep, buildCoachTip } = require("../../../utils/coach");
+const { runWithConcurrency } = require("../../../utils/async");
 
 const recorderManager = wx.getRecorderManager();
 const MAX_ISSUE_DRAFTS = 20;
 const SINGLE_PICK_LIMIT = 9;
+/** 附件上传的并发上限：弱网下并发太高会让整批一起超时 */
+const UPLOAD_CONCURRENCY = 3;
 const PENDING_PROJECT_KEY = "pendingInspectionProject";
 const LATEST_INSPECTION_DRAFT_META_KEY = "latestInspectionDraftMeta";
 const ASYNC_ANALYZE_THRESHOLD = 3;
 const ANALYZE_POLL_INTERVAL = 1500;
+/** 轮询连续失败多少次后停止等待（每次失败会退避重试） */
+const ANALYZE_POLL_MAX_FAILURES = 5;
 const ISSUE_SECTION_TITLES = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十"];
 
 function createIssueDraft(filePath) {
@@ -885,35 +890,91 @@ Page({
       url: `/pages/inspection/annotate/index?sessionKey=${this.data.sessionKey}&issueId=${encodeURIComponent(issue.id)}`
     });
   },
+  /** 上传单条草稿的附件，返回补全后的草稿 */
+  async uploadOneDraft(item, index) {
+    const shouldUploadImageForAnalyze = !hasMeaningfulVoiceText(item.voiceText);
+
+    const imagePath = shouldUploadImageForAnalyze
+      ? (item.imagePath.startsWith("cloud://")
+        ? item.imagePath
+        : await uploadUserFile(item.imagePath, "inspection-images", `${index}.png`))
+      : item.imagePath;
+
+    const annotatedImagePath = shouldUploadImageForAnalyze
+      ? (item.annotatedImagePath
+        ? (item.annotatedImagePath.startsWith("cloud://")
+          ? item.annotatedImagePath
+          : await uploadUserFile(item.annotatedImagePath, "inspection-annotated-images", `${index}.png`))
+        : "")
+      : (item.annotatedImagePath || "");
+
+    let voiceStorageFileId = item.voiceStorageFileId || item.voiceFileId || "";
+    if (item.voiceFilePath && !item.voiceFilePath.startsWith("cloud://") && !voiceStorageFileId) {
+      voiceStorageFileId = await uploadUserFile(item.voiceFilePath, "inspection-audio", `${index}.mp3`);
+    }
+
+    return {
+      ...item,
+      imagePath,
+      annotatedImagePath,
+      voiceStorageFileId,
+      voiceFileId: voiceStorageFileId
+    };
+  },
+
   async uploadAssets() {
-    const issueDrafts = await Promise.all((this.data.form.issueDrafts || []).map(async (item, index) => {
-      const shouldUploadImageForAnalyze = !hasMeaningfulVoiceText(item.voiceText);
-      const imagePath = shouldUploadImageForAnalyze
-        ? (item.imagePath.startsWith("cloud://")
-          ? item.imagePath
-          : await uploadUserFile(item.imagePath, "inspection-images", `${index}.png`))
-        : item.imagePath;
-      const annotatedImagePath = shouldUploadImageForAnalyze
-        ? (item.annotatedImagePath
-          ? item.annotatedImagePath.startsWith("cloud://")
-            ? item.annotatedImagePath
-            : await uploadUserFile(item.annotatedImagePath, "inspection-annotated-images", `${index}.png`)
-          : "")
-        : (item.annotatedImagePath || "");
+    const drafts = this.data.form.issueDrafts || [];
 
-      let voiceStorageFileId = item.voiceStorageFileId || item.voiceFileId || "";
-      if (item.voiceFilePath && !item.voiceFilePath.startsWith("cloud://") && !voiceStorageFileId) {
-        voiceStorageFileId = await uploadUserFile(item.voiceFilePath, "inspection-audio", `${index}.mp3`);
+    // 并发上传，但限制同时进行的数量：
+    // 弱网下 20 张图一次性并发很容易整体超时。
+    const tasks = drafts.map((item, index) => async () => {
+      try {
+        return await this.uploadOneDraft(item, index);
+      } catch (error) {
+        // 单张失败不能拖垮整批：先标记，稍后统一重试一次
+        console.warn("[inspection-create] 附件上传失败，稍后重试", { index, error });
+        return { ...item, __uploadFailed: true };
       }
+    });
 
-      return {
-        ...item,
-        imagePath,
-        annotatedImagePath,
-        voiceStorageFileId,
-        voiceFileId: voiceStorageFileId
-      };
-    }));
+    let issueDrafts = await runWithConcurrency(tasks, UPLOAD_CONCURRENCY);
+
+    // 对失败的做一次串行重试 —— 工地弱网多为瞬时抖动，重试一次通常就好，
+    // 不必为此打断用户。
+    const failedIndexes = issueDrafts
+      .map((item, index) => (item && item.__uploadFailed ? index : -1))
+      .filter((index) => index >= 0);
+
+    if (failedIndexes.length) {
+      for (const index of failedIndexes) {
+        try {
+          issueDrafts[index] = await this.uploadOneDraft(drafts[index], index);
+        } catch (error) {
+          console.warn("[inspection-create] 重试仍失败", { index, error });
+        }
+      }
+    }
+
+    const stillFailed = issueDrafts.filter((item) => item && item.__uploadFailed).length;
+
+    issueDrafts = issueDrafts.map((item) => {
+      if (!item || !item.__uploadFailed) {
+        return item;
+      }
+      const cleaned = { ...item };
+      delete cleaned.__uploadFailed;
+      return cleaned;
+    });
+
+    if (stillFailed) {
+      // 说清楚影响面，然后继续 —— 不带图片识别的分析仍比直接失败有用
+      wx.showModal({
+        title: "部分照片未上传成功",
+        content: `有 ${stillFailed} 张照片没能上传，这些照片本次不会参与图片识别。可以先继续，稍后在草稿里重试。`,
+        showCancel: false,
+        confirmText: "继续"
+      });
+    }
 
     const form = {
       ...this.data.form,
@@ -940,10 +1001,69 @@ Page({
     this.clearAnalyzeTaskPolling();
     this.analyzeTaskPollTimer = setTimeout(() => {
       this.pollAnalyzeTaskStatus().catch((error) => {
-        console.error("[inspection-create] pollAnalyzeTaskStatus failed", error);
+        this.handleAnalyzePollError(error);
       });
     }, ANALYZE_POLL_INTERVAL);
   },
+
+  /**
+   * 轮询出错时不要就此停摆。
+   *
+   * 原实现只在成功路径上重新排程：getInspectionTaskStatus 一旦抛错，
+   * catch 里只打印日志，轮询就此断掉。而全屏遮罩还在、没有取消按钮，
+   * 用户既看不到进度也退不出去，只能杀掉小程序。
+   */
+  handleAnalyzePollError(error) {
+    console.error("[inspection-create] pollAnalyzeTaskStatus failed", error);
+
+    const failures = (this.analyzePollFailureCount || 0) + 1;
+    this.analyzePollFailureCount = failures;
+
+    if (failures > ANALYZE_POLL_MAX_FAILURES) {
+      this.clearAnalyzeTaskPolling();
+      this.setData({
+        analyzing: false,
+        analyzeStageIndex: 0,
+        analyzeStageText: "",
+        analyzeTaskId: ""
+      });
+      wx.showModal({
+        title: "AI 整理中断",
+        content: "网络不稳定，没能取回分析结果。照片和草稿都已保留，可以重新点「分析整理」。",
+        showCancel: false,
+        confirmText: "知道了"
+      });
+      return;
+    }
+
+    // 退避重试：把「一次网络抖动 = 永久卡死」变成「多等几秒」
+    this.setData({
+      analyzeStageText: `网络不稳定，正在重试（第 ${failures} 次）`
+    });
+
+    this.clearAnalyzeTaskPolling();
+    this.analyzeTaskPollTimer = setTimeout(() => {
+      this.pollAnalyzeTaskStatus().catch((nextError) => {
+        this.handleAnalyzePollError(nextError);
+      });
+    }, ANALYZE_POLL_INTERVAL * failures);
+  },
+
+  /** 手动中止等待。草稿已持久化，用户可以改用手动补充或重新分析 */
+  handleCancelAnalyze() {
+    this.clearAnalyzeTaskPolling();
+    this.setData({
+      analyzing: false,
+      analyzeStageIndex: 0,
+      analyzeStageText: "",
+      analyzeTaskId: ""
+    });
+    wx.showToast({
+      title: "已停止等待，草稿已保留",
+      icon: "none"
+    });
+  },
+
   async completeAnalyzeSuccess(form, analysis) {
     const draftKey = `inspection-draft-${Date.now()}`;
     wx.setStorageSync(draftKey, {
@@ -970,6 +1090,8 @@ Page({
       return "idle";
     }
     const result = await getInspectionTaskStatus(this.data.analyzeTaskId);
+    // 成功拿到一次状态就清零失败计数，避免历史上抖动的次数累积
+    this.analyzePollFailureCount = 0;
     const totalBatches = result.totalBatches || 0;
     const completedBatches = result.completedBatches || 0;
     if (result.status === "success" && result.analysis) {

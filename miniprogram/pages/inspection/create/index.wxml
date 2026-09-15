@@ -116,6 +116,7 @@
       <view class="analyze-panel__spinner"></view>
       <view class="analyze-panel__title">AI 整理中</view>
       <view class="analyze-panel__desc">{{analyzeStageText}}</view>
+      <view class="analyze-panel__cancel" bindtap="handleCancelAnalyze">取消等待</view>
     </view>
   </view>
   <app-tab-bar />

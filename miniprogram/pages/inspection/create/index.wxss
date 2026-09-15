@@ -472,6 +472,21 @@
   color: #6B6355;
 }
 
+/* 遮罩上的退出口：分析卡住时用户必须能自己出来 */
+.analyze-panel__cancel {
+  margin-top: 8rpx;
+  padding: 16rpx 32rpx;
+  font-size: 24rpx;
+  color: #6B6355;
+  border: 0.5px solid #B8A882;
+  border-radius: 2rpx;
+  letter-spacing: 0.08em;
+}
+
+.analyze-panel__cancel:active {
+  background: rgba(184, 168, 130, 0.14);
+}
+
 @keyframes analyze-spin {
   from {
     transform: rotate(0deg);
