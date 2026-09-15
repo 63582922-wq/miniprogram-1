@@ -1,3 +1,0 @@
-<view class="tag" style="color: {{color}}; background: {{background}};">
-  {{text}}
-</view>

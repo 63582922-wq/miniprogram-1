@@ -1,0 +1,93 @@
+/**
+ * tokens.wxss
+ * Global CSS custom properties - single source of truth for all styles
+ * Hybrid theme: Light + Industrial data layout
+ */
+
+page {
+  /* === Colors === */
+  --color-primary: #1A1A2E;
+  --color-accent: #E85D04;
+  --color-accent-soft: #FFF0E6;
+
+  --color-text: #1A1A2E;
+  --color-text-secondary: #5C5C6F;
+  --color-text-tertiary: #9494A3;
+  --color-text-inverse: #FAFAFA;
+
+  --color-bg: #F5F4F1;
+  --color-bg-card: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-sunken: #ECEAE6;
+  --color-bg-dark: #1A1A2E;
+
+  --color-border: #E4E2DE;
+  --color-border-light: #F0EEEA;
+  --color-border-strong: #D1CEC8;
+
+  --color-urgent: #E85D04;
+  --color-urgent-bg: #FFF4EC;
+  --color-active: #1A8754;
+  --color-active-bg: #EEFBF3;
+  --color-warning: #D4940A;
+  --color-warning-bg: #FFFBEB;
+  --color-idle: #9494A3;
+  --color-idle-bg: #F5F4F1;
+
+  /* === Typography === */
+  --font-sans: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+  --font-mono: "SF Mono", "Menlo", monospace;
+  --font-display: -apple-system, "SF Pro Display", "PingFang SC", sans-serif;
+
+  --text-2xs: 20rpx;
+  --text-xs: 22rpx;
+  --text-sm: 24rpx;
+  --text-base: 28rpx;
+  --text-md: 30rpx;
+  --text-lg: 36rpx;
+  --text-xl: 44rpx;
+  --text-2xl: 56rpx;
+  --text-3xl: 72rpx;
+
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* === Spacing === */
+  --space-2xs: 4rpx;
+  --space-xs: 8rpx;
+  --space-sm: 12rpx;
+  --space-base: 16rpx;
+  --space-md: 20rpx;
+  --space-lg: 24rpx;
+  --space-xl: 32rpx;
+  --space-2xl: 40rpx;
+  --space-3xl: 48rpx;
+  --space-4xl: 64rpx;
+
+  /* === Radius === */
+  --radius-sm: 4rpx;
+  --radius-base: 8rpx;
+  --radius-md: 12rpx;
+  --radius-lg: 16rpx;
+  --radius-full: 9999rpx;
+
+  /* === Shadows === */
+  --shadow-sm: 0 1rpx 4rpx rgba(26, 26, 46, .04);
+  --shadow-base: 0 2rpx 12rpx rgba(26, 26, 46, .06);
+  --shadow-md: 0 4rpx 20rpx rgba(26, 26, 46, .08);
+  --shadow-lg: 0 8rpx 32rpx rgba(26, 26, 46, .12);
+  --shadow-fab: 0 6rpx 20rpx rgba(232, 93, 4, .25);
+
+  /* === Layout === */
+  --page-padding: 24rpx;
+  --card-padding: 20rpx;
+  --tabbar-height: 120rpx;
+  --safe-bottom: env(safe-area-inset-bottom);
+}

@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>重设计 · 两个方向</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #1B1B1B;
+    color: #EDEDED;
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+
+  .pageHead {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  .pageHead .kicker {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 12px;
+  }
+  .pageHead h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 32px;
+    letter-spacing: -0.5px;
+  }
+  .pageHead p {
+    color: #888;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+
+  .row {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .col { width: 390px; }
+
+  /* iPhone frame */
+  .phone {
+    width: 390px;
+    height: 800px;
+    border-radius: 48px;
+    padding: 10px;
+    background: #2A2A2A;
+    box-shadow: 0 30px 80px rgba(0,0,0,.5);
+    position: relative;
+  }
+  .phone__screen {
+    width: 100%; height: 100%;
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .phone__notch {
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    width: 110px; height: 30px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 100;
+  }
+
+  .legend {
+    margin-top: 28px;
+    color: #BBB;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 0 4px;
+  }
+  .legend .name {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    color: #FFF;
+    margin-bottom: 6px;
+    letter-spacing: -.2px;
+  }
+  .legend .tags {
+    margin-top: 12px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .legend .tag {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid #444;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #888;
+  }
+
+  /* ============================================================
+     方向 A：EDITORIAL  ——  克制，文人，工具的诗意
+     ============================================================ */
+
+  .A {
+    background: #F4F0E8;
+    color: #1A1612;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+  }
+
+  .A .bar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    font-size: 12px;
+    color: #6E665C;
+    font-feature-settings: 'tnum';
+    padding-top: 16px;
+  }
+
+  .A .scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 24px 100px;
+  }
+  .A .scroll::-webkit-scrollbar { display: none; }
+
+  .A .hero {
+    padding: 32px 0 24px;
+    border-bottom: 1px solid #DDD6C5;
+  }
+  .A .hero__date {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 52px;
+    line-height: 1;
+    letter-spacing: -2px;
+    color: #1A1612;
+    font-feature-settings: 'tnum';
+  }
+  .A .hero__date em {
+    font-style: italic;
+    font-weight: 400;
+    color: #B8451C;
+  }
+  .A .hero__sub {
+    font-size: 13px;
+    color: #6E665C;
+    margin-top: 12px;
+    letter-spacing: .2px;
+  }
+
+  .A .statRow {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    padding: 24px 0;
+    border-bottom: 1px solid #DDD6C5;
+  }
+  .A .statRow .stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .A .statRow .stat + .stat { border-left: 1px solid #DDD6C5; padding-left: 16px; }
+  .A .statRow .num {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 30px;
+    line-height: 1;
+    font-feature-settings: 'tnum';
+    color: #1A1612;
+  }
+  .A .statRow .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #998E7E;
+  }
+
+  .A .sec {
+    padding: 28px 0 12px;
+  }
+  .A .sec__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .A .sec__title {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 18px;
+    letter-spacing: -.2px;
+  }
+  .A .sec__title em {
+    font-style: italic;
+    color: #B8451C;
+  }
+  .A .sec__more {
+    font-size: 11px;
+    color: #998E7E;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .A .urgent {
+    padding: 14px 0;
+    border-bottom: 1px solid #DDD6C5;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .A .urgent:last-child { border-bottom: none; }
+  .A .urgent__time {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 22px;
+    line-height: 1;
+    color: #B8451C;
+    font-feature-settings: 'tnum';
+    min-width: 56px;
+    padding-top: 2px;
+  }
+  .A .urgent__time small {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    color: #998E7E;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .A .urgent__body { flex: 1; }
+  .A .urgent__title { font-size: 14px; line-height: 1.45; color: #1A1612; font-weight: 500; }
+  .A .urgent__meta {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #998E7E;
+    letter-spacing: .3px;
+  }
+
+  .A .proj {
+    padding: 18px 0;
+    border-bottom: 1px solid #DDD6C5;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .A .proj:last-child { border-bottom: none; }
+  .A .proj__main { flex: 1; min-width: 0; }
+  .A .proj__name {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 17px;
+    letter-spacing: -.2px;
+    color: #1A1612;
+    margin-bottom: 4px;
+  }
+  .A .proj__meta {
+    font-size: 11px;
+    color: #998E7E;
+    letter-spacing: .2px;
+  }
+  .A .proj__data {
+    margin-top: 10px;
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    color: #6E665C;
+    font-feature-settings: 'tnum';
+  }
+  .A .proj__data b {
+    color: #1A1612;
+    font-weight: 500;
+  }
+  .A .proj__data .sep { color: #C7BEAA; margin: 0 6px; }
+  .A .proj__status {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #998E7E;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 6px;
+  }
+  .A .proj__status .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #B8451C;
+  }
+  .A .proj__status .dot--ok { background: #4D7C4A; }
+  .A .proj__status .dot--gray { background: #C7BEAA; }
+
+  .A .tabbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 76px;
+    background: #F4F0E8;
+    border-top: 1px solid #DDD6C5;
+    display: flex;
+    align-items: center;
+    padding: 0 8px 16px;
+  }
+  .A .tabbar__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-top: 12px;
+    color: #998E7E;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .A .tabbar__item.on { color: #1A1612; }
+  .A .tabbar__item.on .ind {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: #B8451C;
+    position: absolute;
+    top: 4px;
+  }
+  .A .tabbar__item { position: relative; }
+  .A .tabbar__fab {
+    flex: 1.2;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    position: relative;
+  }
+  .A .tabbar__fab button {
+    position: absolute;
+    top: -16px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: #1A1612;
+    color: #F4F0E8;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 14px rgba(26,22,18,.3);
+  }
+  .A .tabbar__fab span {
+    position: absolute;
+    bottom: 18px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #1A1612;
+  }
+
+  /* ============================================================
+     方向 B：INDUSTRIAL  ——  专业工具，工程仪表，深色，硬朗
+     ============================================================ */
+
+  .B {
+    background: #0E0F11;
+    color: #ECEDF0;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+  }
+  .B .mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .B .bar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: 1px;
+  }
+  .B .bar .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #FFD200;
+  }
+  .B .bar .live::before {
+    content: ''; width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #FFD200;
+    box-shadow: 0 0 8px #FFD200;
+  }
+
+  .B .scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 20px 100px;
+  }
+  .B .scroll::-webkit-scrollbar { display: none; }
+
+  .B .brandRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 24px 0 28px;
+  }
+  .B .brandRow__logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .B .brandRow__logo b {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    color: #ECEDF0;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0;
+    margin-top: 4px;
+    text-transform: none;
+  }
+  .B .brandRow__time {
+    font-family: 'JetBrains Mono', monospace;
+    color: #6B6F78;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-align: right;
+  }
+  .B .brandRow__time b {
+    display: block;
+    color: #ECEDF0;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  .B .panel {
+    background: #16181D;
+    border: 1px solid #23262E;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .B .heroPanel {
+    padding: 0;
+  }
+  .B .heroPanel__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #23262E;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .B .heroPanel__head .badge {
+    color: #FFD200;
+    border: 1px solid #FFD200;
+    padding: 2px 6px;
+    font-size: 9px;
+    border-radius: 2px;
+  }
+  .B .heroPanel__body {
+    padding: 20px 16px 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+  }
+  .B .heroPanel__cell {
+    text-align: left;
+    padding-right: 8px;
+  }
+  .B .heroPanel__cell + .heroPanel__cell {
+    border-left: 1px solid #23262E;
+    padding-left: 16px;
+  }
+  .B .heroPanel__num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 32px;
+    line-height: 1;
+    color: #ECEDF0;
+    letter-spacing: -1px;
+  }
+  .B .heroPanel__num.accent { color: #FFD200; }
+  .B .heroPanel__label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #6B6F78;
+    margin-top: 8px;
+  }
+  .B .heroPanel__trend {
+    font-size: 10px;
+    color: #6B6F78;
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .B .heroPanel__trend.up { color: #FFD200; }
+  .B .heroPanel__trend.down { color: #FF5500; }
+
+  .B .alert {
+    border-left: 2px solid #FF5500;
+    background: linear-gradient(90deg, rgba(255,85,0,.08) 0%, rgba(255,85,0,0) 100%);
+  }
+  .B .alert .heroPanel__head { border-color: rgba(255,85,0,.2); color: #FF5500; }
+  .B .alert .heroPanel__head .badge { color: #FF5500; border-color: #FF5500; }
+
+  .B .alertItem {
+    padding: 14px 16px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    border-top: 1px solid #23262E;
+  }
+  .B .alertItem:first-child { border-top: none; }
+  .B .alertItem__id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: 1px;
+    min-width: 32px;
+  }
+  .B .alertItem__body { flex: 1; min-width: 0; }
+  .B .alertItem__title {
+    font-size: 13px;
+    color: #ECEDF0;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .B .alertItem__meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: .5px;
+  }
+  .B .alertItem__due {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #FF5500;
+    letter-spacing: 1px;
+    text-align: right;
+  }
+  .B .alertItem__due b {
+    display: block;
+    font-size: 13px;
+    color: #FF5500;
+    margin-top: 2px;
+  }
+
+  .B .listHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 24px 4px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .B .listHead .count {
+    color: #ECEDF0;
+  }
+
+  .B .proj {
+    background: #16181D;
+    border: 1px solid #23262E;
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .B .proj__id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: 1px;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    align-self: stretch;
+    border-right: 1px solid #23262E;
+    padding-right: 12px;
+    display: flex;
+    align-items: center;
+  }
+  .B .proj__main { flex: 1; min-width: 0; }
+  .B .proj__name {
+    font-size: 14px;
+    color: #ECEDF0;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .B .proj__meta {
+    display: flex;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: .5px;
+  }
+  .B .proj__meta span b { color: #ECEDF0; }
+  .B .proj__state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .B .proj__state .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    padding: 3px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .B .proj__state .badge--active { background: #FFD200; color: #0E0F11; }
+  .B .proj__state .badge--alert { background: #FF5500; color: #0E0F11; }
+  .B .proj__state .badge--idle { background: #23262E; color: #6B6F78; }
+  .B .proj__state .time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+  }
+
+  .B .tabbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 76px;
+    background: #16181D;
+    border-top: 1px solid #23262E;
+    display: flex;
+    align-items: stretch;
+    padding-bottom: 16px;
+  }
+  .B .tabbar__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #6B6F78;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    position: relative;
+  }
+  .B .tabbar__item.on { color: #FFD200; }
+  .B .tabbar__item.on::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 24px; height: 2px;
+    background: #FFD200;
+  }
+  .B .tabbar__fab {
+    flex: 1.2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .B .tabbar__fab button {
+    width: 56px; height: 56px;
+    background: #FFD200;
+    border: none;
+    border-radius: 4px;
+    color: #0E0F11;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(255,210,0,.3);
+    margin-top: -10px;
+  }
+
+  /* Icons */
+  .ico {
+    width: 18px; height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @media (max-width: 880px) {
+    .row { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="pageHead">
+    <div class="kicker">VERSION 02 · TWO DIRECTIONS</div>
+    <h1>两个完全不同的设计方向</h1>
+    <p>左：编辑式克制风 · 右：工程仪表风</p>
+  </div>
+
+  <div class="row">
+
+    <!-- ===================== A · EDITORIAL ===================== -->
+    <div class="col">
+      <div class="phone">
+        <div class="phone__notch"></div>
+        <div class="phone__screen A">
+
+          <div class="bar">
+            <span>9:41</span>
+            <span>● ● ●</span>
+          </div>
+
+          <div class="scroll">
+
+            <!-- Hero: 大日期 + 副信息 -->
+            <div class="hero">
+              <div class="hero__date">五月<em>十八</em></div>
+              <div class="hero__sub">周一 · 今日 <em style="color:#B8451C;font-style:normal;">2</em> 项需要您关注</div>
+            </div>
+
+            <!-- 数据：三个数字横排，仅靠 typography -->
+            <div class="statRow">
+              <div class="stat">
+                <div class="num">12</div>
+                <div class="label">本周巡查</div>
+              </div>
+              <div class="stat" style="padding-left:20px;">
+                <div class="num">28</div>
+                <div class="label">问题</div>
+              </div>
+              <div class="stat" style="padding-left:20px;">
+                <div class="num">4</div>
+                <div class="label">报告</div>
+              </div>
+            </div>
+
+            <!-- 紧急 -->
+            <div class="sec">
+              <div class="sec__head">
+                <div class="sec__title">今日 <em>紧急</em></div>
+                <div class="sec__more">2 项</div>
+              </div>
+
+              <div class="urgent">
+                <div class="urgent__time">18:00<small>截止</small></div>
+                <div class="urgent__body">
+                  <div class="urgent__title">三楼防水未做闭水试验</div>
+                  <div class="urgent__meta">朝阳商业园区 · A 栋 · 王师傅</div>
+                </div>
+              </div>
+
+              <div class="urgent">
+                <div class="urgent__time">20:00<small>截止</small></div>
+                <div class="urgent__body">
+                  <div class="urgent__title">钢筋间距超出规范，需返工</div>
+                  <div class="urgent__meta">海淀科技园 · 主体工程</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 项目 -->
+            <div class="sec">
+              <div class="sec__head">
+                <div class="sec__title"><em>八个</em> 进行中的项目</div>
+                <div class="sec__more">全部</div>
+              </div>
+
+              <div class="proj">
+                <div class="proj__main">
+                  <div class="proj__name">朝阳商业园区·A 栋</div>
+                  <div class="proj__meta">北京 朝阳区 · 中建集团</div>
+                  <div class="proj__data"><b>24</b> 巡查 <span class="sep">／</span> <b>11</b> 问题 <span class="sep">／</span> 2 小时前</div>
+                </div>
+                <div class="proj__status"><span class="dot"></span>待跟进</div>
+              </div>
+
+              <div class="proj">
+                <div class="proj__main">
+                  <div class="proj__name">海淀科技园·主体工程</div>
+                  <div class="proj__meta">北京 海淀区 · 联想集团</div>
+                  <div class="proj__data"><b>18</b> 巡查 <span class="sep">／</span> <b>6</b> 问题 <span class="sep">／</span> 昨天</div>
+                </div>
+                <div class="proj__status"><span class="dot dot--ok"></span>进行中</div>
+              </div>
+
+              <div class="proj">
+                <div class="proj__main">
+                  <div class="proj__name">通州运河别墅区</div>
+                  <div class="proj__meta">北京 通州区 · 万科地产</div>
+                  <div class="proj__data"><b>9</b> 巡查 <span class="sep">／</span> <b>3</b> 问题 <span class="sep">／</span> 3 天前</div>
+                </div>
+                <div class="proj__status"><span class="dot dot--gray"></span>暂停</div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- TabBar: 文字+小圆点指示 -->
+          <div class="tabbar">
+            <div class="tabbar__item on"><span class="ind"></span>首页</div>
+            <div class="tabbar__item">待办</div>
+            <div class="tabbar__fab">
+              <button>
+                <svg class="ico" viewBox="0 0 24 24" style="stroke:#F4F0E8;"><circle cx="12" cy="13" r="4"/><path d="M3 7h4l2-3h6l2 3h4v13H3z"/></svg>
+              </button>
+              <span>拍照</span>
+            </div>
+            <div class="tabbar__item">报告</div>
+            <div class="tabbar__item">我的</div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="name">A — Editorial</div>
+        编辑级排版 · 留白克制 · 数字即设计。配色单色 + 一抹赭色点睛，字体使用 Fraunces 衬线做数字与标题，全局只有一条横线，没有按钮投影、没有色块。气质：<em>像 Field Notes、Things 3、Things Calendar 的克制美学</em>。
+        <div class="tags">
+          <div class="tag">Serif Display</div>
+          <div class="tag">One Accent</div>
+          <div class="tag">Hairlines</div>
+          <div class="tag">Calm</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ===================== B · INDUSTRIAL ===================== -->
+    <div class="col">
+      <div class="phone">
+        <div class="phone__notch"></div>
+        <div class="phone__screen B">
+
+          <div class="bar">
+            <span>09:41</span>
+            <span class="live">SYSTEM ACTIVE</span>
+          </div>
+
+          <div class="scroll">
+
+            <!-- 品牌头 -->
+            <div class="brandRow">
+              <div class="brandRow__logo">FIELD INSPECTOR<b>张工 · 监理</b></div>
+              <div class="brandRow__time">2026.05.18 MON<b>WK 21 · DAY 138</b></div>
+            </div>
+
+            <!-- 数据面板 -->
+            <div class="panel heroPanel">
+              <div class="heroPanel__head">
+                <span>WEEK OVERVIEW</span>
+                <span class="badge">LIVE</span>
+              </div>
+              <div class="heroPanel__body">
+                <div class="heroPanel__cell">
+                  <div class="heroPanel__num">12</div>
+                  <div class="heroPanel__label">INSPECT</div>
+                  <div class="heroPanel__trend up">↑ +3</div>
+                </div>
+                <div class="heroPanel__cell">
+                  <div class="heroPanel__num">28</div>
+                  <div class="heroPanel__label">ISSUES</div>
+                  <div class="heroPanel__trend down">↑ +8</div>
+                </div>
+                <div class="heroPanel__cell">
+                  <div class="heroPanel__num accent">4</div>
+                  <div class="heroPanel__label">REPORT</div>
+                  <div class="heroPanel__trend up">↑ +1</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 紧急 alert -->
+            <div class="panel alert">
+              <div class="heroPanel__head">
+                <span>⚠ URGENT QUEUE</span>
+                <span class="badge">02</span>
+              </div>
+
+              <div class="alertItem">
+                <div class="alertItem__id">#001</div>
+                <div class="alertItem__body">
+                  <div class="alertItem__title">三楼防水未做闭水试验</div>
+                  <div class="alertItem__meta">CHAOYANG-A · 王师傅</div>
+                </div>
+                <div class="alertItem__due">DUE<b>18:00</b></div>
+              </div>
+
+              <div class="alertItem">
+                <div class="alertItem__id">#002</div>
+                <div class="alertItem__body">
+                  <div class="alertItem__title">钢筋间距超出规范</div>
+                  <div class="alertItem__meta">HAIDIAN-MAIN · 主体工程</div>
+                </div>
+                <div class="alertItem__due">DUE<b>20:00</b></div>
+              </div>
+            </div>
+
+            <!-- 项目列表 -->
+            <div class="listHead">
+              <span>ACTIVE PROJECTS</span>
+              <span class="count">08 / 12</span>
+            </div>
+
+            <div class="proj">
+              <div class="proj__id">001</div>
+              <div class="proj__main">
+                <div class="proj__name">朝阳商业园区·A 栋</div>
+                <div class="proj__meta">
+                  <span><b>24</b>INSP</span>
+                  <span><b>11</b>ISSUE</span>
+                  <span>2H AGO</span>
+                </div>
+              </div>
+              <div class="proj__state">
+                <span class="badge badge--alert">URGENT</span>
+              </div>
+            </div>
+
+            <div class="proj">
+              <div class="proj__id">002</div>
+              <div class="proj__main">
+                <div class="proj__name">海淀科技园·主体工程</div>
+                <div class="proj__meta">
+                  <span><b>18</b>INSP</span>
+                  <span><b>6</b>ISSUE</span>
+                  <span>1D AGO</span>
+                </div>
+              </div>
+              <div class="proj__state">
+                <span class="badge badge--active">ACTIVE</span>
+              </div>
+            </div>
+
+            <div class="proj">
+              <div class="proj__id">003</div>
+              <div class="proj__main">
+                <div class="proj__name">通州运河别墅区</div>
+                <div class="proj__meta">
+                  <span><b>9</b>INSP</span>
+                  <span><b>3</b>ISSUE</span>
+                  <span>3D AGO</span>
+                </div>
+              </div>
+              <div class="proj__state">
+                <span class="badge badge--idle">IDLE</span>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="tabbar">
+            <div class="tabbar__item on">HOME</div>
+            <div class="tabbar__item">TASK</div>
+            <div class="tabbar__fab">
+              <button>
+                <svg class="ico" viewBox="0 0 24 24" style="stroke:#0E0F11;stroke-width:2;"><circle cx="12" cy="13" r="4"/><path d="M3 7h4l2-3h6l2 3h4v13H3z"/></svg>
+              </button>
+            </div>
+            <div class="tabbar__item">DOC</div>
+            <div class="tabbar__item">USER</div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="name">B — Industrial</div>
+        工程仪表盘语言 · 暗色专业 · 数据可读性优先。配色：石墨黑 + 安全黄 + 警示橙。字体用 JetBrains Mono 做数字和标签，编号 #001/#002 像设备 ID，自带"工地工具"的可信感。气质：<em>像 Teenage Engineering、Hasselblad、专业 DAW 软件</em>。
+        <div class="tags">
+          <div class="tag">Dark Mode</div>
+          <div class="tag">Mono Numbers</div>
+          <div class="tag">Tactical</div>
+          <div class="tag">Outdoor-Readable</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>

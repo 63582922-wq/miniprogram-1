@@ -1,0 +1,1023 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>工地巡查 AI · 重设计预览</title>
+<style>
+  :root {
+    --brand: #1E5FBF;
+    --brand-dark: #1849A0;
+    --brand-soft: #E8F0FE;
+    --accent: #FF6B35;
+    --accent-soft: #FFF1EA;
+    --ok: #16A34A;
+    --ok-soft: #DCFCE7;
+    --warn: #F59E0B;
+    --warn-soft: #FEF3C7;
+    --danger: #DC2626;
+    --danger-soft: #FEE2E2;
+    --text-1: #111827;
+    --text-2: #4B5563;
+    --text-3: #9CA3AF;
+    --bg-page: #F3F4F6;
+    --bg-card: #FFFFFF;
+    --border: #E5E7EB;
+    --border-strong: #D1D5DB;
+    --shadow-card: 0 2px 8px rgba(17,24,39,.04);
+    --shadow-fab: 0 8px 18px rgba(255,107,53,.32);
+    --shadow-pop: 0 12px 32px rgba(17,24,39,.12);
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #FAFBFC 0%, #EEF1F5 100%);
+    color: var(--text-1);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ===== 顶部说明栏 ===== */
+  .pageHead {
+    text-align: center;
+    padding: 36px 16px 8px;
+  }
+  .pageHead h1 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    letter-spacing: .5px;
+  }
+  .pageHead p {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 13px;
+  }
+
+  /* ===== 设备框 ===== */
+  .deviceRow {
+    display: flex;
+    gap: 28px;
+    justify-content: center;
+    padding: 28px 16px 64px;
+    flex-wrap: wrap;
+  }
+  .device {
+    width: 375px;
+    background: #fff;
+    border-radius: 38px;
+    padding: 14px;
+    box-shadow: 0 16px 48px rgba(17,24,39,.16), 0 2px 6px rgba(17,24,39,.08);
+    border: 1px solid #E5E7EB;
+  }
+  .device__inner {
+    width: 100%;
+    height: 760px;
+    background: var(--bg-page);
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .device__label {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 12px;
+    letter-spacing: 1px;
+  }
+
+  /* ===== 状态栏 + 顶部导航 ===== */
+  .statusBar {
+    height: 36px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  .statusBar .icons { display: flex; gap: 6px; align-items: center; color: var(--text-1); }
+  .statusBar .icons span { display:inline-block; width: 16px; text-align:center; font-size: 11px; }
+
+  .navbar {
+    height: 48px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .navbar .title { font-size: 17px; font-weight: 600; color: var(--text-1); }
+  .navbar .left, .navbar .right { display: flex; align-items: center; gap: 12px; color: var(--brand); font-size: 14px; }
+  .navbar .iconBtn {
+    width: 32px; height: 32px;
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-1);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* ===== 内容滚动区 ===== */
+  .body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 16px 100px;
+    scrollbar-width: thin;
+  }
+  .body::-webkit-scrollbar { width: 4px; }
+  .body::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
+
+  /* ===== 通用组件 ===== */
+  .card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 12px;
+  }
+
+  .sectionHead {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: 16px 2px 8px;
+  }
+  .sectionHead h3 {
+    margin: 0; font-size: 15px; font-weight: 600; color: var(--text-1);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .sectionHead a { color: var(--text-3); font-size: 12px; text-decoration: none; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge--brand { background: var(--brand-soft); color: var(--brand); }
+  .badge--ok { background: var(--ok-soft); color: var(--ok); }
+  .badge--warn { background: var(--warn-soft); color: #B45309; }
+  .badge--danger { background: var(--danger-soft); color: var(--danger); }
+  .badge--gray { background: #F3F4F6; color: var(--text-2); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .btn--primary { background: var(--brand); color: #fff; }
+  .btn--primary:hover { background: var(--brand-dark); }
+  .btn--accent { background: var(--accent); color: #fff; }
+  .btn--ghost { background: #F3F4F6; color: var(--text-1); }
+  .btn--block { display: flex; width: 100%; }
+
+  /* ===== 底部 TabBar ===== */
+  .tabbar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 64px;
+    background: rgba(255,255,255,.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: stretch;
+    padding-bottom: 4px;
+  }
+  .tabbar__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--text-3);
+    font-size: 10px;
+    cursor: pointer;
+    transition: color .15s ease;
+    padding-top: 6px;
+  }
+  .tabbar__item.is-active { color: var(--brand); font-weight: 600; }
+  .tabbar__item svg { width: 22px; height: 22px; }
+  .tabbar__fab {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+  }
+  .tabbar__fab button {
+    position: absolute;
+    top: -18px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FF8559 0%, var(--accent) 100%);
+    color: #fff;
+    border: 3px solid #fff;
+    box-shadow: var(--shadow-fab);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0;
+    cursor: pointer;
+  }
+  .tabbar__fab button svg { width: 26px; height: 26px; }
+  .tabbar__fab span { position: absolute; bottom: 4px; font-size: 10px; color: var(--accent); font-weight: 600; }
+
+  /* =========================
+     屏 1 · 首页 Dashboard
+     ========================= */
+  .heroCard {
+    background: linear-gradient(135deg, var(--brand) 0%, #2C7BE5 100%);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(30,95,191,.24);
+    margin-bottom: 16px;
+  }
+  .heroCard__row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .heroCard__avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(255,255,255,.22);
+    display:flex; align-items:center; justify-content:center;
+    font-weight: 600;
+    backdrop-filter: blur(4px);
+  }
+  .heroCard__greeting { font-size: 12px; opacity: .85; margin-bottom: 2px; }
+  .heroCard__name { font-size: 17px; font-weight: 600; }
+  .heroCard__stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .heroCard__stat {
+    background: rgba(255,255,255,.14);
+    border-radius: var(--radius-sm);
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .heroCard__stat strong { display:block; font-size: 20px; font-weight: 600; }
+  .heroCard__stat small { font-size: 11px; opacity: .85; }
+
+  .quickGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 4px 2px 4px;
+  }
+  .quickGrid__item {
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 12px 4px 10px;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+  }
+  .quickGrid__icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--brand-soft); color: var(--brand);
+    display:flex; align-items:center; justify-content:center;
+    margin: 0 auto 6px;
+  }
+  .quickGrid__icon--accent { background: var(--accent-soft); color: var(--accent); }
+  .quickGrid__icon--ok { background: var(--ok-soft); color: var(--ok); }
+  .quickGrid__icon--warn { background: var(--warn-soft); color: #B45309; }
+  .quickGrid__item small { font-size: 11px; color: var(--text-2); display:block; }
+
+  .urgentItem {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    background: var(--danger-soft);
+    margin-bottom: 8px;
+    border-left: 3px solid var(--danger);
+  }
+  .urgentItem:last-child { margin-bottom: 0; }
+  .urgentItem .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+  .urgentItem .text { flex: 1; font-size: 13px; color: var(--text-1); }
+  .urgentItem .text small { display:block; font-size: 11px; color: var(--text-2); margin-top: 2px; }
+  .urgentItem .arrow { color: var(--text-3); }
+
+  .projCard {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px;
+    background: #fff;
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-card);
+  }
+  .projCard__cover {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #6FA0E8 0%, #1E5FBF 100%);
+    color: #fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 14px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .projCard__cover--ok { background: linear-gradient(135deg, #6EE7A1 0%, var(--ok) 100%); }
+  .projCard__cover--warn { background: linear-gradient(135deg, #FCD34D 0%, var(--warn) 100%); }
+  .projCard__main { flex: 1; min-width: 0; }
+  .projCard__name { font-size: 14px; font-weight: 600; color: var(--text-1); }
+  .projCard__meta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .projCard__stats { display: flex; gap: 10px; margin-top: 6px; }
+  .projCard__stats span { font-size: 11px; color: var(--text-2); }
+  .projCard__stats span b { color: var(--text-1); font-weight: 600; margin-right: 2px; }
+
+  /* =========================
+     屏 2 · 巡查创建
+     ========================= */
+  .progressBar {
+    height: 4px; border-radius: 2px;
+    background: #F3F4F6;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progressBar > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand), #4F8DD9);
+    border-radius: 2px;
+    transition: width .4s ease;
+  }
+
+  .formRow {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .formRow:last-child { border-bottom: none; }
+  .formRow__label { font-size: 13px; color: var(--text-2); }
+  .formRow__value { font-size: 14px; color: var(--text-1); display:flex; align-items:center; gap:6px; }
+  .formRow__value .req { color: var(--danger); }
+
+  .photoGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .photoGrid__cell {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    position: relative;
+    overflow: hidden;
+    background: #F3F4F6;
+  }
+  .photoGrid__add {
+    border: 1.5px dashed var(--border-strong);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--brand);
+    background: var(--brand-soft);
+    gap: 4px;
+    font-size: 11px;
+  }
+  .photoGrid__img {
+    background: linear-gradient(135deg, #B6CDE8, #6B8FB8);
+    display: flex; align-items: flex-end;
+    padding: 4px;
+  }
+  .photoGrid__img--2 { background: linear-gradient(135deg, #C8B89E, #7A6A56); }
+  .photoGrid__img--3 { background: linear-gradient(135deg, #A0B5B0, #5E7570); }
+  .photoGrid__tagRow {
+    display: flex; gap: 3px;
+    width: 100%;
+  }
+  .photoGrid__chip {
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .photoGrid__chip--warn { background: rgba(245,158,11,.92); }
+
+  .issueListRow {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: #FAFBFC;
+    margin-top: 8px;
+  }
+  .issueListRow__num {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    background: var(--brand);
+    color: #fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 12px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .issueListRow__num--warn { background: var(--warn); }
+  .issueListRow__title { flex: 1; font-size: 13px; color: var(--text-1); }
+  .issueListRow__tags { display: flex; gap: 4px; }
+
+  .stickyBottom {
+    position: absolute;
+    left: 0; right: 0; bottom: 64px;
+    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 40%);
+    padding: 16px;
+    display: flex; gap: 10px;
+  }
+
+  /* =========================
+     屏 3 · 待办列表
+     ========================= */
+  .segTabs {
+    display: flex;
+    gap: 6px;
+    padding: 4px;
+    background: #F3F4F6;
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+  .segTabs__item {
+    flex: 1;
+    text-align: center;
+    padding: 7px 0;
+    font-size: 12px;
+    color: var(--text-2);
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  .segTabs__item.is-active {
+    background: #fff;
+    color: var(--text-1);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(17,24,39,.06);
+  }
+  .segTabs__item .num { font-size: 10px; opacity: .7; margin-left: 2px; }
+
+  .memoGroup__title {
+    display: flex; align-items: center; gap: 6px;
+    margin: 14px 2px 8px;
+    font-size: 12px; color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .memoGroup__title .line { flex: 1; height: 1px; background: var(--border); }
+
+  .memoCard {
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .memoCard__bar { width: 3px; align-self: stretch; border-radius: 2px; background: var(--danger); flex-shrink: 0; }
+  .memoCard__bar--warn { background: var(--warn); }
+  .memoCard__bar--ok { background: var(--ok); }
+  .memoCard__bar--gray { background: var(--border-strong); }
+  .memoCard__body { flex: 1; min-width: 0; }
+  .memoCard__title { font-size: 14px; color: var(--text-1); line-height: 1.4; }
+  .memoCard__meta { display: flex; gap: 10px; margin-top: 6px; }
+  .memoCard__meta span { font-size: 11px; color: var(--text-2); display: inline-flex; gap: 3px; align-items: center; }
+  .memoCard__check {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .memoCard__check.is-done {
+    background: var(--ok);
+    border-color: var(--ok);
+    color: #fff;
+  }
+  .memoCard--done .memoCard__title {
+    color: var(--text-3);
+    text-decoration: line-through;
+  }
+  .memoCard__swipeHint {
+    font-size: 10px; color: var(--text-3); text-align: center; margin: 6px 0 12px;
+  }
+
+  /* 响应式：屏幕小时纵向排列 */
+  @media (max-width: 1280px) {
+    .deviceRow { gap: 16px; }
+  }
+  @media (max-width: 900px) {
+    .deviceRow { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pageHead">
+  <h1>工地巡查 AI · 重设计预览</h1>
+  <p>左：首页 Dashboard · 中：巡查创建 · 右：待办列表</p>
+</div>
+
+<div class="deviceRow">
+
+  <!-- ============ 屏 1：首页 Dashboard ============ -->
+  <div>
+    <div class="device">
+      <div class="device__inner">
+
+        <div class="statusBar">
+          <span>9:41</span>
+          <span class="icons"><span>📶</span><span>📡</span><span>🔋</span></span>
+        </div>
+
+        <div class="navbar">
+          <div class="left">
+            <button class="iconBtn" title="扫一扫">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8h10v8H7z"/></svg>
+            </button>
+          </div>
+          <div class="title">首页</div>
+          <div class="right">
+            <button class="iconBtn" title="消息">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="body">
+
+          <!-- Hero -->
+          <div class="heroCard">
+            <div class="heroCard__row">
+              <div class="heroCard__avatar">张</div>
+              <div>
+                <div class="heroCard__greeting">早安，今天周一 · 5 月 18 日</div>
+                <div class="heroCard__name">张工，有 3 项待跟进</div>
+              </div>
+            </div>
+            <div class="heroCard__stats">
+              <div class="heroCard__stat"><strong>12</strong><small>本周巡查</small></div>
+              <div class="heroCard__stat"><strong>28</strong><small>问题</small></div>
+              <div class="heroCard__stat"><strong>4</strong><small>报告</small></div>
+            </div>
+          </div>
+
+          <!-- 快捷入口 -->
+          <div class="quickGrid">
+            <div class="quickGrid__item">
+              <div class="quickGrid__icon quickGrid__icon--accent">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <small>快速巡查</small>
+            </div>
+            <div class="quickGrid__item">
+              <div class="quickGrid__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <small>聊天分析</small>
+            </div>
+            <div class="quickGrid__item">
+              <div class="quickGrid__icon quickGrid__icon--ok">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+              </div>
+              <small>生成报告</small>
+            </div>
+            <div class="quickGrid__item">
+              <div class="quickGrid__icon quickGrid__icon--warn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              </div>
+              <small>新增待办</small>
+            </div>
+          </div>
+
+          <!-- 紧急待跟进 -->
+          <div class="sectionHead">
+            <h3>🚨 紧急待跟进 <span class="badge badge--danger" style="margin-left:4px;">2</span></h3>
+            <a>全部</a>
+          </div>
+          <div class="card" style="padding:10px;">
+            <div class="urgentItem">
+              <div class="dot"></div>
+              <div class="text">朝阳园区 · 三楼防水未做闭水
+                <small>截止 今天 18:00 · 监理 王师傅</small>
+              </div>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="urgentItem">
+              <div class="dot"></div>
+              <div class="text">海淀工地 · 钢筋间距超规范
+                <small>截止 明天 12:00 · 已订阅提醒</small>
+              </div>
+              <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+
+          <!-- 我的项目 -->
+          <div class="sectionHead">
+            <h3>📁 我的项目</h3>
+            <a>全部 8 个 ›</a>
+          </div>
+
+          <div class="projCard">
+            <div class="projCard__cover">朝</div>
+            <div class="projCard__main">
+              <div class="projCard__name">朝阳商业园区 · A 栋</div>
+              <div class="projCard__meta">北京 朝阳区 · 甲方 中建集团</div>
+              <div class="projCard__stats">
+                <span><b>24</b>巡查</span>
+                <span><b>11</b>问题</span>
+                <span style="color:var(--text-3);">2 小时前</span>
+              </div>
+            </div>
+            <span class="badge badge--warn">待跟进</span>
+          </div>
+
+          <div class="projCard">
+            <div class="projCard__cover projCard__cover--ok">海</div>
+            <div class="projCard__main">
+              <div class="projCard__name">海淀科技园 · 主体工程</div>
+              <div class="projCard__meta">北京 海淀区 · 甲方 联想</div>
+              <div class="projCard__stats">
+                <span><b>18</b>巡查</span>
+                <span><b>6</b>问题</span>
+                <span style="color:var(--text-3);">昨天</span>
+              </div>
+            </div>
+            <span class="badge badge--ok">进行中</span>
+          </div>
+
+          <div class="projCard">
+            <div class="projCard__cover projCard__cover--warn">通</div>
+            <div class="projCard__main">
+              <div class="projCard__name">通州运河别墅区</div>
+              <div class="projCard__meta">北京 通州区 · 甲方 万科</div>
+              <div class="projCard__stats">
+                <span><b>9</b>巡查</span>
+                <span><b>3</b>问题</span>
+                <span style="color:var(--text-3);">3 天前</span>
+              </div>
+            </div>
+            <span class="badge badge--gray">暂停</span>
+          </div>
+
+        </div>
+
+        <!-- TabBar -->
+        <div class="tabbar">
+          <div class="tabbar__item is-active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>首页</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>待办</span>
+          </div>
+          <div class="tabbar__fab">
+            <button title="拍照巡查">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <span>拍照</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+            <span>报告</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+            <span>我的</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="device__label">首页 Dashboard</div>
+  </div>
+
+
+  <!-- ============ 屏 2：巡查创建 ============ -->
+  <div>
+    <div class="device">
+      <div class="device__inner">
+
+        <div class="statusBar">
+          <span>9:41</span>
+          <span class="icons"><span>📶</span><span>📡</span><span>🔋</span></span>
+        </div>
+
+        <div class="navbar">
+          <div class="left">
+            <button class="iconBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+          </div>
+          <div class="title">新建巡查</div>
+          <div class="right">
+            <a style="font-size:13px; color:var(--text-2);">草稿 ▾</a>
+          </div>
+        </div>
+
+        <div class="body" style="padding-bottom: 160px;">
+
+          <!-- 基础信息 -->
+          <div class="card" style="padding: 4px 16px;">
+            <div class="formRow">
+              <div class="formRow__label">项目 <span style="color:var(--danger);">*</span></div>
+              <div class="formRow__value">
+                朝阳商业园区 · A 栋
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-3);"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            </div>
+            <div class="formRow">
+              <div class="formRow__label">巡查标题</div>
+              <div class="formRow__value" style="color:var(--text-3);">5 月 18 日木作巡查</div>
+            </div>
+            <div class="formRow">
+              <div class="formRow__label">现场补充</div>
+              <div class="formRow__value" style="color:var(--text-3);">展开 ▾</div>
+            </div>
+          </div>
+
+          <!-- 进度概览 -->
+          <div class="card" style="background: linear-gradient(135deg, #F8FBFF 0%, #EEF4FE 100%); border: 1px solid #DCE7F8;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <div>
+                <div style="font-size: 13px; color: var(--text-2);">已采集</div>
+                <div style="font-size: 24px; font-weight: 600; color: var(--brand); margin-top: 2px;">3 <span style="font-size: 14px; color: var(--text-3); font-weight: 400;">/ 20 张</span></div>
+              </div>
+              <div style="text-align: right;">
+                <span class="badge badge--warn">⚠ 1 张待标注</span>
+              </div>
+            </div>
+            <div class="progressBar"><div style="width: 15%;"></div></div>
+          </div>
+
+          <!-- 照片网格 -->
+          <div class="sectionHead">
+            <h3>📷 问题采集</h3>
+            <a>3 / 20</a>
+          </div>
+          <div class="card" style="padding: 12px;">
+            <div class="photoGrid">
+              <div class="photoGrid__cell photoGrid__add">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>添加</span>
+              </div>
+              <div class="photoGrid__cell photoGrid__img">
+                <div class="photoGrid__tagRow">
+                  <span class="photoGrid__chip">●2</span>
+                  <span class="photoGrid__chip">🎤</span>
+                </div>
+              </div>
+              <div class="photoGrid__cell photoGrid__img photoGrid__img--2">
+                <div class="photoGrid__tagRow">
+                  <span class="photoGrid__chip">●3</span>
+                </div>
+              </div>
+              <div class="photoGrid__cell photoGrid__img photoGrid__img--3">
+                <div class="photoGrid__tagRow">
+                  <span class="photoGrid__chip photoGrid__chip--warn">待标注</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 问题列表 -->
+            <div class="issueListRow">
+              <div class="issueListRow__num">1</div>
+              <div class="issueListRow__title">三楼厨房橱柜面板划痕</div>
+              <div class="issueListRow__tags">
+                <span class="badge badge--ok">标注 2</span>
+                <span class="badge badge--brand">语音</span>
+              </div>
+            </div>
+            <div class="issueListRow">
+              <div class="issueListRow__num">2</div>
+              <div class="issueListRow__title">客厅木地板接缝过大</div>
+              <div class="issueListRow__tags">
+                <span class="badge badge--ok">标注 3</span>
+              </div>
+            </div>
+            <div class="issueListRow">
+              <div class="issueListRow__num issueListRow__num--warn">3</div>
+              <div class="issueListRow__title" style="color:var(--text-2);">未命名问题</div>
+              <div class="issueListRow__tags">
+                <span class="badge badge--warn">待标注</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 录音浮提示 -->
+          <div style="text-align:center; padding: 8px 0; font-size: 11px; color: var(--text-3);">
+            长按下方录音按钮快速口述
+          </div>
+
+        </div>
+
+        <!-- 固定底部 -->
+        <div class="stickyBottom">
+          <button class="btn btn--ghost" style="flex: 0 0 44px; width: 44px; padding: 0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 1v22M5 8l7-7 7 7"/></svg>
+          </button>
+          <button class="btn btn--ghost" style="flex: 0 0 44px; width: 44px; padding: 0; background: var(--accent-soft); color: var(--accent);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+          </button>
+          <button class="btn btn--primary btn--block">开始 AI 分析</button>
+        </div>
+
+        <!-- TabBar -->
+        <div class="tabbar">
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span>首页</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>待办</span>
+          </div>
+          <div class="tabbar__fab">
+            <button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <span>拍照</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>报告</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+            <span>我的</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="device__label">巡查创建</div>
+  </div>
+
+
+  <!-- ============ 屏 3：待办列表 ============ -->
+  <div>
+    <div class="device">
+      <div class="device__inner">
+
+        <div class="statusBar">
+          <span>9:41</span>
+          <span class="icons"><span>📶</span><span>📡</span><span>🔋</span></span>
+        </div>
+
+        <div class="navbar">
+          <div class="left"></div>
+          <div class="title">待办</div>
+          <div class="right">
+            <button class="iconBtn" title="搜索">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+            <button class="iconBtn" style="color:var(--brand);" title="新增">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="22" height="22"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="body">
+
+          <!-- 分段控件 -->
+          <div class="segTabs">
+            <div class="segTabs__item is-active">紧急<span class="num">2</span></div>
+            <div class="segTabs__item">今日<span class="num">5</span></div>
+            <div class="segTabs__item">本周<span class="num">8</span></div>
+            <div class="segTabs__item">已完成</div>
+          </div>
+
+          <!-- 紧急组 -->
+          <div class="memoGroup__title">
+            <span>紧急 · 今天截止</span>
+            <span class="line"></span>
+          </div>
+
+          <div class="memoCard">
+            <div class="memoCard__bar"></div>
+            <div class="memoCard__body">
+              <div class="memoCard__title">朝阳园区三楼防水未做闭水试验</div>
+              <div class="memoCard__meta">
+                <span>⏰ 今天 18:00</span>
+                <span>📂 朝阳商业园区</span>
+                <span style="color: var(--danger);">🔔 已订阅</span>
+              </div>
+            </div>
+            <div class="memoCard__check"></div>
+          </div>
+
+          <div class="memoCard">
+            <div class="memoCard__bar"></div>
+            <div class="memoCard__body">
+              <div class="memoCard__title">海淀工地钢筋间距超规范，需返工</div>
+              <div class="memoCard__meta">
+                <span>⏰ 今天 20:00</span>
+                <span>📂 海淀科技园</span>
+              </div>
+            </div>
+            <div class="memoCard__check"></div>
+          </div>
+
+          <div class="memoCard__swipeHint">← 左滑显示更多操作</div>
+
+          <!-- 待跟进组 -->
+          <div class="memoGroup__title">
+            <span>待跟进 · 本周内</span>
+            <span class="line"></span>
+          </div>
+
+          <div class="memoCard">
+            <div class="memoCard__bar memoCard__bar--warn"></div>
+            <div class="memoCard__body">
+              <div class="memoCard__title">通州别墅区水电点位与图纸对接</div>
+              <div class="memoCard__meta">
+                <span>⏰ 周三 14:00</span>
+                <span>📂 通州运河别墅区</span>
+              </div>
+            </div>
+            <div class="memoCard__check"></div>
+          </div>
+
+          <div class="memoCard">
+            <div class="memoCard__bar memoCard__bar--warn"></div>
+            <div class="memoCard__body">
+              <div class="memoCard__title">向客户提交本周巡查总结报告</div>
+              <div class="memoCard__meta">
+                <span>⏰ 周五 18:00</span>
+                <span>📂 朝阳商业园区</span>
+              </div>
+            </div>
+            <div class="memoCard__check"></div>
+          </div>
+
+          <div class="memoCard">
+            <div class="memoCard__bar memoCard__bar--ok"></div>
+            <div class="memoCard__body">
+              <div class="memoCard__title">补充材料进场清单</div>
+              <div class="memoCard__meta">
+                <span>⏰ 下周一</span>
+                <span>📂 海淀科技园</span>
+              </div>
+            </div>
+            <div class="memoCard__check"></div>
+          </div>
+
+          <!-- 已完成 -->
+          <div class="memoGroup__title">
+            <span>已完成</span>
+            <span class="line"></span>
+          </div>
+
+          <div class="memoCard memoCard--done">
+            <div class="memoCard__bar memoCard__bar--gray"></div>
+            <div class="memoCard__body">
+              <div class="memoCard__title">复核外墙保温施工质量</div>
+              <div class="memoCard__meta">
+                <span>✓ 昨天完成</span>
+              </div>
+            </div>
+            <div class="memoCard__check is-done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- TabBar -->
+        <div class="tabbar">
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span>首页</span>
+          </div>
+          <div class="tabbar__item is-active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>待办</span>
+          </div>
+          <div class="tabbar__fab">
+            <button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <span>拍照</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>报告</span>
+          </div>
+          <div class="tabbar__item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+            <span>我的</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="device__label">待办列表</div>
+  </div>
+
+</div>
+
+</body>
+</html>

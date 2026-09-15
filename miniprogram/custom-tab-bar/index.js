@@ -96,14 +96,6 @@ Component({
         return;
       }
 
-      if (pagePath === "pages/memo/list/index") {
-        wx.setStorageSync("pendingMemoContext", {
-          projectId: "",
-          projectName: "",
-          scope: "all"
-        });
-      }
-
       wx.switchTab({
         url: `/${pagePath}`
       });
@@ -116,11 +108,6 @@ Component({
         pagePath: "pages/project/list/index",
         text: "项目",
         iconName: "project"
-      },
-      {
-        pagePath: "pages/memo/list/index",
-        text: "待办",
-        iconName: "memo"
       },
       {
         pagePath: "action:take_photo",

@@ -1,7 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "voice-recorder": "/components/voice-recorder/index",
-    "page-nav-bar": "/components/page-nav-bar/index"
-  }
-}

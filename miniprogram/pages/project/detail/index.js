@@ -9,20 +9,14 @@ Page({
     project: {},
     recentInspectionExpanded: false,
     recentReportExpanded: false,
-    recentChatExpanded: false,
     workspaceStats: {
       inspections: 0,
-      reports: 0,
-      pendingMemos: 0,
-      chats: 0
+      reports: 0
     },
     inspections: [],
     reports: [],
     latestInspection: null,
     latestReport: null,
-    latestChat: null,
-    memos: [],
-    chatAnalysis: [],
     coachTipVisible: false,
     coachTipTitle: "",
     coachTipArrow: "",
@@ -100,14 +94,9 @@ Page({
           ...(result.reports || [])[0],
           generatedAtDisplay: formatDateTime((result.reports || [])[0].generatedAt || (result.reports || [])[0].createdAt) || "待生成"
         } : null,
-        latestChat: (result.chatAnalysis || []).length ? (result.chatAnalysis || [])[0] : null,
-        memos: result.memos || [],
-        chatAnalysis: result.chatAnalysis || [],
         workspaceStats: {
           inspections: (result.inspections || []).length,
-          reports: (result.reports || []).length,
-          pendingMemos: (result.memos || []).filter((item) => !["completed", "closed"].includes(item.status || "pending")).length,
-          chats: (result.chatAnalysis || []).length
+          reports: (result.reports || []).length
         }
       });
     } catch (error) {
@@ -137,21 +126,6 @@ Page({
       url: `/pages/inspection/create/index?returnContext=${returnContext}`
     });
   },
-  goChatAnalysis() {
-    wx.navigateTo({
-      url: `/pages/chat-analysis/index?projectId=${this.data.projectId}`
-    });
-  },
-  goMemoForm() {
-    wx.navigateTo({
-      url: `/pages/memo/form/index?projectId=${this.data.projectId}`
-    });
-  },
-  goMemoList() {
-    wx.navigateTo({
-      url: `/pages/memo/project/index?projectId=${this.data.projectId}&projectName=${encodeURIComponent(this.data.project.name || "")}`
-    });
-  },
   goGallery() {
     wx.navigateTo({
       url: `/pages/project/gallery/index?projectId=${this.data.projectId}`
@@ -163,8 +137,14 @@ Page({
     });
   },
   goReportList() {
+    // 统一走报告列表页（它已支持按项目筛选），不再维护一份重复的项目报告页
+    wx.setStorageSync("pendingReportContext", {
+      projectId: this.data.projectId,
+      projectName: this.data.project.name || "",
+      source: "projectDetail"
+    });
     wx.navigateTo({
-      url: `/pages/report/project/index?projectId=${this.data.projectId}&projectName=${encodeURIComponent(this.data.project.name || "")}`
+      url: "/pages/report/list/index"
     });
   },
   toggleRecentInspection() {
@@ -175,11 +155,6 @@ Page({
   toggleRecentReport() {
     this.setData({
       recentReportExpanded: !this.data.recentReportExpanded
-    });
-  },
-  toggleRecentChat() {
-    this.setData({
-      recentChatExpanded: !this.data.recentChatExpanded
     });
   },
   openInspection(event) {
@@ -202,14 +177,6 @@ Page({
     });
     wx.navigateTo({
       url: `/pages/report/detail/index?reportId=${reportId}&returnContext=${returnContext}`
-    });
-  },
-  openLatestChat() {
-    const latest = (this.data.chatAnalysis || [])[0];
-    wx.navigateTo({
-      url: latest && latest._id
-        ? `/pages/chat-analysis/index?projectId=${this.data.projectId}&analysisId=${latest._id}`
-        : `/pages/chat-analysis/index?projectId=${this.data.projectId}`
     });
   }
 });

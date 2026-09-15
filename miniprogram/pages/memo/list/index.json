@@ -1,8 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "empty-state": "/components/empty-state/index",
-    "app-tab-bar": "/custom-tab-bar/index",
-    "page-nav-bar": "/components/page-nav-bar/index"
-  }
-}

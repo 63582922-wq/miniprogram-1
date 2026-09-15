@@ -19,14 +19,6 @@
         <view class="workspace-stats__value">{{workspaceStats.reports}}</view>
         <view class="workspace-stats__label">报告</view>
       </view>
-      <view class="workspace-stats__item">
-        <view class="workspace-stats__value">{{workspaceStats.chats}}</view>
-        <view class="workspace-stats__label">聊天整理</view>
-      </view>
-      <view class="workspace-stats__item">
-        <view class="workspace-stats__value">{{workspaceStats.pendingMemos}}</view>
-        <view class="workspace-stats__label">待办</view>
-      </view>
     </view>
     <view class="project-detail__action-button {{coachHighlightInspection ? 'coach-highlight' : ''}}" bindtap="goInspectionCreate">快速巡查</view>
   </view>
@@ -56,18 +48,6 @@
         <image class="shortcut-item__icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" />
         <view class="shortcut-item__title">项目相册</view>
         <view class="shortcut-item__meta">图片与标注资料</view>
-        <image class="shortcut-item__arrow" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" />
-      </view>
-      <view class="shortcut-item" bindtap="goChatAnalysis">
-        <image class="shortcut-item__icon" src="/images/icons/icon-chat.svg" mode="aspectFit" />
-        <view class="shortcut-item__title">聊天整理</view>
-        <view class="shortcut-item__meta">{{workspaceStats.chats}} 条整理结果</view>
-        <image class="shortcut-item__arrow" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" />
-      </view>
-      <view class="shortcut-item" bindtap="goMemoList">
-        <image class="shortcut-item__icon" src="/images/icons/icon-memo.svg" mode="aspectFit" />
-        <view class="shortcut-item__title">项目待办</view>
-        <view class="shortcut-item__meta">{{workspaceStats.pendingMemos}} 条待处理</view>
         <image class="shortcut-item__arrow" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" />
       </view>
     </view>
@@ -108,22 +88,6 @@
     </view>
     <view wx:elif="{{reports.length}}" class="empty-hint">已折叠，仅显示最近 1 条</view>
     <view wx:else class="empty-hint">暂无报告</view>
-  </view>
-
-  <view class="card workspace-card">
-    <view class="workspace-card__header workspace-card__header--compact">
-      <view class="section-title">聊天整理</view>
-      <view class="workspace-card__actions">
-        <view class="workspace-card__link" bindtap="toggleRecentChat">{{recentChatExpanded ? '收起' : '展开'}}</view>
-        <view class="workspace-card__link" bindtap="goChatAnalysis">查看全部</view>
-      </view>
-    </view>
-    <view wx:if="{{recentChatExpanded && latestChat}}" class="detail-row" bindtap="openLatestChat">
-      <view class="detail-row__title">{{latestChat.analysisSummary || '查看最近一次聊天整理结果'}}</view>
-      <view class="detail-row__desc">最近整理结果</view>
-    </view>
-    <view wx:elif="{{chatAnalysis.length}}" class="empty-hint">已折叠，仅显示最近 1 条</view>
-    <view wx:else class="empty-hint">暂无聊天记录</view>
   </view>
 
 </view>

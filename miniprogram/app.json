@@ -3,13 +3,10 @@
     "pages/project/list/index",
     "pages/onboarding/index",
     "pages/legal/index",
-    "pages/memo/list/index",
     "pages/inspection/create/index",
     "pages/profile/index",
     "pages/project/form/index",
     "pages/project/detail/index",
-    "pages/memo/project/index",
-    "pages/report/project/index",
     "pages/project/gallery/index",
     "pages/inspection/list/index",
     "pages/inspection/annotate/index",
@@ -17,15 +14,13 @@
     "pages/inspection/detail/index",
     "pages/report/detail/index",
     "pages/report/list/index",
-    "pages/chat-analysis/index",
-    "pages/memo/form/index",
     "pages/settings/index"
   ],
   "window": {
     "backgroundColor": "#F5F5F5",
     "backgroundTextStyle": "dark",
     "navigationBarBackgroundColor": "#FFFFFF",
-    "navigationBarTitleText": "工地巡查AI工具",
+    "navigationBarTitleText": "毫厘智管",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
@@ -40,12 +35,6 @@
         "text": "项目",
         "iconPath": "images/icons/business.png",
         "selectedIconPath": "images/icons/business-active.png"
-      },
-      {
-        "pagePath": "pages/memo/list/index",
-        "text": "待办",
-        "iconPath": "images/icons/goods.png",
-        "selectedIconPath": "images/icons/goods-active.png"
       },
       {
         "pagePath": "pages/report/list/index",

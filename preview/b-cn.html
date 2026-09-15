@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>方案 B · Industrial 中文版 · 三屏预览</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #111;
+    color: #EEE;
+    font-family: 'Inter', -apple-system, 'PingFang SC', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 20px 80px;
+  }
+  .head {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .head .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #FFD200;
+    margin-bottom: 10px;
+  }
+  .head h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -.5px;
+  }
+  .head p { color: #666; font-size: 13px; margin-top: 6px; }
+
+  .phones {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .phoneWrap { display: flex; flex-direction: column; align-items: center; }
+  .phoneLabel {
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #666;
+    text-transform: uppercase;
+  }
+
+  .phone {
+    width: 375px;
+    height: 780px;
+    border-radius: 44px;
+    padding: 10px;
+    background: #222;
+    box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  }
+  .screen {
+    width: 100%; height: 100%;
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: #0E0F11;
+    color: #ECEDF0;
+    font-size: 13px;
+  }
+  .notch {
+    position: absolute;
+    top: 10px; left: 50%;
+    transform: translateX(-50%);
+    width: 100px; height: 28px;
+    background: #000;
+    border-radius: 16px;
+    z-index: 100;
+  }
+
+  /* ===== 通用 ===== */
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  .statusbar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: 1px;
+  }
+  .statusbar .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #FFD200;
+  }
+  .statusbar .live::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #FFD200;
+    box-shadow: 0 0 6px #FFD200;
+  }
+
+  .navbar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid #23262E;
+  }
+  .navbar__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ECEDF0;
+  }
+  .navbar__left, .navbar__right {
+    display: flex; align-items: center; gap: 12px;
+    color: #6B6F78;
+  }
+  .navbar__btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #FFD200;
+    letter-spacing: 1px;
+    border: 1px solid #FFD200;
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 20px 100px;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  .panel {
+    background: #16181D;
+    border: 1px solid #23262E;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .panel__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid #23262E;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    letter-spacing: 1.5px;
+  }
+  .panel__head .badge {
+    padding: 2px 6px;
+    font-size: 9px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+  }
+  .panel__head .badge--yellow { color: #FFD200; border: 1px solid #FFD200; }
+  .panel__head .badge--red { color: #FF5500; border: 1px solid #FF5500; }
+  .panel__head .badge--green { color: #00E676; border: 1px solid #00E676; }
+
+  .panel--alert { border-left: 2px solid #FF5500; background: linear-gradient(90deg, rgba(255,85,0,.06) 0%, transparent 100%); }
+  .panel--alert .panel__head { color: #FF5500; }
+
+  /* ===== TabBar ===== */
+  .tabbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 72px;
+    background: #16181D;
+    border-top: 1px solid #23262E;
+    display: flex;
+    align-items: stretch;
+    padding-bottom: 14px;
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #6B6F78;
+    font-size: 10px;
+    position: relative;
+  }
+  .tab.on { color: #FFD200; }
+  .tab.on::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 20px; height: 2px;
+    background: #FFD200;
+  }
+  .tab svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .tabfab {
+    flex: 1.2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .tabfab button {
+    width: 52px; height: 52px;
+    background: #FFD200;
+    border: none;
+    border-radius: 4px;
+    color: #0E0F11;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 14px rgba(255,210,0,.28);
+    margin-top: -8px;
+  }
+  .tabfab button svg { width: 22px; height: 22px; stroke: #0E0F11; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tabfab span { position: absolute; bottom: 6px; font-size: 10px; color: #FFD200; }
+
+  /* ===== 首页专属 ===== */
+  .brandRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 20px 0 24px;
+    border-bottom: 1px solid #23262E;
+  }
+  .brandRow__left .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #6B6F78;
+    letter-spacing: 2px;
+  }
+  .brandRow__left .name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ECEDF0;
+    margin-top: 4px;
+  }
+  .brandRow__right {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    text-align: right;
+    letter-spacing: .5px;
+  }
+  .brandRow__right b { display: block; color: #ECEDF0; font-size: 11px; margin-top: 3px; }
+
+  .statsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 18px 14px;
+  }
+  .statsGrid__cell { text-align: left; }
+  .statsGrid__cell + .statsGrid__cell { border-left: 1px solid #23262E; padding-left: 14px; }
+  .statsGrid__num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 30px;
+    line-height: 1;
+    color: #ECEDF0;
+    letter-spacing: -1px;
+  }
+  .statsGrid__num.yellow { color: #FFD200; }
+  .statsGrid__label {
+    font-size: 11px;
+    color: #6B6F78;
+    margin-top: 6px;
+  }
+  .statsGrid__trend {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    margin-top: 4px;
+  }
+  .statsGrid__trend.up { color: #FFD200; }
+
+  .alertRow {
+    padding: 12px 14px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    border-top: 1px solid #1E2028;
+  }
+  .alertRow:first-of-type { border-top: none; }
+  .alertRow__id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    min-width: 28px;
+  }
+  .alertRow__body { flex: 1; }
+  .alertRow__title { font-size: 13px; color: #ECEDF0; font-weight: 500; }
+  .alertRow__meta { font-size: 11px; color: #6B6F78; margin-top: 3px; }
+  .alertRow__due {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #FF5500;
+    text-align: right;
+  }
+  .alertRow__due b { display: block; font-size: 14px; margin-top: 2px; }
+
+  .secHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 20px 0 10px;
+    font-size: 11px;
+    color: #6B6F78;
+  }
+  .secHead .count { font-family: 'JetBrains Mono', monospace; color: #ECEDF0; font-size: 10px; }
+
+  .projRow {
+    background: #16181D;
+    border: 1px solid #23262E;
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .projRow__id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #6B6F78;
+    border-right: 1px solid #23262E;
+    padding-right: 12px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+  }
+  .projRow__main { flex: 1; min-width: 0; }
+  .projRow__name { font-size: 14px; font-weight: 500; color: #ECEDF0; margin-bottom: 4px; }
+  .projRow__meta {
+    display: flex; gap: 10px;
+    font-size: 11px; color: #6B6F78;
+  }
+  .projRow__meta b { color: #ECEDF0; margin-right: 2px; }
+  .projRow__state .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 3px 6px;
+    border-radius: 2px;
+  }
+  .badge--urgent { background: #FF5500; color: #0E0F11; }
+  .badge--active { background: #FFD200; color: #0E0F11; }
+  .badge--idle { background: #23262E; color: #6B6F78; }
+
+  /* ===== 巡查创建专属 ===== */
+  .formPanel { padding: 0; }
+  .formRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 14px;
+    border-bottom: 1px solid #23262E;
+  }
+  .formRow:last-child { border-bottom: none; }
+  .formRow__label { font-size: 12px; color: #6B6F78; }
+  .formRow__value { font-size: 13px; color: #ECEDF0; display: flex; align-items: center; gap: 6px; }
+  .formRow__value .arrow { color: #6B6F78; }
+
+  .progressPanel { padding: 14px; }
+  .progressPanel__row { display: flex; justify-content: space-between; align-items: baseline; }
+  .progressPanel__big {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    color: #FFD200;
+  }
+  .progressPanel__big span { font-size: 14px; color: #6B6F78; }
+  .progressPanel__warn {
+    font-size: 11px;
+    color: #FF5500;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .progressBar {
+    height: 3px;
+    background: #23262E;
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .progressBar > div {
+    height: 100%;
+    background: #FFD200;
+    border-radius: 2px;
+  }
+
+  .photoGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 14px;
+  }
+  .photoGrid__cell {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .photoGrid__add {
+    border: 1px dashed #3A3F4A;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #FFD200;
+    gap: 4px;
+    font-size: 10px;
+    background: rgba(255,210,0,.04);
+  }
+  .photoGrid__add svg { width: 20px; height: 20px; stroke: #FFD200; fill: none; stroke-width: 1.5; }
+  .photoGrid__img {
+    background: linear-gradient(135deg, #2A3040, #1A1E28);
+    display: flex;
+    align-items: flex-end;
+    padding: 4px;
+  }
+  .photoGrid__img--2 { background: linear-gradient(135deg, #302A22, #1C1810); }
+  .photoGrid__img--3 { background: linear-gradient(135deg, #222E2A, #141C18); }
+  .photoGrid__chips { display: flex; gap: 3px; }
+  .photoGrid__chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    background: rgba(0,0,0,.7);
+    color: #ECEDF0;
+    letter-spacing: .5px;
+  }
+  .photoGrid__chip--warn { background: #FF5500; color: #0E0F11; }
+
+  .issueRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-top: 1px solid #23262E;
+  }
+  .issueRow__num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #0E0F11;
+    background: #FFD200;
+    width: 20px; height: 20px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .issueRow__num--warn { background: #FF5500; }
+  .issueRow__title { flex: 1; font-size: 12px; color: #ECEDF0; }
+  .issueRow__tags { display: flex; gap: 4px; }
+  .issueRow__tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #6B6F78;
+    border: 1px solid #23262E;
+    padding: 2px 5px;
+    border-radius: 2px;
+    letter-spacing: .5px;
+  }
+  .issueRow__tag--ok { color: #00E676; border-color: #00E676; }
+  .issueRow__tag--warn { color: #FF5500; border-color: #FF5500; }
+
+  .stickyBot {
+    position: absolute;
+    left: 0; right: 0; bottom: 72px;
+    padding: 12px 20px;
+    background: linear-gradient(180deg, transparent, #0E0F11 40%);
+    display: flex;
+    gap: 8px;
+  }
+  .stickyBot .btn {
+    height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    gap: 6px;
+  }
+  .stickyBot .btn--main {
+    flex: 1;
+    background: #FFD200;
+    color: #0E0F11;
+    box-shadow: 0 4px 12px rgba(255,210,0,.25);
+  }
+  .stickyBot .btn--ghost {
+    width: 44px;
+    background: #23262E;
+    color: #ECEDF0;
+  }
+  .stickyBot .btn--ghost svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+  .stickyBot .btn--mic { color: #FF5500; background: rgba(255,85,0,.12); border: 1px solid rgba(255,85,0,.3); }
+
+  /* ===== 待办专属 ===== */
+  .segBar {
+    display: flex;
+    gap: 0;
+    background: #16181D;
+    border: 1px solid #23262E;
+    border-radius: 4px;
+    margin: 16px 0 14px;
+    overflow: hidden;
+  }
+  .segBar__item {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 11px;
+    color: #6B6F78;
+    border-right: 1px solid #23262E;
+    position: relative;
+  }
+  .segBar__item:last-child { border-right: none; }
+  .segBar__item.on {
+    color: #FFD200;
+    background: rgba(255,210,0,.06);
+  }
+  .segBar__item.on::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: #FFD200;
+  }
+  .segBar__item .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    margin-left: 3px;
+    opacity: .7;
+  }
+
+  .memoSec {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 18px 0 8px;
+    font-size: 11px;
+    color: #6B6F78;
+  }
+  .memoSec .line { flex: 1; height: 1px; background: #23262E; }
+  .memoSec .dot { width: 4px; height: 4px; border-radius: 50%; }
+  .memoSec .dot--red { background: #FF5500; }
+  .memoSec .dot--yellow { background: #FFD200; }
+  .memoSec .dot--green { background: #00E676; }
+
+  .memoCard {
+    background: #16181D;
+    border: 1px solid #23262E;
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .memoCard__bar { width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
+  .memoCard__bar--red { background: #FF5500; }
+  .memoCard__bar--yellow { background: #FFD200; }
+  .memoCard__bar--green { background: #00E676; }
+  .memoCard__bar--gray { background: #3A3F4A; }
+  .memoCard__body { flex: 1; min-width: 0; }
+  .memoCard__title { font-size: 13px; color: #ECEDF0; line-height: 1.4; font-weight: 400; }
+  .memoCard__meta {
+    margin-top: 6px;
+    display: flex; gap: 12px;
+    font-size: 11px;
+    color: #6B6F78;
+  }
+  .memoCard__meta .red { color: #FF5500; }
+  .memoCard__check {
+    width: 24px; height: 24px;
+    border: 1.5px solid #3A3F4A;
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+  .memoCard__check.done {
+    background: #00E676;
+    border-color: #00E676;
+    color: #0E0F11;
+  }
+  .memoCard__check svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+  .memoCard--done .memoCard__title { color: #6B6F78; text-decoration: line-through; }
+
+  .swipeHint {
+    text-align: center;
+    font-size: 10px;
+    color: #3A3F4A;
+    margin: 4px 0 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  @media (max-width: 900px) {
+    .phones { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <div class="head">
+    <div class="kicker">DIRECTION B · INDUSTRIAL · CHINESE</div>
+    <h1>方案 B 工程仪表风 · 全中文版</h1>
+    <p>首页 Dashboard / 巡查创建 / 待办列表</p>
+  </div>
+
+  <div class="phones">
+
+    <!-- ========== 屏 1：首页 ========== -->
+    <div class="phoneWrap">
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+
+          <div class="statusbar">
+            <span>09:41</span>
+            <span class="live">系统在线</span>
+          </div>
+
+          <div class="scroll">
+
+            <div class="brandRow">
+              <div class="brandRow__left">
+                <div class="label">FIELD INSPECTOR</div>
+                <div class="name">张工 · 建筑监理</div>
+              </div>
+              <div class="brandRow__right">
+                2026.05.18 周一<b>第 21 周 · 第 138 天</b>
+              </div>
+            </div>
+
+            <!-- 数据面板 -->
+            <div class="panel" style="margin-top:14px;">
+              <div class="panel__head">
+                <span>本周概览</span>
+                <span class="badge badge--yellow">实时</span>
+              </div>
+              <div class="statsGrid">
+                <div class="statsGrid__cell">
+                  <div class="statsGrid__num">12</div>
+                  <div class="statsGrid__label">巡查次数</div>
+                  <div class="statsGrid__trend up">+3 较上周</div>
+                </div>
+                <div class="statsGrid__cell">
+                  <div class="statsGrid__num">28</div>
+                  <div class="statsGrid__label">发现问题</div>
+                  <div class="statsGrid__trend up">+8 较上周</div>
+                </div>
+                <div class="statsGrid__cell">
+                  <div class="statsGrid__num yellow">4</div>
+                  <div class="statsGrid__label">生成报告</div>
+                  <div class="statsGrid__trend up">+1 较上周</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 紧急 -->
+            <div class="panel panel--alert">
+              <div class="panel__head">
+                <span>紧急待处理</span>
+                <span class="badge badge--red">02</span>
+              </div>
+              <div class="alertRow">
+                <div class="alertRow__id">#01</div>
+                <div class="alertRow__body">
+                  <div class="alertRow__title">三楼防水未做闭水试验</div>
+                  <div class="alertRow__meta">朝阳园区 A 栋 · 监理 王师傅</div>
+                </div>
+                <div class="alertRow__due">截止<b>18:00</b></div>
+              </div>
+              <div class="alertRow">
+                <div class="alertRow__id">#02</div>
+                <div class="alertRow__body">
+                  <div class="alertRow__title">钢筋间距超出规范，需返工</div>
+                  <div class="alertRow__meta">海淀科技园 · 主体工程</div>
+                </div>
+                <div class="alertRow__due">截止<b>20:00</b></div>
+              </div>
+            </div>
+
+            <!-- 项目列表 -->
+            <div class="secHead">
+              <span>进行中项目</span>
+              <span class="count">08 / 12</span>
+            </div>
+
+            <div class="projRow">
+              <div class="projRow__id">#01</div>
+              <div class="projRow__main">
+                <div class="projRow__name">朝阳商业园区 · A 栋</div>
+                <div class="projRow__meta">
+                  <span><b>24</b> 巡查</span>
+                  <span><b>11</b> 问题</span>
+                  <span>2 小时前</span>
+                </div>
+              </div>
+              <div class="projRow__state"><span class="badge badge--urgent">待跟进</span></div>
+            </div>
+
+            <div class="projRow">
+              <div class="projRow__id">#02</div>
+              <div class="projRow__main">
+                <div class="projRow__name">海淀科技园 · 主体工程</div>
+                <div class="projRow__meta">
+                  <span><b>18</b> 巡查</span>
+                  <span><b>6</b> 问题</span>
+                  <span>昨天</span>
+                </div>
+              </div>
+              <div class="projRow__state"><span class="badge badge--active">进行中</span></div>
+            </div>
+
+            <div class="projRow">
+              <div class="projRow__id">#03</div>
+              <div class="projRow__main">
+                <div class="projRow__name">通州运河别墅区</div>
+                <div class="projRow__meta">
+                  <span><b>9</b> 巡查</span>
+                  <span><b>3</b> 问题</span>
+                  <span>3 天前</span>
+                </div>
+              </div>
+              <div class="projRow__state"><span class="badge badge--idle">已暂停</span></div>
+            </div>
+
+          </div>
+
+          <div class="tabbar">
+            <div class="tab on">
+              <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span>首页</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>待办</span>
+            </div>
+            <div class="tabfab">
+              <button><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="4"/><path d="M3 7h4l2-3h6l2 3h4v13H3z"/></svg></button>
+              <span>拍照</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>报告</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+              <span>我的</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="phoneLabel">01 · 首页</div>
+    </div>
+
+
+    <!-- ========== 屏 2：巡查创建 ========== -->
+    <div class="phoneWrap">
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+
+          <div class="statusbar">
+            <span>09:43</span>
+            <span class="live">系统在线</span>
+          </div>
+
+          <div class="navbar">
+            <div class="navbar__left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B6F78" stroke-width="1.5"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="navbar__title">新建巡查</div>
+            <div class="navbar__right">
+              <span class="navbar__btn">草稿</span>
+            </div>
+          </div>
+
+          <div class="scroll" style="padding-bottom: 160px;">
+
+            <!-- 基础信息 -->
+            <div class="panel formPanel" style="margin-top: 14px;">
+              <div class="formRow">
+                <div class="formRow__label">所属项目 *</div>
+                <div class="formRow__value">朝阳园区 · A 栋 <span class="arrow" style="color:#6B6F78;">›</span></div>
+              </div>
+              <div class="formRow">
+                <div class="formRow__label">巡查标题</div>
+                <div class="formRow__value" style="color:#6B6F78;">5月18日 木作巡查</div>
+              </div>
+              <div class="formRow">
+                <div class="formRow__label">现场补充</div>
+                <div class="formRow__value" style="color:#6B6F78;">选填 · 点击展开 ›</div>
+              </div>
+            </div>
+
+            <!-- 进度 -->
+            <div class="panel">
+              <div class="progressPanel">
+                <div class="progressPanel__row">
+                  <div class="progressPanel__big">3 <span>/ 20 张</span></div>
+                  <div class="progressPanel__warn">1 张待标注</div>
+                </div>
+                <div class="progressBar"><div style="width: 15%;"></div></div>
+              </div>
+            </div>
+
+            <!-- 照片网格 -->
+            <div class="panel">
+              <div class="panel__head">
+                <span>问题采集</span>
+                <span class="badge badge--yellow">03</span>
+              </div>
+              <div class="photoGrid">
+                <div class="photoGrid__cell photoGrid__add">
+                  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>添加</span>
+                </div>
+                <div class="photoGrid__cell photoGrid__img">
+                  <div class="photoGrid__chips">
+                    <span class="photoGrid__chip">标注 2</span>
+                    <span class="photoGrid__chip">语音</span>
+                  </div>
+                </div>
+                <div class="photoGrid__cell photoGrid__img photoGrid__img--2">
+                  <div class="photoGrid__chips">
+                    <span class="photoGrid__chip">标注 3</span>
+                  </div>
+                </div>
+                <div class="photoGrid__cell photoGrid__img photoGrid__img--3">
+                  <div class="photoGrid__chips">
+                    <span class="photoGrid__chip photoGrid__chip--warn">待标注</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 问题列表 -->
+              <div class="issueRow">
+                <div class="issueRow__num">1</div>
+                <div class="issueRow__title">三楼厨房橱柜面板划痕</div>
+                <div class="issueRow__tags">
+                  <span class="issueRow__tag issueRow__tag--ok">标注 2</span>
+                  <span class="issueRow__tag">语音</span>
+                </div>
+              </div>
+              <div class="issueRow">
+                <div class="issueRow__num">2</div>
+                <div class="issueRow__title">客厅木地板接缝过大</div>
+                <div class="issueRow__tags">
+                  <span class="issueRow__tag issueRow__tag--ok">标注 3</span>
+                </div>
+              </div>
+              <div class="issueRow">
+                <div class="issueRow__num issueRow__num--warn">3</div>
+                <div class="issueRow__title" style="color:#6B6F78;">未命名问题</div>
+                <div class="issueRow__tags">
+                  <span class="issueRow__tag issueRow__tag--warn">待标注</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 底部固定 -->
+          <div class="stickyBot">
+            <button class="btn btn--ghost">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </button>
+            <button class="btn btn--ghost btn--mic">
+              <svg viewBox="0 0 24 24" style="stroke:#FF5500;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+            </button>
+            <button class="btn btn--main">开始 AI 分析</button>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              <span>首页</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>待办</span>
+            </div>
+            <div class="tabfab">
+              <button><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="4"/><path d="M3 7h4l2-3h6l2 3h4v13H3z"/></svg></button>
+              <span>拍照</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>报告</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+              <span>我的</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="phoneLabel">02 · 巡查创建</div>
+    </div>
+
+
+    <!-- ========== 屏 3：待办列表 ========== -->
+    <div class="phoneWrap">
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+
+          <div class="statusbar">
+            <span>09:41</span>
+            <span class="live">系统在线</span>
+          </div>
+
+          <div class="navbar">
+            <div class="navbar__left"></div>
+            <div class="navbar__title">待办</div>
+            <div class="navbar__right">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B6F78" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span class="navbar__btn">新增</span>
+            </div>
+          </div>
+
+          <div class="scroll">
+
+            <!-- 分段控件 -->
+            <div class="segBar">
+              <div class="segBar__item on">紧急<span class="num">2</span></div>
+              <div class="segBar__item">今日<span class="num">5</span></div>
+              <div class="segBar__item">本周<span class="num">8</span></div>
+              <div class="segBar__item">已完成</div>
+            </div>
+
+            <!-- 紧急组 -->
+            <div class="memoSec">
+              <span class="dot dot--red"></span>
+              <span>紧急 · 今日截止</span>
+              <span class="line"></span>
+            </div>
+
+            <div class="memoCard">
+              <div class="memoCard__bar memoCard__bar--red"></div>
+              <div class="memoCard__body">
+                <div class="memoCard__title">三楼防水未做闭水试验</div>
+                <div class="memoCard__meta">
+                  <span class="red">截止 18:00</span>
+                  <span>朝阳园区 A 栋</span>
+                  <span class="red">已订阅</span>
+                </div>
+              </div>
+              <div class="memoCard__check"></div>
+            </div>
+
+            <div class="memoCard">
+              <div class="memoCard__bar memoCard__bar--red"></div>
+              <div class="memoCard__body">
+                <div class="memoCard__title">钢筋间距超规范，需返工确认</div>
+                <div class="memoCard__meta">
+                  <span class="red">截止 20:00</span>
+                  <span>海淀科技园</span>
+                </div>
+              </div>
+              <div class="memoCard__check"></div>
+            </div>
+
+            <div class="swipeHint">← 左滑显示更多操作</div>
+
+            <!-- 本周组 -->
+            <div class="memoSec">
+              <span class="dot dot--yellow"></span>
+              <span>待跟进 · 本周内</span>
+              <span class="line"></span>
+            </div>
+
+            <div class="memoCard">
+              <div class="memoCard__bar memoCard__bar--yellow"></div>
+              <div class="memoCard__body">
+                <div class="memoCard__title">通州别墅水电点位与图纸核对</div>
+                <div class="memoCard__meta">
+                  <span>截止 周三 14:00</span>
+                  <span>通州运河别墅区</span>
+                </div>
+              </div>
+              <div class="memoCard__check"></div>
+            </div>
+
+            <div class="memoCard">
+              <div class="memoCard__bar memoCard__bar--yellow"></div>
+              <div class="memoCard__body">
+                <div class="memoCard__title">向客户提交本周巡查总结报告</div>
+                <div class="memoCard__meta">
+                  <span>截止 周五 18:00</span>
+                  <span>朝阳园区</span>
+                </div>
+              </div>
+              <div class="memoCard__check"></div>
+            </div>
+
+            <div class="memoCard">
+              <div class="memoCard__bar memoCard__bar--green"></div>
+              <div class="memoCard__body">
+                <div class="memoCard__title">补充材料进场清单</div>
+                <div class="memoCard__meta">
+                  <span>截止 下周一</span>
+                  <span>海淀科技园</span>
+                </div>
+              </div>
+              <div class="memoCard__check"></div>
+            </div>
+
+            <!-- 已完成 -->
+            <div class="memoSec">
+              <span class="dot dot--green"></span>
+              <span>已完成</span>
+              <span class="line"></span>
+            </div>
+
+            <div class="memoCard memoCard--done">
+              <div class="memoCard__bar memoCard__bar--gray"></div>
+              <div class="memoCard__body">
+                <div class="memoCard__title">复核外墙保温施工质量</div>
+                <div class="memoCard__meta">
+                  <span>昨天完成</span>
+                </div>
+              </div>
+              <div class="memoCard__check done">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+            </div>
+
+            <div class="memoCard memoCard--done">
+              <div class="memoCard__bar memoCard__bar--gray"></div>
+              <div class="memoCard__body">
+                <div class="memoCard__title">联系甲方确认验收时间</div>
+                <div class="memoCard__meta">
+                  <span>前天完成</span>
+                </div>
+              </div>
+              <div class="memoCard__check done">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="tabbar">
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              <span>首页</span>
+            </div>
+            <div class="tab on">
+              <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>待办</span>
+            </div>
+            <div class="tabfab">
+              <button><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="4"/><path d="M3 7h4l2-3h6l2 3h4v13H3z"/></svg></button>
+              <span>拍照</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>报告</span>
+            </div>
+            <div class="tab">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+              <span>我的</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="phoneLabel">03 · 待办列表</div>
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>
