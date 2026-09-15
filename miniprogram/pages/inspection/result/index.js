@@ -2,7 +2,6 @@ const { confirmInspection } = require("../../../services/inspection");
 const { uploadUserFile } = require("../../../services/cloud");
 const { encodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
-const { isCoachStep, moveCoach, stopCoach, getNextCoachStep, getPrevCoachStep, buildCoachTip } = require("../../../utils/coach");
 
 function toChineseSectionNumber(value) {
   const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
@@ -105,19 +104,13 @@ Page({
       memoryHint: "",
       memoryAlerts: []
     },
-    coachTipVisible: false,
-    coachTipTitle: "",
-    coachTipArrow: "",
-    coachTipDesc: "",
-    coachHighlightSubmit: false
+    submitting: false
   },
   onLoad(query) {
     const draft = wx.getStorageSync(query.draftKey) || {};
     const form = draft.form || {};
     const issues = cloneIssues(draft.analysis.items || []);
     const aiSummary = draft.analysis.summary || "";
-    const active = isCoachStep("inspectionSubmit");
-    const tip = buildCoachTip("inspectionSubmit");
     this.setData({
       draftKey: query.draftKey,
       sessionKey: draft.sessionKey || "",
@@ -135,37 +128,8 @@ Page({
         aiMode: draft.analysis.aiMode || "",
         memoryHint: draft.analysis.memoryHint || "",
         memoryAlerts: draft.analysis.memoryAlerts || []
-      },
-      coachTipVisible: active,
-      coachTipTitle: tip.title,
-      coachTipArrow: tip.arrow,
-      coachTipDesc: tip.desc,
-      coachHighlightSubmit: active
+      }
     });
-  },
-  handleCoachSkip() {
-    stopCoach();
-    this.setData({
-      coachTipVisible: false,
-      coachHighlightSubmit: false
-    });
-  },
-  handleCoachPrev() {
-    const prev = getPrevCoachStep("inspectionSubmit");
-    if (!prev) {
-      return;
-    }
-    moveCoach(prev);
-    wx.navigateBack({
-      delta: 1
-    });
-  },
-  handleCoachNext() {
-    const next = getNextCoachStep("inspectionSubmit");
-    if (next) {
-      moveCoach(next);
-    }
-    this.handleSubmit();
   },
   handleBackTap() {
     if (this.data.sessionKey) {
@@ -250,9 +214,36 @@ Page({
     });
   },
 
+  /**
+   * 一键全部通过并提交。
+   *
+   * AI 整理出的问题多数是准确的，逐条确认要点几十次；而现场是单手操作、
+   * 人还在走动。这里给一条快速路径 —— 只有发现误报时才需要动手
+   * （上方清单可以删除或直接修改）。
+   */
+  handleAcceptAllAndSubmit() {
+    if (!(this.data.issues || []).length) {
+      wx.showModal({
+        title: "没有可提交的问题",
+        content: "本次没有识别出问题项。可以返回上一步补充照片或语音说明。",
+        showCancel: false,
+        confirmText: "知道了"
+      });
+      return;
+    }
+    this.handleSubmit();
+  },
+
   async handleSubmit() {
+    // 防重复提交：连点两次会创建两条巡查
+    if (this.data.submitting) {
+      return;
+    }
+    this.setData({ submitting: true });
+
     wx.showLoading({
-      title: "提交中"
+      title: "提交中",
+      mask: true
     });
 
     try {
@@ -265,28 +256,24 @@ Page({
         originalItems: this.data.originalIssues
       });
       markGuideStep("inspectionSubmitted", true);
-      if (isCoachStep("inspectionSubmit")) {
-        moveCoach("reportGenerate");
-      }
 
       wx.removeStorageSync(this.data.draftKey);
       const returnContextQuery = encodeReturnContext(this.data.returnContext);
-      if (isCoachStep("reportGenerate")) {
-        wx.redirectTo({
-          url: `/pages/report/detail/index?inspectionId=${result.inspectionId}`
-        });
-        return;
-      }
       wx.redirectTo({
         url: `/pages/inspection/detail/index?inspectionId=${result.inspectionId}${returnContextQuery ? `&returnContext=${returnContextQuery}` : ""}`
       });
     } catch (error) {
-      wx.showToast({
-        title: error.message || "提交失败",
-        icon: "none"
+      wx.hideLoading();
+      console.error("[inspection-result] submit failed", error);
+      wx.showModal({
+        title: "提交失败",
+        content: (error && error.message) || "请检查网络后重试，草稿已保留。",
+        showCancel: false,
+        confirmText: "知道了"
       });
     } finally {
       wx.hideLoading();
+      this.setData({ submitting: false });
     }
   }
 });

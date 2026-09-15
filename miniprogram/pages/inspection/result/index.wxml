@@ -84,16 +84,9 @@
   </view>
 
   <view class="footer-actions footer-actions--fixed">
-    <button class="primary-button {{coachHighlightSubmit ? 'coach-highlight' : ''}}" bindtap="handleSubmit">提交本次巡查（{{summary.issueCount}} 条问题）</button>
-  </view>
-  <view wx:if="{{coachTipVisible}}" class="coach-tip">
-    <view class="coach-tip__title">{{coachTipTitle}}</view>
-    <view class="coach-tip__arrow">{{coachTipArrow}}</view>
-    <view class="coach-tip__desc">{{coachTipDesc}}</view>
-    <view class="coach-tip__actions">
-      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachPrev">上一步</view>
-      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过</view>
-      <view class="coach-tip__btn" bindtap="handleCoachNext">下一步</view>
-    </view>
+    <!-- 快速路径：AI 整理结果多数是对的，不必逐条点选。
+         逐条核对仍然可用 —— 上面的清单就是为需要修正的情况准备的。 -->
+    <button class="primary-button" bindtap="handleAcceptAllAndSubmit">全部通过并提交（{{summary.issueCount}} 条）</button>
+    <view class="result-hint">若有识别不准的条目，可在上方删除或直接修改后再提交。</view>
   </view>
 </view>
