@@ -3,11 +3,124 @@ const { getSettings } = require("../../../services/settings");
 const { mapSeverityText, mapResponsiblePartyText, formatDate, formatDateTime } = require("../../../utils/format");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
-const { isCoachStep, stopCoach, moveCoach, getNextCoachStep, getPrevCoachStep, buildCoachTip } = require("../../../utils/coach");
 
 const CURRENT_PDF_TEMPLATE_VERSION = "puppeteer-doc-v19";
 const PDF_RUNTIME_VERSION = "pdf-debug-20260407-v5";
 const PDF_TASK_POLL_INTERVAL = 3000;
+
+/** 严重度：由重到轻，用于摘要卡与分布条的固定顺序 */
+const SEVERITY_KEYS = ["critical", "major", "normal"];
+const SEVERITY_LABELS = { critical: "严重", major: "较重", normal: "一般" };
+
+/**
+ * 统计各严重度的数量。
+ *
+ * 读者打开报告的第一个问题是「几个问题、几个严重、什么时候改完」，
+ * 所以摘要必须在首屏，不能让人自己数。
+ */
+function buildSeverityStats(items = []) {
+  const counts = { critical: 0, major: 0, normal: 0 };
+  items.forEach((item) => {
+    const key = SEVERITY_KEYS.includes(item.severity) ? item.severity : "normal";
+    counts[key] += 1;
+  });
+
+  const total = items.length;
+  const percent = (n) => (total ? Math.round((n / total) * 100) : 0);
+
+  return {
+    total,
+    critical: counts.critical,
+    major: counts.major,
+    normal: counts.normal,
+    criticalPercent: percent(counts.critical),
+    majorPercent: percent(counts.major),
+    normalPercent: percent(counts.normal)
+  };
+}
+
+/** 一句话结论：把摘要翻译成一句能直接读给对方听的话 */
+function buildConclusion(stats) {
+  if (!stats.total) {
+    return "本次巡查未发现问题。";
+  }
+  const parts = [`本次共发现问题 ${stats.total} 项`];
+  if (stats.critical) {
+    parts.push(`其中严重 ${stats.critical} 项，建议优先处理`);
+  } else if (stats.major) {
+    parts.push(`其中较重 ${stats.major} 项`);
+  }
+  return `${parts.join("，")}。`;
+}
+
+/**
+ * 报告编号。
+ *
+ * 现场复验、整改回执、对账都靠它指代「哪一份报告」。
+ * 用生成日期 + 文档 ID 尾段，稳定且可读。
+ */
+function buildReportNo(report = {}) {
+  const raw = report.generatedAt || report.createdAt || report.inspectionDate;
+  const date = new Date(Number(raw) || raw);
+  const valid = !Number.isNaN(date.getTime());
+  const ymd = valid
+    ? `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`
+    : "00000000";
+  const tail = `${report._id || ""}`.slice(-4).toUpperCase();
+  return `HLZG-${ymd}-${tail || "0000"}`;
+}
+
+/**
+ * 按照片分组并编号。
+ *
+ * 同一张照片的多个问题只出现一次照片，编号 1-A / 1-B；
+ * 这样现场说「问题 1-A」所有人都知道指哪一条。
+ */
+function buildIssueGroups(items = []) {
+  const groups = [];
+  const map = new Map();
+
+  items.forEach((item, index) => {
+    const primaryImage = (item.annotatedImages && item.annotatedImages[0])
+      || (item.images && item.images[0])
+      || "";
+    const sourceIndex = Number.isInteger(item.sourceIndex) ? item.sourceIndex : index;
+    const key = primaryImage || `source-${sourceIndex}`;
+
+    if (!map.has(key)) {
+      const group = {
+        key,
+        sourceIndex,
+        image: primaryImage,
+        issues: []
+      };
+      map.set(key, group);
+      groups.push(group);
+    }
+
+    const group = map.get(key);
+    group.issues.push(Object.assign({}, item, {
+      // 归一化严重度：模板里要拼 class，未填时会拼出 --undefined
+      severity: SEVERITY_KEYS.includes(item.severity) ? item.severity : "normal",
+      severityText: SEVERITY_LABELS[item.severity] || "一般",
+      responsibleText: mapResponsiblePartyText(item.responsibleParty),
+      timeText: formatDateTime(item.createdAt) || ""
+    }));
+  });
+
+  groups.sort((a, b) => a.sourceIndex - b.sourceIndex);
+
+  groups.forEach((group, groupIndex) => {
+    group.groupNo = groupIndex + 1;
+    group.issues.sort((a, b) => (a.subIssueIndex || 1) - (b.subIssueIndex || 1));
+    group.issues.forEach((issue, issueIndex) => {
+      issue.issueNo = `${groupIndex + 1}-${String.fromCharCode(65 + issueIndex)}`;
+    });
+  });
+
+  return groups;
+}
+
 
 function getErrorMessage(error, fallback = "未知错误") {
   if (!error) {
@@ -180,6 +293,11 @@ function buildReportDisplayState(report = {}) {
     ...report,
     inspectionDateDisplay: report.inspectionDateText || report.inspectionDate,
     generatedAtDisplay: formatDateTime(report.generatedAt || report.createdAt) || "",
+    // 首屏需要的摘要信息：读者先看到「几个问题、几个严重」再决定要不要往下看
+    reportNo: buildReportNo(report),
+    severityStats: buildSeverityStats(report.items || []),
+    conclusion: buildConclusion(buildSeverityStats(report.items || [])),
+    issueGroups: buildIssueGroups(report.items || []),
     statusText,
     canShare: Boolean(report._id && hasGeneratedPdf && !isPdfOutdated && report.status !== "pdf_generating"),
     isPdfOutdated,
@@ -196,44 +314,7 @@ Page({
     report: null,
     pdfFilePath: "",
     loading: true,
-    loadError: "",
-    coachTipVisible: false,
-    coachTipTitle: "",
-    coachTipArrow: "",
-    coachTipDesc: "",
-    coachHighlightGenerate: false
-  },
-  syncCoachTip(report = this.data.report) {
-    const active = isCoachStep("reportGenerate") && !(report && report.pdfFileId);
-    const tip = buildCoachTip("reportGenerate");
-    this.setData({
-      coachTipVisible: active,
-      coachTipTitle: tip.title,
-      coachTipArrow: tip.arrow,
-      coachTipDesc: tip.desc,
-      coachHighlightGenerate: active
-    });
-  },
-  handleCoachSkip() {
-    stopCoach();
-    this.syncCoachTip();
-  },
-  handleCoachPrev() {
-    const prev = getPrevCoachStep("reportGenerate");
-    if (!prev) {
-      return;
-    }
-    moveCoach(prev);
-    wx.navigateBack({
-      delta: 1
-    });
-  },
-  handleCoachNext() {
-    const next = getNextCoachStep("reportGenerate");
-    if (next) {
-      moveCoach(next);
-    }
-    this.generatePdf();
+    loadError: ""
   },
   async onLoad(query) {
     this.setData({
@@ -261,6 +342,36 @@ Page({
       url: "/pages/project/list/index"
     });
   },
+  /** 报告读者常要直接联系出具方，点一下就拨号 */
+  handleCallCompany(event) {
+    const phone = `${event.currentTarget.dataset.phone || ""}`.trim();
+    if (!phone) {
+      return;
+    }
+    wx.makePhoneCall({
+      phoneNumber: phone,
+      fail: () => {}
+    });
+  },
+  /** 点图片放大看细节 —— 报告的使命就是让人看清问题 */
+  handlePreviewImage(event) {
+    const src = event.currentTarget.dataset.src;
+    if (!src) {
+      return;
+    }
+
+    const urls = [];
+    (this.data.report && this.data.report.issueGroups || []).forEach((group) => {
+      if (group.image) {
+        urls.push(group.image);
+      }
+    });
+
+    wx.previewImage({
+      current: src,
+      urls: urls.length ? urls : [src]
+    });
+  },
   async loadReport() {
     this.setData({
       loading: true,
@@ -280,15 +391,10 @@ Page({
       if (report) {
         if (report.pdfFileId) {
           markGuideStep("reportGenerated", true);
-          if (isCoachStep("reportGenerate")) {
-            stopCoach();
-          }
         }
         this.setData({
-          report: buildReportDisplayState(report),
-          coachTipVisible: isCoachStep("reportGenerate") && !report.pdfFileId
+          report: buildReportDisplayState(report)
         });
-        this.syncCoachTip(report);
         if (report._id) {
           this.setData({
             reportId: report._id
@@ -305,7 +411,6 @@ Page({
         report: null,
         loadError: error.message || "报告加载失败"
       });
-      this.syncCoachTip(null);
       wx.showToast({
         title: getErrorMessage(error, "报告加载失败"),
         icon: "none"
@@ -439,13 +544,6 @@ Page({
     });
     if (response.taskStatus === "success" && nextReport.pdfFileId) {
       markGuideStep("reportGenerated", true);
-      if (isCoachStep("reportGenerate")) {
-        stopCoach();
-      }
-      this.setData({
-        coachTipVisible: false
-      });
-      this.syncCoachTip(nextReport);
       this.clearPdfTaskPolling();
       if (this.pdfTaskAutoOpen) {
         this.pdfTaskAutoOpen = false;

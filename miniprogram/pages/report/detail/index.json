@@ -2,7 +2,6 @@
   "navigationStyle": "custom",
   "usingComponents": {
     "report-section": "/components/report-section/index",
-    "inspection-item-card": "/components/inspection-item-card/index",
     "page-nav-bar": "/components/page-nav-bar/index"
   }
 }

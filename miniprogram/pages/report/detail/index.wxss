@@ -5,50 +5,253 @@
   padding-bottom: 180rpx;
 }
 
-.report-hero {
+/* ===== 封面区 ===== */
+.report-cover {
   display: flex;
   flex-direction: column;
-  gap: 14rpx;
+  gap: 10rpx;
 }
 
-.report-hero__head {
+.report-cover__top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 20rpx;
 }
 
-.report-hero__logo {
-  width: 120rpx;
-  height: 120rpx;
+/* 报告编号用等宽字体：它是被引用、被对账的标识，需要逐字符可辨 */
+.report-cover__no {
+  font-size: 20rpx;
+  color: #6B6355;
+  letter-spacing: 0.1em;
+  font-family: "SF Mono", "Menlo", monospace;
+}
+
+.report-cover__logo {
+  width: 96rpx;
+  height: 96rpx;
   border-radius: 2rpx;
-  background: #F2EDE4;
-  border: none;
   flex-shrink: 0;
 }
 
-.report-hero__meta {
-  font-size: 20rpx;
-  color: #6B6355;
-  font-weight: 400;
+.report-cover__title {
+  font-size: 40rpx;
+  color: #1A1814;
+  line-height: 1.3;
 }
 
-.report-company {
+.report-cover__meta {
+  font-size: 24rpx;
+  color: #6B6355;
+}
+
+.report-cover__company {
+  font-size: 24rpx;
+  color: #1A1814;
+}
+
+/* ===== 摘要卡 ===== */
+.report-summary {
   display: flex;
   flex-direction: column;
+  gap: 20rpx;
+}
+
+.report-summary__kpis {
+  display: flex;
+  justify-content: space-between;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.kpi__n {
+  font-size: 52rpx;
+  line-height: 1;
+  color: #1A1814;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 严重度只用颜色区分数字，不做彩色背景块 */
+.kpi__n--critical { color: #B3402E; }
+.kpi__n--major { color: #B8862B; }
+.kpi__n--normal { color: #5C7A5C; }
+
+.kpi__l {
+  font-size: 22rpx;
+  color: #6B6355;
+}
+
+.report-summary__bar {
+  display: flex;
+  height: 6rpx;
+  border-radius: 4rpx;
+  overflow: hidden;
+  background: #E8E2D8;
+}
+
+.bar__seg {
+  height: 100%;
+}
+
+.bar__seg--critical { background: #B3402E; }
+.bar__seg--major { background: #B8862B; }
+.bar__seg--normal { background: #5C7A5C; }
+
+.report-summary__conclusion {
+  font-size: 26rpx;
+  color: #1A1814;
+  line-height: 1.6;
+}
+
+/* ===== 问题清单 ===== */
+.report-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.report-issues__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4rpx;
+}
+
+.report-issues__count {
+  font-size: 22rpx;
+  color: #6B6355;
+}
+
+.issue-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.issue-group__head {
+  font-size: 30rpx;
+  color: #1A1814;
+  letter-spacing: 0.06em;
+}
+
+.issue-group__media {
+  width: 100%;
+  overflow: hidden;
+}
+
+.issue-group__image {
+  width: 100%;
+  display: block;
+}
+
+.issue {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding-top: 16rpx;
+  border-top: 0.5px solid #E8E2D8;
+}
+
+.issue__head {
+  display: flex;
+  align-items: center;
   gap: 12rpx;
 }
 
-.report-state {
+.issue__no {
+  font-size: 24rpx;
+  color: #1A1814;
+  font-family: "SF Mono", "Menlo", monospace;
+  letter-spacing: 0.04em;
+}
+
+.issue__severity {
+  font-size: 22rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 4rpx;
+}
+
+.issue__severity--critical {
+  color: #B3402E;
+  background: rgba(179, 64, 46, 0.08);
+}
+
+.issue__severity--major {
+  color: #B8862B;
+  background: rgba(184, 134, 43, 0.1);
+}
+
+.issue__severity--normal {
+  color: #5C7A5C;
+  background: rgba(92, 122, 92, 0.1);
+}
+
+.issue__area {
+  font-size: 22rpx;
+  color: #6B6355;
+}
+
+.issue__desc {
+  font-size: 26rpx;
+  color: #1A1814;
+  line-height: 1.65;
+}
+
+.issue__suggestion {
+  font-size: 24rpx;
+  color: #6B6355;
+  line-height: 1.6;
+}
+
+.issue__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  font-size: 20rpx;
+  color: #94908A;
+}
+
+/* ===== 结尾区 ===== */
+.report-footer {
   display: flex;
   flex-direction: column;
   gap: 14rpx;
 }
 
-.detail-text {
+.report-footer__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.report-footer__label {
+  width: 140rpx;
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #94908A;
+}
+
+.report-footer__value {
+  flex: 1;
   font-size: 24rpx;
-  color: #6B6355;
-  line-height: 1.7;
+  color: #1A1814;
+  line-height: 1.55;
+  word-break: break-all;
+}
+
+.report-footer__value--link {
+  color: #B3402E;
+}
+
+/* ===== 状态态 ===== */
+.report-state {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
 }
 
 .report-action-button {
@@ -116,61 +319,3 @@
   overflow: hidden;
 }
 
-.coach-tip {
-  position: fixed;
-  left: 24rpx;
-  right: 24rpx;
-  bottom: calc(env(safe-area-inset-bottom) + 20rpx);
-  z-index: 90;
-  background: #1A1814;
-  color: #FAF9F7;
-  border-radius: 0;
-  padding: 18rpx 20rpx;
-}
-
-.coach-tip__title {
-  font-size: 26rpx;
-  font-weight: 400;
-}
-
-.coach-tip__arrow {
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  color: #B8A882;
-}
-
-.coach-tip__desc {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  line-height: 1.6;
-}
-
-.coach-tip__actions {
-  margin-top: 14rpx;
-  display: flex;
-  gap: 10rpx;
-}
-
-.coach-tip__btn {
-  flex: 1;
-  height: 64rpx;
-  border-radius: 0;
-  background: #1A1814;
-  color: #FAF9F7;
-  font-size: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.coach-tip__btn--ghost {
-  background: transparent;
-  border: 0.5px solid #B8A882;
-  color: #6B6355;
-}
-
-.coach-highlight {
-  position: relative;
-  z-index: 120;
-  box-shadow: 0 0 0 6rpx rgba(184, 168, 130, 0.35), 0 0 0 12rpx rgba(184, 168, 130, 0.2);
-}

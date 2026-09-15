@@ -16,57 +16,126 @@
 
 <view class="page report-page" wx:elif="{{report}}">
   <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-  <view class="card report-hero">
-    <view class="report-hero__head">
-      <view>
-        <view class="section-title">{{report.title}}</view>
-        <view class="section-subtitle">{{report.projectName}}</view>
-        <view class="section-subtitle">{{report.inspectionDateDisplay}}</view>
-        <view wx:if="{{report.inspectorPhone}}" class="section-subtitle">巡查人电话：{{report.inspectorPhone}}</view>
-        <view class="section-subtitle">状态：{{report.statusText}}</view>
-      </view>
-      <image wx:if="{{report.logoFileId}}" class="report-hero__logo" src="{{report.logoFileId}}" mode="aspectFit" />
+
+  <!-- 封面区：这是什么报告、谁出的、什么时候 -->
+  <view class="card report-cover">
+    <view class="report-cover__top">
+      <view class="report-cover__no">{{report.reportNo}}</view>
+      <image wx:if="{{report.logoFileId}}" class="report-cover__logo" src="{{report.logoFileId}}" mode="aspectFit" />
     </view>
-    <view wx:if="{{report.generatedAtDisplay}}" class="report-hero__meta">PDF生成时间：{{report.generatedAtDisplay}}</view>
+    <view class="report-cover__title">{{report.projectName || report.title}}</view>
+    <view class="report-cover__meta">
+      <text>{{report.inspectionDateDisplay}}</text>
+      <text wx:if="{{report.inspectorName}}"> · 巡查人 {{report.inspectorName}}</text>
+    </view>
+    <view wx:if="{{report.companyName}}" class="report-cover__company">{{report.companyName}}</view>
   </view>
 
-  <view wx:if="{{report.companyName || report.companyPhone || report.companyAddress}}" class="card report-company">
-    <view class="section-title">出具信息</view>
-    <view wx:if="{{report.companyName}}" class="detail-text">公司：{{report.companyName}}</view>
-    <view wx:if="{{report.companyPhone}}" class="detail-text">电话：{{report.companyPhone}}</view>
-    <view wx:if="{{report.companyAddress}}" class="detail-text">地址：{{report.companyAddress}}</view>
+  <!-- 摘要卡：读者 3 秒内要拿到的答案 -->
+  <view class="card report-summary">
+    <view class="report-summary__kpis">
+      <view class="kpi">
+        <view class="kpi__n kpi__n--critical">{{report.severityStats.critical}}</view>
+        <view class="kpi__l">严重</view>
+      </view>
+      <view class="kpi">
+        <view class="kpi__n kpi__n--major">{{report.severityStats.major}}</view>
+        <view class="kpi__l">较重</view>
+      </view>
+      <view class="kpi">
+        <view class="kpi__n kpi__n--normal">{{report.severityStats.normal}}</view>
+        <view class="kpi__l">一般</view>
+      </view>
+      <view class="kpi">
+        <view class="kpi__n">{{report.severityStats.total}}</view>
+        <view class="kpi__l">合计</view>
+      </view>
+    </view>
+    <view class="report-summary__bar">
+      <view class="bar__seg bar__seg--critical" style="width:{{report.severityStats.criticalPercent}}%"></view>
+      <view class="bar__seg bar__seg--major" style="width:{{report.severityStats.majorPercent}}%"></view>
+      <view class="bar__seg bar__seg--normal" style="width:{{report.severityStats.normalPercent}}%"></view>
+    </view>
+    <view class="report-summary__conclusion">{{report.conclusion}}</view>
   </view>
 
-  <report-section title="AI 巡查小结" content="{{report.summary}}" />
+  <report-section wx:if="{{report.summary}}" title="巡查小结" content="{{report.summary}}" />
 
   <report-section wx:if="{{report.contextNote}}" title="现场补充" content="{{report.contextNote}}" />
 
-  <view class="card">
-    <view class="section-title">问题清单</view>
-    <view class="list">
-      <inspection-item-card wx:for="{{report.items}}" wx:key="_id" item="{{item}}" index="{{index}}" />
+  <!-- 问题清单：按照片分组，同图多问题只出现一次照片 -->
+  <view class="report-issues">
+    <view class="report-issues__head">
+      <view class="section-title">问题清单</view>
+      <view class="report-issues__count">{{report.severityStats.total}} 项</view>
+    </view>
+
+    <view wx:if="{{!report.issueGroups.length}}" class="card report-state">
+      <view class="section-subtitle">本次巡查未记录问题项。</view>
+    </view>
+
+    <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" class="card issue-group">
+      <view class="issue-group__head">问题 {{group.groupNo}}</view>
+
+      <view wx:if="{{group.image}}" class="issue-group__media">
+        <image
+          class="issue-group__image"
+          src="{{group.image}}"
+          mode="widthFix"
+          data-src="{{group.image}}"
+          bindtap="handlePreviewImage"
+        />
+      </view>
+
+      <view wx:for="{{group.issues}}" wx:for-item="issue" wx:key="issueNo" class="issue">
+        <view class="issue__head">
+          <text class="issue__no">{{issue.issueNo}}</text>
+          <text class="issue__severity issue__severity--{{issue.severity}}">{{issue.severityText}}</text>
+          <text wx:if="{{issue.area}}" class="issue__area">{{issue.area}}</text>
+        </view>
+        <view class="issue__desc">{{issue.description}}</view>
+        <view wx:if="{{issue.suggestion}}" class="issue__suggestion">建议：{{issue.suggestion}}</view>
+        <view class="issue__meta">
+          <text wx:if="{{issue.responsibleText}}">责任方 {{issue.responsibleText}}</text>
+          <text wx:if="{{issue.timeText}}">拍摄于 {{issue.timeText}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 结尾区：出具信息与状态 -->
+  <view class="card report-footer">
+    <view class="report-footer__row">
+      <text class="report-footer__label">出具单位</text>
+      <text class="report-footer__value">{{report.companyName || '未填写'}}</text>
+    </view>
+    <view wx:if="{{report.companyPhone}}" class="report-footer__row">
+      <text class="report-footer__label">联系电话</text>
+      <text class="report-footer__value report-footer__value--link" data-phone="{{report.companyPhone}}" bindtap="handleCallCompany">{{report.companyPhone}}</text>
+    </view>
+    <view wx:if="{{report.companyAddress}}" class="report-footer__row">
+      <text class="report-footer__label">地址</text>
+      <text class="report-footer__value">{{report.companyAddress}}</text>
+    </view>
+    <view class="report-footer__row">
+      <text class="report-footer__label">报告编号</text>
+      <text class="report-footer__value">{{report.reportNo}}</text>
+    </view>
+    <view class="report-footer__row">
+      <text class="report-footer__label">出具时间</text>
+      <text class="report-footer__value">{{report.generatedAtDisplay || '待生成'}}</text>
     </view>
   </view>
 
   <view class="footer-actions footer-actions--fixed">
-    <view wx:if="{{report.isPdfGenerating}}" class="report-action-button report-action-button--primary report-action-button--disabled {{coachHighlightGenerate ? 'coach-highlight' : ''}}">PDF 生成中</view>
-    <view wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--primary {{coachHighlightGenerate ? 'coach-highlight' : ''}}" bindtap="openPdf">打开已生成 PDF</view>
-    <view wx:else class="report-action-button report-action-button--primary {{coachHighlightGenerate ? 'coach-highlight' : ''}}" bindtap="generatePdf">{{report.isPdfOutdated ? '重新生成最新版 PDF' : '提交生成 PDF'}}</view>
+    <view wx:if="{{report.isPdfGenerating}}" class="report-action-button report-action-button--primary report-action-button--disabled">PDF 生成中</view>
+    <view wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--primary" bindtap="openPdf">打开已生成 PDF</view>
+    <view wx:else class="report-action-button report-action-button--primary" bindtap="generatePdf">{{report.isPdfOutdated ? '重新生成最新版 PDF' : '下载 PDF 归档'}}</view>
     <view class="report-action-row" wx:if="{{report.pdfFileId && !report.isPdfOutdated}}">
       <view class="report-action-button report-action-button--secondary" bindtap="savePdfToLocal">保存到本地</view>
       <view wx:if="{{!report.isPdfGenerating}}" class="report-action-button report-action-button--secondary" bindtap="generatePdf">重新生成 PDF</view>
       <button wx:if="{{report.canShare}}" class="report-action-button report-action-button--secondary report-action-button--share" open-type="share">转发到微信</button>
       <view class="report-action-button report-action-button--secondary" bindtap="handleHomeTap">返回首页</view>
-    </view>
-  </view>
-  <view wx:if="{{coachTipVisible}}" class="coach-tip">
-    <view class="coach-tip__title">{{coachTipTitle}}</view>
-    <view class="coach-tip__arrow">{{coachTipArrow}}</view>
-    <view class="coach-tip__desc">{{coachTipDesc}}</view>
-    <view class="coach-tip__actions">
-      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachPrev">上一步</view>
-      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过</view>
-      <view class="coach-tip__btn" bindtap="handleCoachNext">下一步</view>
     </view>
   </view>
 </view>
