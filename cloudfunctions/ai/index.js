@@ -130,7 +130,17 @@ function getAiRuntimeConfig() {
     apiKey: process.env.AI_API_KEY || "",
     baseUrl: process.env.AI_BASE_URL || "",
     provider: process.env.AI_PROVIDER || "",
-    thinkingEnabled: (process.env.AI_THINKING || "").toLowerCase() === "enabled"
+    thinkingEnabled: (process.env.AI_THINKING || "").toLowerCase() === "enabled",
+    /**
+     * 图片精细度。
+     *
+     * 巡检照片的价值就在于看清毫米级的差别（裂缝宽度、留缝是否一致、底盒是否歪斜），
+     * 而多数多模态接口的默认值会做降采样。所以默认要求原分辨率。
+     * 设成空字符串则不发送该字段，兼容不支持 detail 的服务商。
+     */
+    imageDetail: process.env.AI_IMAGE_DETAIL === undefined
+      ? "high"
+      : process.env.AI_IMAGE_DETAIL
   };
 }
 
@@ -966,6 +976,7 @@ async function resolveImageUrl(filePath, openId) {
 }
 
 async function buildMultimodalMessages(payload) {
+  const runtimeConfig = getAiRuntimeConfig();
   const draftContexts = await Promise.all((payload.issueDrafts || []).map(async (draft, index) => ({
     index,
     useImage: !shouldSkipImageRecognitionForDraft(draft),
@@ -994,11 +1005,14 @@ async function buildMultimodalMessages(payload) {
       ].join("\n")
     });
     if (draft.useImage && draft.imageUrl) {
+      const imagePart = { url: draft.imageUrl };
+      if (runtimeConfig.imageDetail) {
+        // 显式要求原分辨率：缺陷细节（裂缝、留缝、偏位）在降采样后会看不出来
+        imagePart.detail = runtimeConfig.imageDetail;
+      }
       userContent.push({
         type: "image_url",
-        image_url: {
-          url: draft.imageUrl
-        }
+        image_url: imagePart
       });
     }
   });
