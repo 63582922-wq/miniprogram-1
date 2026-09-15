@@ -1008,7 +1008,50 @@ Page({
       moveCoach("inspectionSubmit");
       this.syncCoachTip();
     }
-    if (!this.data.form.projectId || !this.data.form.issueDrafts.length) {
+    // 分开校验，并给出对得上的提示。
+    //
+    // 原实现是 if (!projectId || !issueDrafts.length) 后统一提示
+    // 「请先拍照或添加问题照片」——两个完全不同的原因共用一个消息，
+    // 已经加好照片但没选项目的用户会看到完全对不上的提示，无从下手。
+    if (this.data.projectLoadError) {
+      wx.showModal({
+        title: "项目加载失败",
+        content: this.data.projectLoadError,
+        showCancel: false,
+        confirmText: "知道了"
+      });
+      return;
+    }
+
+    if (!this.data.form.projectId) {
+      const hasProjects = (this.data.projects || []).length > 0;
+
+      if (!hasProjects) {
+        // 一个项目都没有时，光提示「请选择项目」是死路，直接给创建入口
+        wx.showModal({
+          title: "还没有项目",
+          content: "每次巡查都要归属到一个项目，请先创建项目。",
+          confirmText: "去创建",
+          cancelText: "稍后",
+          success: (result) => {
+            if (result.confirm) {
+              wx.navigateTo({
+                url: "/pages/project/form/index"
+              });
+            }
+          }
+        });
+        return;
+      }
+
+      wx.showToast({
+        title: "请先选择项目",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!this.data.form.issueDrafts.length) {
       wx.showToast({
         title: "请先拍照或添加问题照片",
         icon: "none"
