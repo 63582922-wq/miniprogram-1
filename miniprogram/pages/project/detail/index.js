@@ -1,7 +1,6 @@
 const { getProjectDetail } = require("../../../services/project");
 const { formatDateTime, mapProjectStatusText } = require("../../../utils/format");
 const { encodeReturnContext } = require("../../../utils/router");
-const { isCoachStep, moveCoach, stopCoach, getNextCoachStep, getPrevCoachStep, buildCoachTip } = require("../../../utils/coach");
 
 Page({
   data: {
@@ -17,11 +16,6 @@ Page({
     reports: [],
     latestInspection: null,
     latestReport: null,
-    coachTipVisible: false,
-    coachTipTitle: "",
-    coachTipArrow: "",
-    coachTipDesc: "",
-    coachHighlightInspection: false
   },
   async onLoad(query) {
     this.setData({
@@ -29,43 +23,9 @@ Page({
     });
   },
   onShow() {
-    const active = isCoachStep("projectDetailInspection");
-    const tip = buildCoachTip("projectDetailInspection");
-    this.setData({
-      coachTipVisible: active,
-      coachTipTitle: tip.title,
-      coachTipArrow: tip.arrow,
-      coachTipDesc: tip.desc,
-      coachHighlightInspection: active
-    });
     if (this.data.projectId) {
       this.loadDetail();
     }
-  },
-  handleCoachSkip() {
-    stopCoach();
-    this.setData({
-      coachTipVisible: false,
-      coachHighlightInspection: false
-    });
-  },
-  handleCoachPrev() {
-    const prev = getPrevCoachStep("projectDetailInspection");
-    if (!prev) {
-      return;
-    }
-    moveCoach(prev);
-    wx.navigateTo({
-      url: "/pages/project/form/index"
-    });
-  },
-  handleCoachNext() {
-    const next = getNextCoachStep("projectDetailInspection");
-    if (!next) {
-      return;
-    }
-    moveCoach(next);
-    this.goInspectionCreate();
   },
   async loadDetail() {
     try {
@@ -112,9 +72,6 @@ Page({
     });
   },
   goInspectionCreate() {
-    if (isCoachStep("projectDetailInspection")) {
-      moveCoach("inspectionAddPhoto");
-    }
     const context = {
       projectId: this.data.projectId,
       projectName: this.data.project.name || "",

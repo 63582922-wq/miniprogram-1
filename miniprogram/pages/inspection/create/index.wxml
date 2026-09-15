@@ -53,7 +53,7 @@
         <image class="create-card__section-icon" src="/images/icons/icon-issue.svg" mode="aspectFit" />
         <view class="create-card__section-title">问题采集</view>
       </view>
-      <view class="create-card__photo-button {{coachHighlightAddPhoto ? 'coach-highlight' : ''}}" bindtap="chooseImages">添加照片</view>
+      <view class="create-card__photo-button" bindtap="chooseImages">添加照片</view>
       <view class="create-card__issue-count">已添加 {{form.issueDrafts.length}} / 20</view>
     </view>
   </view>
@@ -99,18 +99,9 @@
   <empty-state wx:else title="还没有问题照片" description="先添加问题照片，再逐条补充现场信息和录音留档。" />
 
   <view class="footer-actions">
-    <view class="create-card__photo-button inspection-create__submit-button {{coachHighlightAnalyze ? 'coach-highlight' : ''}}" bindtap="handleAnalyze">分析整理</view>
+    <view class="create-card__photo-button inspection-create__submit-button" bindtap="handleAnalyze">分析整理</view>
   </view>
-  <view wx:if="{{coachTipVisible}}" class="coach-tip">
-    <view class="coach-tip__title">{{coachTipTitle}}</view>
-    <view class="coach-tip__arrow">{{coachTipArrow}}</view>
-    <view class="coach-tip__desc">{{coachTipText}}</view>
-    <view class="coach-tip__actions">
-      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachPrev">上一步</view>
-      <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过</view>
-      <view class="coach-tip__btn" bindtap="handleCoachNext">下一步</view>
-    </view>
-  </view>
+
   <view wx:if="{{analyzing}}" class="analyze-mask">
     <view class="analyze-panel">
       <view class="analyze-panel__spinner"></view>

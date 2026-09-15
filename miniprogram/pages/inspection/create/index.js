@@ -3,7 +3,6 @@ const { analyzeInspection, createInspectionTask, getInspectionTaskStatus } = req
 const { uploadUserFile } = require("../../../services/cloud");
 const { transcribeVoiceFile, mergeSpeechText, formatSpeechError } = require("../../../services/speech");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
-const { isCoachStep, moveCoach, stopCoach, getNextCoachStep, getPrevCoachStep, buildCoachTip } = require("../../../utils/coach");
 const { runWithConcurrency } = require("../../../utils/async");
 
 const recorderManager = wx.getRecorderManager();
@@ -123,12 +122,6 @@ Page({
     returnContext: null,
     issueSectionTitles: ISSUE_SECTION_TITLES,
     form: createInitialForm(),
-    coachTipVisible: false,
-    coachTipTitle: "",
-    coachTipArrow: "",
-    coachTipText: "",
-    coachHighlightAddPhoto: false,
-    coachHighlightAnalyze: false
   },
   onLoad(query) {
     // recorderManager 是全局单例，必须成对注册/解绑（见 onUnload），
@@ -304,78 +297,6 @@ Page({
     if (this.data.analyzing && this.data.analyzeTaskId) {
       this.scheduleAnalyzeTaskPolling();
     }
-    this.syncCoachTip();
-  },
-  syncCoachTip() {
-    if (isCoachStep("inspectionAddPhoto")) {
-      const tip = buildCoachTip("inspectionAddPhoto");
-      this.setData({
-        coachTipVisible: true,
-        coachTipTitle: tip.title,
-        coachTipArrow: tip.arrow,
-        coachTipText: tip.desc,
-        coachHighlightAddPhoto: true,
-        coachHighlightAnalyze: false
-      });
-      return;
-    }
-    if (isCoachStep("inspectionAnalyze")) {
-      const tip = buildCoachTip("inspectionAnalyze");
-      this.setData({
-        coachTipVisible: true,
-        coachTipTitle: tip.title,
-        coachTipArrow: tip.arrow,
-        coachTipText: tip.desc,
-        coachHighlightAddPhoto: false,
-        coachHighlightAnalyze: true
-      });
-      return;
-    }
-    this.setData({
-      coachTipVisible: false,
-      coachTipTitle: "",
-      coachTipArrow: "",
-      coachTipText: "",
-      coachHighlightAddPhoto: false,
-      coachHighlightAnalyze: false
-    });
-  },
-  handleCoachSkip() {
-    stopCoach();
-    this.syncCoachTip();
-  },
-  handleCoachPrev() {
-    if (isCoachStep("inspectionAnalyze")) {
-      moveCoach("inspectionAddPhoto");
-      this.syncCoachTip();
-      return;
-    }
-    const prev = getPrevCoachStep("inspectionAddPhoto");
-    if (!prev) {
-      return;
-    }
-    moveCoach(prev);
-    if (this.data.returnContext && this.data.returnContext.projectId) {
-      wx.navigateTo({
-        url: `/pages/project/detail/index?projectId=${this.data.returnContext.projectId}`
-      });
-      return;
-    }
-    wx.navigateBack({
-      delta: 1
-    });
-  },
-  handleCoachNext() {
-    if (isCoachStep("inspectionAddPhoto")) {
-      moveCoach("inspectionAnalyze");
-      this.syncCoachTip();
-      return;
-    }
-    const next = getNextCoachStep("inspectionAnalyze");
-    if (next) {
-      moveCoach(next);
-    }
-    this.handleAnalyze();
   },
   onHide() {
     this.clearAnalyzeTaskPolling();
@@ -684,10 +605,6 @@ Page({
         issueExpandedStates
       });
       page.persistDraft();
-      if (isCoachStep("inspectionAddPhoto") && issueDrafts.length > 0) {
-        moveCoach("inspectionAnalyze");
-        page.syncCoachTip();
-      }
 
       if (issueDrafts.length >= MAX_ISSUE_DRAFTS) {
         wx.showToast({
@@ -1169,10 +1086,6 @@ Page({
     return result.status || "running";
   },
   async handleAnalyze() {
-    if (isCoachStep("inspectionAnalyze")) {
-      moveCoach("inspectionSubmit");
-      this.syncCoachTip();
-    }
     // 分开校验，并给出对得上的提示。
     //
     // 原实现是 if (!projectId || !issueDrafts.length) 后统一提示
