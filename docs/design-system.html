@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>毫厘智管 · 设计系统</title>
+<style>
+:root{
+  /* ---- 中性色阶：整套设计只用这一条灰阶 ---- */
+  --bg:            #FAFAFA;
+  --surface:       #FFFFFF;
+  --surface-sunken:#F5F5F5;
+  --line:          #EDEDED;   /* 0.5px 发丝线 */
+  --line-strong:   #DCDCDC;
+
+  --ink-1: #171717;   /* 标题 */
+  --ink-2: #3D3D3D;   /* 正文 */
+  --ink-3: #6E6E6E;   /* 次要 */
+  --ink-4: #9A9A9A;   /* 辅助 */
+  --ink-5: #BDBDBD;   /* 禁用 */
+
+  /* ---- 唯一强调色：深靛蓝，只用在主按钮与可点文字 ---- */
+  --accent:      #2B4ACB;
+  --accent-press:#1E37A0;
+  --accent-wash: #F2F5FE;
+
+  /* ---- 语义色：降饱和、只用文字与圆点，不做背景块 ---- */
+  --sev-critical: #B4261F;
+  --sev-major:    #97640F;
+  --sev-normal:   #5F6B7A;
+
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.04);
+  --shadow-2: 0 6px 20px rgba(0,0,0,.06);
+  --shadow-3: 0 16px 48px rgba(0,0,0,.10);
+}
+
+*{box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{
+  margin:0;padding:48px 24px 96px;background:var(--bg);color:var(--ink-1);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro SC","PingFang SC","Helvetica Neue",Arial,sans-serif;
+  font-feature-settings:"tnum";
+  line-height:1.5;
+}
+.wrap{max-width:1120px;margin:0 auto}
+
+/* ---------- 文档层 ---------- */
+.eyebrow{font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin:0 0 10px}
+h1{font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 10px;line-height:1.25}
+.lede{font-size:14px;color:var(--ink-3);line-height:1.65;margin:0;max-width:680px}
+h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);
+   margin:64px 0 20px;padding-top:28px;border-top:0.5px solid var(--line)}
+h2:first-of-type{border-top:none;padding-top:0;margin-top:48px}
+.p{font-size:13.5px;color:var(--ink-3);line-height:1.7;margin:0 0 20px;max-width:720px}
+.p code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+        background:var(--surface-sunken);padding:2px 6px;border-radius:4px;color:var(--ink-2)}
+
+/* ---------- 灰阶展示 ---------- */
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;
+          background:var(--line);border:0.5px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.sw{background:var(--surface);padding:16px}
+.sw .chip{height:44px;border-radius:var(--radius-sm);border:0.5px solid rgba(0,0,0,.06);margin-bottom:10px}
+.sw .n{font-size:11.5px;font-weight:500;color:var(--ink-2)}
+.sw .v{font-size:10.5px;color:var(--ink-4);font-family:ui-monospace,Menlo,monospace;margin-top:2px}
+
+/* ---------- 并排对比容器 ---------- */
+.side{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media (max-width:860px){.side{grid-template-columns:1fr}}
+.col-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:0 0 12px}
+
+/* ---------- 手机画框 ---------- */
+.phone{width:100%;max-width:390px;background:var(--surface);border:0.5px solid var(--line);
+       border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-2)}
+.phone--flat{box-shadow:none}
+.statusbar{display:flex;justify-content:space-between;padding:10px 18px 4px;font-size:10px;
+           color:var(--ink-4);font-weight:500}
+.navbar{display:flex;align-items:center;justify-content:space-between;padding:6px 18px 12px}
+.navbar .t{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.navbar .a{font-size:12.5px;color:var(--accent);font-weight:500}
+.body{padding:0 18px 18px}
+
+/* ---------- 分隔线工具 ---------- */
+.hr{height:0;border-top:0.5px solid var(--line);margin:16px 0}
+.hr--tight{margin:12px 0}
+
+/* ---------- 列表行 ---------- */
+.row{display:flex;align-items:center;gap:12px;padding:14px 0}
+.row + .row{border-top:0.5px solid var(--line)}
+.row__title{font-size:14.5px;font-weight:500;color:var(--ink-1);letter-spacing:-.005em}
+.row__sub{font-size:12px;color:var(--ink-3);margin-top:3px}
+.row__meta{font-size:11.5px;color:var(--ink-4);margin-top:5px}
+.chev{margin-left:auto;color:var(--ink-5);font-size:16px;line-height:1;flex-shrink:0}
+
+/* ---------- 摘要 KPI ---------- */
+.kpi{display:flex;gap:26px}
+.kpi__item .n{font-size:25px;font-weight:600;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi__item .l{font-size:10.5px;color:var(--ink-4);margin-top:5px;letter-spacing:.03em}
+.n--crit{color:var(--sev-critical)}
+.n--maj{color:var(--sev-major)}
+.n--nor{color:var(--sev-normal)}
+
+/* 严重度分布：一条 3px 细线，不是色块 */
+.dist{display:flex;height:3px;border-radius:2px;overflow:hidden;background:var(--surface-sunken);margin-top:18px}
+.dist i{display:block;height:100%}
+
+/* ---------- 严重度标记：圆点 + 文字，无背景块 ---------- */
+.sev{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500}
+.sev .d{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sev--c{color:var(--sev-critical)} .sev--c .d{background:var(--sev-critical)}
+.sev--m{color:var(--sev-major)}    .sev--m .d{background:var(--sev-major)}
+.sev--n{color:var(--sev-normal)}   .sev--n .d{background:var(--sev-normal)}
+
+/* ---------- 问题条目 ---------- */
+.issue{display:flex;gap:14px;padding:16px 0}
+.issue + .issue{border-top:0.5px solid var(--line)}
+.issue__thumb{width:84px;height:84px;border-radius:var(--radius-sm);background:var(--surface-sunken);
+              flex-shrink:0;display:flex;align-items:center;justify-content:center;
+              font-size:9.5px;color:var(--ink-5);border:0.5px solid var(--line)}
+.issue__no{font-size:11.5px;font-weight:600;color:var(--ink-1);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.issue__t{font-size:14px;font-weight:500;color:var(--ink-1);margin-top:2px;letter-spacing:-.005em}
+.issue__d{font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-top:6px}
+.issue__foot{display:flex;align-items:center;gap:14px;margin-top:9px;font-size:11px;color:var(--ink-4)}
+
+/* ---------- 按钮 ---------- */
+.btn{display:flex;align-items:center;justify-content:center;height:46px;border-radius:var(--radius);
+     font-size:14.5px;font-weight:500;letter-spacing:-.005em;width:100%;border:none;cursor:pointer;
+     transition:background .12s ease}
+.btn--primary{background:var(--ink-1);color:#fff}
+.btn--primary:hover{background:#000}
+.btn--accent{background:var(--accent);color:#fff}
+.btn--accent:hover{background:var(--accent-press)}
+.btn--ghost{background:var(--surface);color:var(--ink-2);border:0.5px solid var(--line-strong)}
+.btn--plain{background:transparent;color:var(--accent);font-weight:500;height:auto;padding:10px 0}
+.btn-row{display:flex;gap:10px;margin-top:18px}
+.btn--sm{height:38px;font-size:13px;border-radius:var(--radius-sm)}
+
+/* ---------- 标签页 ---------- */
+.tabs{display:flex;gap:0;border-bottom:0.5px solid var(--line);margin-bottom:4px}
+.tab{padding:11px 0;margin-right:24px;font-size:13.5px;font-weight:500;color:var(--ink-4);
+     border-bottom:1.5px solid transparent;margin-bottom:-0.5px}
+.tab--on{color:var(--ink-1);border-bottom-color:var(--ink-1)}
+
+/* ---------- 底部栏 ---------- */
+.tabbar{display:flex;border-top:0.5px solid var(--line);padding:9px 0 14px;background:var(--surface)}
+.tabbar div{flex:1;text-align:center;font-size:10px;color:var(--ink-4);font-weight:500}
+.tabbar div.on{color:var(--ink-1)}
+.tabbar .b{display:block;width:18px;height:18px;margin:0 auto 4px;border-radius:5px;
+           background:currentColor;opacity:.85}
+.tabbar .on .b{opacity:1}
+.tabbar .fresh{display:block;width:18px;height:18px;margin:0 auto 4px;border-radius:5px;
+               background:var(--ink-1);opacity:.9}
+
+/* ---------- 「现状」渲染：复刻廉价感 ---------- */
+.old{background:#FAF9F7}
+.old .card-old{background:#F2EDE4;border-radius:4px;padding:16px;margin-bottom:12px}
+.old .t-old{font-family:"Georgia","Songti SC",serif;font-size:15.5px;font-weight:400}
+.old .s-old{font-family:"Georgia","Songti SC",serif;font-size:12px;color:#6B6355;line-height:1.6;margin-top:5px}
+.old .btn-old{background:#1A1814;color:#D4C5A0;height:44px;border-radius:0;
+              display:flex;align-items:center;justify-content:center;font-size:13.5px;letter-spacing:.2em}
+.old .btn-old2{border:0.5px solid #B8A882;color:#6B6355;height:44px;border-radius:0;
+               display:flex;align-items:center;justify-content:center;font-size:13.5px;letter-spacing:.1em;margin-top:10px}
+.old .chip-old{display:inline-block;font-size:10.5px;padding:3px 9px;border-radius:20px;margin:0 6px 6px 0}
+.old .chip-c{background:#FBEAE7;color:#B3402E;border:1px solid #F0CFC8}
+.old .chip-m{background:#FBF3E3;color:#B8862B;border:1px solid #F0E2C4}
+.old .chip-n{background:#EDF3ED;color:#5C7A5C;border:1px solid #D4E3D4}
+.old .bar-old{display:flex;height:8px;border-radius:20px;overflow:hidden;margin-top:12px}
+
+/* ---------- 说明块 ---------- */
+.note{font-size:12.5px;color:var(--ink-3);line-height:1.7;margin:14px 0 0}
+.note b{color:var(--ink-2);font-weight:600}
+ul.clean{margin:0;padding:0;list-style:none;font-size:13px;color:var(--ink-3);line-height:1.9}
+ul.clean li{padding-left:16px;position:relative}
+ul.clean li::before{content:"";position:absolute;left:0;top:9px;width:4px;height:4px;border-radius:50%;background:var(--ink-5)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:12px 18px;font-size:12.5px;
+    border:0.5px solid var(--line);border-radius:var(--radius);background:var(--surface);padding:18px}
+.kv dt{color:var(--ink-4)}
+.kv dd{margin:0;color:var(--ink-2);font-family:ui-monospace,Menlo,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">毫厘智管 · 设计系统 V2</p>
+  <h1>去掉颜色，留下秩序</h1>
+  <p class="lede">
+    之前那版用了砖红、赭黄、松绿三组语义色，每个状态都配一块浅色背景。
+    那正是廉价感的来源——靠颜色区分信息，等于承认结构本身讲不清。
+    这一版把颜色收敛到<strong>一条灰阶 + 一个强调色</strong>，状态靠文字灰度和小圆点区分，秩序靠字重、留白和 0.5px 发丝线建立。
+  </p>
+
+  <!-- ========== 1. 灰阶 ========== -->
+  <h2>一、整套设计只有一条灰阶</h2>
+  <p class="p">
+    不再有"主色/辅色/成功色/警告色/危险色"五套色板。所有界面元素都从下面这条灰阶里取值——
+    这是 Stripe、Linear、Vercel 这类产品最核心的视觉纪律。
+  </p>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#FAFAFA"></div><div class="n">页面底</div><div class="v">#FAFAFA</div></div>
+    <div class="sw"><div class="chip" style="background:#FFFFFF"></div><div class="n">卡片面</div><div class="v">#FFFFFF</div></div>
+    <div class="sw"><div class="chip" style="background:#F5F5F5"></div><div class="n">下沉面</div><div class="v">#F5F5F5</div></div>
+    <div class="sw"><div class="chip" style="background:#EDEDED"></div><div class="n">发丝线</div><div class="v">#EDEDED</div></div>
+    <div class="sw"><div class="chip" style="background:#DCDCDC"></div><div class="n">线·强</div><div class="v">#DCDCDC</div></div>
+    <div class="sw"><div class="chip" style="background:#9A9A9A"></div><div class="n">辅助文字</div><div class="v">#9A9A9A</div></div>
+    <div class="sw"><div class="chip" style="background:#6E6E6E"></div><div class="n">次要文字</div><div class="v">#6E6E6E</div></div>
+    <div class="sw"><div class="chip" style="background:#3D3D3D"></div><div class="n">正文</div><div class="v">#3D3D3D</div></div>
+    <div class="sw"><div class="chip" style="background:#171717"></div><div class="n">标题 / 主按钮</div><div class="v">#171717</div></div>
+  </div>
+  <div class="kv" style="margin-top:20px">
+    <dt>唯一强调色</dt><dd>#2B4ACB &nbsp;· 只用于主按钮、可点文字、选中态</dd>
+    <dt>强调色浅底</dt><dd>#F2F5FE &nbsp;· 只在需要"选中"语义时使用，面积很小</dd>
+    <dt>严重</dt><dd>#B4261F &nbsp;· 仅文字与小圆点，无背景块</dd>
+    <dt>较重</dt><dd>#97640F &nbsp;· 仅文字与小圆点</dd>
+    <dt>一般</dt><dd>#5F6B7A &nbsp;· 仅文字与小圆点</dd>
+    <dt>圆角</dt><dd>6 / 10 / 14 &nbsp;· 只此三档</dd>
+  </div>
+
+  <!-- ========== 2. 前后对比 ========== -->
+  <h2>二、同一屏，两种做法</h2>
+  <p class="p">
+    左边是复刻你现在的做法（暖米底 + 米色卡 + 直角 + 衬线）；右边是收敛后的做法。
+    内容完全一样，差别全在纪律。
+  </p>
+  <div class="side">
+    <div>
+      <p class="col-label">现状</p>
+      <div class="phone old">
+        <div class="statusbar" style="color:#B8A882">9:41<span>····</span></div>
+        <div class="navbar"><span class="t-old">巡查结果</span></div>
+        <div class="body">
+          <div class="card-old">
+            <div class="s-old" style="margin:0">项目</div>
+            <div class="t-old" style="margin-top:6px">东裕世家 3-2201</div>
+            <div class="s-old">2026年4月5日 · 第 3 次巡查</div>
+            <div style="display:flex;gap:28px;margin-top:14px">
+              <div><div class="t-old" style="font-size:22px">12</div><div class="s-old">问题</div></div>
+              <div><div class="t-old" style="font-size:22px">未补充</div><div class="s-old">现场补充</div></div>
+            </div>
+          </div>
+          <div class="card-old">
+            <div class="t-old">问题清单</div>
+            <div style="margin-top:12px">
+              <div class="s-old" style="color:#1A1814">卫生间墙砖十字缝不均匀，局部空鼓风险较高</div>
+              <div style="margin-top:8px">
+                <span class="chip-old chip-c">严重</span>
+                <span class="chip-old chip-m">较重</span>
+                <span class="chip-old chip-n">一般</span>
+              </div>
+              <div class="bar-old">
+                <i style="width:17%;background:#B3402E"></i>
+                <i style="width:33%;background:#B8862B"></i>
+                <i style="width:50%;background:#5C7A5C"></i>
+              </div>
+            </div>
+          </div>
+          <div class="btn-old">提交本次巡查</div>
+          <div class="btn-old2">保存草稿</div>
+        </div>
+      </div>
+      <p class="note">
+        <b>问题在这里：</b>卡片和底色几乎同色（#F2EDE4 对 #FAF9F7），浮不出来；
+        三块彩色 chip 抢走了全部注意力；圆角 0 让边界显得生硬；衬线正文在小字号下发虚。
+      </p>
+    </div>
+
+    <div>
+      <p class="col-label">收敛后</p>
+      <div class="phone">
+        <div class="statusbar">9:41<span>····</span></div>
+        <div class="navbar"><span class="t">巡查结果</span></div>
+        <div class="body">
+          <div class="row__meta" style="letter-spacing:.1em;text-transform:uppercase;font-size:10px">东裕世家 3-2201</div>
+          <div class="row__title" style="font-size:17px;margin-top:5px">第 3 次巡查</div>
+          <div class="row__sub">2026年4月5日 15:22 · 张工</div>
+
+          <div class="hr"></div>
+
+          <div class="kpi">
+            <div class="kpi__item"><div class="n n--crit">2</div><div class="l">严重</div></div>
+            <div class="kpi__item"><div class="n n--maj">4</div><div class="l">较重</div></div>
+            <div class="kpi__item"><div class="n n--nor">6</div><div class="l">一般</div></div>
+            <div class="kpi__item"><div class="n">12</div><div class="l">合计</div></div>
+          </div>
+          <div class="dist">
+            <i style="width:17%;background:#B4261F"></i>
+            <i style="width:33%;background:#97640F"></i>
+            <i style="width:50%;background:#5F6B7A"></i>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="tabs">
+            <div class="tab tab--on">全部 12</div>
+            <div class="tab">严重 2</div>
+            <div class="tab">待整改</div>
+          </div>
+
+          <div class="issue">
+            <div class="issue__thumb">照片</div>
+            <div style="flex:1;min-width:0">
+              <div class="issue__no">1-A</div>
+              <div class="issue__t">卫生间墙砖空鼓</div>
+              <div class="issue__d">十字缝不均匀，局部空鼓风险较高，建议拆除空鼓区域后重新铺贴。</div>
+              <div class="issue__foot">
+                <span class="sev sev--c"><i class="d"></i>严重</span>
+                <span>施工方</span>
+                <span>4月8日前</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="issue">
+            <div class="issue__thumb">照片</div>
+            <div style="flex:1;min-width:0">
+              <div class="issue__no">1-B</div>
+              <div class="issue__t">墙砖十字缝宽不一致</div>
+              <div class="issue__d">同一面墙缝宽目测差异明显，需统一留缝并复核垂直度。</div>
+              <div class="issue__foot">
+                <span class="sev sev--m"><i class="d"></i>较重</span>
+                <span>施工方</span>
+                <span>4月8日前</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-row" style="flex-direction:column;gap:8px">
+            <button class="btn btn--primary">生成巡查报告</button>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="on"><span class="b"></span>项目</div>
+          <div><span class="b"></span>巡查</div>
+          <div><span class="fresh"></span>出报告</div>
+          <div><span class="b"></span>我的</div>
+        </div>
+      </div>
+      <p class="note">
+        <b>秩序来自这四处：</b>白卡浮在浅灰底上（有面，不靠边）；严重度只用 5px 圆点 + 灰度文字；
+        分隔全部交给 0.5px 发丝线；字号阶梯拉开（25px KPI → 17px 标题 → 14px 条目标题 → 12.5px 描述 → 11px 元信息）。
+        <b>颜色只剩两个用途</b>：黑按钮表示主操作，靛蓝表示可点。
+      </p>
+    </div>
+  </div>
+
+  <!-- ========== 3. 报告页 ========== -->
+  <h2>三、报告页：线上分享的主交付物</h2>
+  <p class="p">
+    这是要转发给业主和工长看的页面，会在微信里打开。读者的第一个问题永远是"几个问题、几个严重、什么时候改完"，
+    所以摘要必须在首屏，而不是让读者自己数。
+  </p>
+  <div class="side">
+    <div>
+      <p class="col-label">首屏：摘要 + 结论</p>
+      <div class="phone">
+        <div class="statusbar">9:41<span>····</span></div>
+        <div class="body" style="padding-top:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div class="row__meta" style="letter-spacing:.1em;font-size:10px">巡查报告 · HLZG-20260405-001</div>
+              <div class="row__title" style="font-size:19px;margin-top:7px">东裕世家 3-2201</div>
+              <div class="row__sub">2026年4月5日 · 张工 · 毫厘工程监理</div>
+            </div>
+            <div style="width:44px;height:44px;border-radius:var(--radius-sm);background:var(--surface-sunken);
+                        border:0.5px solid var(--line);flex-shrink:0"></div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="kpi">
+            <div class="kpi__item"><div class="n n--crit">2</div><div class="l">严重</div></div>
+            <div class="kpi__item"><div class="n n--maj">4</div><div class="l">较重</div></div>
+            <div class="kpi__item"><div class="n n--nor">6</div><div class="l">一般</div></div>
+            <div class="kpi__item"><div class="n">12</div><div class="l">合计</div></div>
+          </div>
+          <div class="dist">
+            <i style="width:17%;background:#B4261F"></i>
+            <i style="width:33%;background:#97640F"></i>
+            <i style="width:50%;background:#5F6B7A"></i>
+          </div>
+          <div class="row__sub" style="margin-top:14px;color:var(--ink-2)">
+            较上次 <span style="color:var(--sev-normal);font-weight:500">减少 3 项</span>，2 项严重问题建议 3 个工作日内处理。
+          </div>
+
+          <div class="hr"></div>
+          <div class="row" style="padding:12px 0">
+            <div style="flex:1">
+              <div class="row__title" style="font-size:13.5px">下载 PDF 归档</div>
+              <div class="row__sub">含签章页，可打印</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="col-label">问题条目：一屏看清"哪条、多严重、找谁、何时改"</p>
+      <div class="phone">
+        <div class="statusbar">9:41<span>····</span></div>
+        <div class="navbar"><span class="t">问题清单</span><span class="a">筛选</span></div>
+        <div class="body">
+          <div class="tabs">
+            <div class="tab tab--on">全部</div>
+            <div class="tab">严重</div>
+            <div class="tab">待整改</div>
+            <div class="tab">已通过</div>
+          </div>
+
+          <div class="issue">
+            <div class="issue__thumb">照片</div>
+            <div style="flex:1;min-width:0">
+              <div class="issue__no">问题 1-A</div>
+              <div class="issue__t">卫生间墙砖空鼓</div>
+              <div class="issue__d">十字缝不均匀，局部空鼓风险较高，建议拆除空鼓区域后重新铺贴。</div>
+              <div class="issue__foot">
+                <span class="sev sev--c"><i class="d"></i>严重</span>
+                <span>施工方</span>
+                <span>4月8日前</span>
+              </div>
+              <div class="row__meta" style="font-size:10.5px">拍摄于 2026-04-05 15:22</div>
+            </div>
+          </div>
+
+          <div class="issue">
+            <div class="issue__thumb">照片</div>
+            <div style="flex:1;min-width:0">
+              <div class="issue__no">问题 2-A</div>
+              <div class="issue__t">客厅吊顶转角收口不顺直</div>
+              <div class="issue__d">转角处高低差目测约 3mm，需校正龙骨并补做找平。</div>
+              <div class="issue__foot">
+                <span class="sev sev--m"><i class="d"></i>较重</span>
+                <span>施工方</span>
+                <span>4月10日前</span>
+              </div>
+              <div class="row__meta" style="font-size:10.5px">拍摄于 2026-04-05 15:41</div>
+            </div>
+          </div>
+
+          <div class="hr--tight hr"></div>
+          <div class="row__meta" style="text-align:center;font-size:11px">
+            毫厘工程监理 · 138-0000-0000 · 报告编号 HLZG-20260405-001
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 4. 组件 ========== -->
+  <h2>四、组件规范</h2>
+  <div class="side">
+    <div>
+      <div class="phone phone--flat">
+        <div class="body" style="padding-top:18px">
+          <p class="col-label">按钮：三档，只此三档</p>
+          <button class="btn btn--primary">生成巡查报告</button>
+          <div style="height:10px"></div>
+          <button class="btn btn--ghost">保存草稿</button>
+          <div style="height:10px"></div>
+          <button class="btn btn--plain">查看历史报告</button>
+          <p class="note">
+            主操作用近黑（#171717），不用彩色——彩色主按钮是廉价 App 最常见的标志。
+            次要操作用发丝线描边。文字按钮用强调色。
+          </p>
+
+          <p class="col-label" style="margin-top:26px">列表行：发丝线分隔，无卡片嵌套</p>
+          <div class="row">
+            <div style="flex:1">
+              <div class="row__title">东裕世家 3-2201</div>
+              <div class="row__sub">水电阶段 · 3 次巡查 · 2 份报告</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <div class="row">
+            <div style="flex:1">
+              <div class="row__title">金地自在城 B-1802</div>
+              <div class="row__sub">泥木阶段 · 1 次巡查</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <p class="note">
+            不再"卡片里套卡片"。列表就是列表——这是 iOS 原生与 Linear 等产品的共同做法。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="phone phone--flat">
+        <div class="body" style="padding-top:18px">
+          <p class="col-label">严重度：只有圆点和灰度</p>
+          <div style="display:flex;gap:22px;margin-bottom:6px">
+            <span class="sev sev--c"><i class="d"></i>严重</span>
+            <span class="sev sev--m"><i class="d"></i>较重</span>
+            <span class="sev sev--n"><i class="d"></i>一般</span>
+          </div>
+          <p class="note">
+            对比：现状给每个状态配一块浅色背景的彩色胶囊。那种做法一屏出现三次就会花，
+            而且把"颜色"这个最贵的视觉资源浪费在了最不需要强调的地方。
+          </p>
+
+          <p class="col-label" style="margin-top:26px">选中态：强调色只在必要时出现</p>
+          <div style="border:0.5px solid var(--line);border-radius:var(--radius);overflow:hidden">
+            <div style="padding:13px 14px;border-bottom:0.5px solid var(--line);font-size:13.5px;color:var(--ink-2)">施工方</div>
+            <div style="padding:13px 14px;background:var(--accent-wash);display:flex;align-items:center;
+                        justify-content:space-between;font-size:13.5px;color:var(--accent);font-weight:500">
+              <span>材料供应商</span><span>✓</span>
+            </div>
+            <div style="padding:13px 14px;border-top:0.5px solid var(--line);font-size:13.5px;color:var(--ink-2)">业主</div>
+          </div>
+
+          <p class="col-label" style="margin-top:26px">字号阶梯</p>
+          <div style="font-size:25px;font-weight:600;letter-spacing:-.03em">25 · 摘要数字</div>
+          <div style="font-size:19px;font-weight:600;letter-spacing:-.02em;margin-top:8px">19 · 页面标题</div>
+          <div style="font-size:17px;font-weight:600;letter-spacing:-.015em;margin-top:8px">17 · 区块标题</div>
+          <div style="font-size:14px;font-weight:500;margin-top:8px">14 · 条目名称</div>
+          <div style="font-size:12.5px;color:var(--ink-3);margin-top:8px">12.5 · 正文描述</div>
+          <div style="font-size:11px;color:var(--ink-4);margin-top:8px">11 · 辅助元信息</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 5. 纪律 ========== -->
+  <h2>五、这套东西凭什么"高级"：六条纪律</h2>
+  <div class="side">
+    <ul class="clean">
+      <li><b>颜色不承担信息功能。</b>状态用灰度 + 圆点。只有"主操作"和"可点"用颜色。</li>
+      <li><b>面靠白，不靠边。</b>白卡浮在 #FAFAFA 上，不用边框、不用阴影堆。</li>
+      <li><b>分隔只用 0.5px。</b>永远不要用 1px 灰线或多层边框。</li>
+      <li><b>圆角只三档。</b>6 / 10 / 14，不允许出现其它值。</li>
+    </ul>
+    <ul class="clean">
+      <li><b>字号阶梯必须拉开。</b>相邻两级至少差 2px，且字重要变。</li>
+      <li><b>数字用等宽。</b><code>font-variant-numeric: tabular-nums</code>，列表里的数字才能对齐。</li>
+      <li><b>留白是最高级的装饰。</b>宁可少放一个元素，不要把间距压到 8px 以下。</li>
+      <li><b>不用 emoji、不用彩色图标。</b>图标统一线宽和灰度，或干脆用文字。</li>
+    </ul>
+  </div>
+
+  <h2>六、需要你决定的一件事</h2>
+  <p class="p">
+    上面这个版本用的是<b>冷灰</b>（#FAFAFA / #FFFFFF / #171717），这是大厂最常见的底色体系。
+    你现有的小程序用的是<b>暖米白</b>（#FAF9F7 / #F2EDE4 / #1A1814）。
+  </p>
+  <p class="p">
+    两个方向都能做到高级，但气质不同：<br />
+    <b>冷灰</b>是"精准、克制、仪器感"——更贴「毫厘」这个名字。<br />
+    <b>暖米白</b>是"温润、服务感、纸感"——更贴高端家装服务。
+  </p>
+  <p class="p">
+    我建议<b>冷灰</b>。理由是：你这个产品的核心承诺是"看得清、留得住、能对账"，
+    冷灰的仪器感比暖米的文艺感更匹配；而且暖米色如果要高级，对印刷和屏幕色准要求极高，
+    在千元机上很容易显脏——冷灰容错率高得多。
+  </p>
+  <p class="p" style="color:var(--ink-2);font-weight:500">
+    告诉我选冷灰还是暖米白，我就按这套纪律把完整方案整理出来。
+  </p>
+
+</div>
+</body>
+</html>
