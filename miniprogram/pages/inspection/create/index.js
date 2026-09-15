@@ -1264,9 +1264,14 @@ Page({
       });
       await this.completeAnalyzeSuccess(form, analysis);
     } catch (error) {
-      wx.showToast({
-        title: error.message || "分析失败",
-        icon: "none"
+      // 用弹窗而不是 toast：toast 会自己消失，用户很可能没看到，
+      // 然后以为「点了没反应」。照片与草稿都在，说明清楚可以重试。
+      console.error("[inspection-create] analyze failed", error);
+      wx.showModal({
+        title: "AI 整理失败",
+        content: `${(error && error.message) || "未知错误"}\n\n照片与草稿都已保留，可以直接重新点「分析整理」。`,
+        showCancel: false,
+        confirmText: "知道了"
       });
     } finally {
       if (!keepAnalyzing) {

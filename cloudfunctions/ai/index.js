@@ -695,84 +695,6 @@ function ensureVoiceIssueCoverage(payload, normalizedItems = []) {
   });
 }
 
-function buildInspectionItems(payload) {
-  const drafts = payload.issueDrafts || [];
-
-  if (drafts.length) {
-    return drafts.map((draft, index) => {
-      const skipImageRecognition = shouldSkipImageRecognitionForDraft(draft);
-      const text = `${draft.voiceText || ""}${payload.note || ""}`;
-      let area = `现场问题 ${index + 1}`;
-      let category = "施工";
-      let severity = draft.annotations && draft.annotations.length ? "major" : "normal";
-      let suggestion = "复核施工细节并按现场实际情况整改后复检。";
-
-      if (text.includes("吊顶")) {
-        area = "客厅吊顶";
-        category = "木作";
-        severity = "major";
-        suggestion = "校正龙骨标高并重新找平收口。";
-      } else if (text.includes("墙砖") || text.includes("瓷砖")) {
-        area = "卫生间墙砖";
-        category = "泥工";
-        severity = "critical";
-        suggestion = "检查空鼓与缝宽，必要时拆除重铺。";
-      } else if (text.includes("柜") || text.includes("柜体")) {
-        area = "柜体安装";
-        category = "木作";
-        severity = "normal";
-        suggestion = "调整柜门缝隙和五金，复核安装垂直度。";
-      }
-
-      return {
-        sourceIndex: index,
-        subIssueIndex: 1,
-        area,
-        category,
-        severity,
-        responsibleParty: "constructor",
-        description: resolveIssueDescription("", draft, index),
-        suggestion,
-        visualEvidence: skipImageRecognition
-          ? "已根据现场语音转写内容整理。"
-          : (draft.annotations && draft.annotations.length
-            ? "已参考问题照片中的标注位置与局部外观。"
-            : "已参考问题照片中的外观特征。"),
-        evidenceSource: skipImageRecognition ? "note" : "image",
-        images: skipImageRecognition ? [] : [draft.imagePath],
-        annotatedImages: skipImageRecognition ? [] : (draft.annotations && draft.annotations.length ? [draft.imagePath] : []),
-        annotations: draft.annotations || [],
-        voiceText: draft.voiceText || "",
-        voiceStorageFileId: draft.voiceStorageFileId || draft.voiceFileId || "",
-        voiceFilePath: draft.voiceFilePath || "",
-        voiceFileId: draft.voiceStorageFileId || draft.voiceFileId || ""
-      };
-    });
-  }
-
-  const images = payload.images || [];
-  return [
-    {
-      sourceIndex: 0,
-      subIssueIndex: 1,
-      area: "客厅吊顶",
-      category: "木作",
-      severity: images.length > 2 ? "major" : "normal",
-      responsibleParty: "constructor",
-      description: "吊顶转角收口不顺直，局部存在高低差。",
-      suggestion: "复核龙骨标高并重新找平，确保收口顺直。",
-      visualEvidence: "已参考巡查照片中的吊顶转角与收口外观。",
-      evidenceSource: "image",
-      images,
-      annotatedImages: [],
-      annotations: [],
-      voiceText: "",
-      voiceStorageFileId: "",
-      voiceFilePath: "",
-      voiceFileId: ""
-    }
-  ];
-}
 
 function buildInspectionSummary(payload, items) {
   const total = items.length;
@@ -1254,10 +1176,11 @@ async function processAnalysisTask(task) {
   const batches = task.batches || [];
   const currentBatchIndex = task.currentBatchIndex || 0;
   if (!batches.length) {
+    // 没有草稿可分析：返回空清单，不编造任何条目
     const analysis = {
       items: [],
       summary: buildInspectionSummary(payload, []),
-      aiMode: "fallback",
+      aiMode: "empty",
       memoryHint: payload.memoryHint || "",
       memoryAlerts: []
     };
@@ -1486,20 +1409,23 @@ exports.main = async (event) => {
           };
         } catch (error) {
           console.error("analyzeInspectionWithModel failed", error);
-        }
 
-        const items = buildInspectionItems(enhancedPayload);
-        const memoryAlerts = buildMemoryAlerts(enhancedPayload, items);
-        return {
-          success: true,
-          data: {
-            items,
-            summary: buildInspectionSummary(enhancedPayload, items),
-            aiMode: "fallback",
-            memoryHint: enhancedPayload.memoryHint || "",
-            memoryAlerts
-          }
-        };
+          // 明确失败，不回退到模板内容。
+          //
+          // 原实现在模型调用失败时会用 buildInspectionItems 生成一批
+          // 「现场问题 1 / 客厅吊顶」之类的猜测项并当作分析结果返回。
+          // 巡查报告是要拿去和施工方对账、甚至作为整改依据的，
+          // 把编造的问题混进交付物比直接报错危险得多 ——
+          // 用户会以为这些是 AI 看照片看出来的。
+          return {
+            success: false,
+            message: `AI 分析失败：${(error && error.message) || "未知错误"}。请检查 ai 云函数的模型配置，或稍后重试。`,
+            error: {
+              code: "AiAnalyzeFailed",
+              detail: (error && error.message) || ""
+            }
+          };
+        }
       }
 
       case "createInspectionTask": {
