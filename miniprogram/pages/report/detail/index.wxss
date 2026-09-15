@@ -319,3 +319,12 @@
   overflow: hidden;
 }
 
+
+/* 分享进来的只读视图提示 */
+.report-readonly-hint {
+  font-size: 22rpx;
+  color: #6B6355;
+  text-align: center;
+  line-height: 1.5;
+  padding: 8rpx 0;
+}

@@ -3,11 +3,15 @@ const http = require("http");
 const os = require("os");
 const path = require("path");
 const https = require("https");
+const crypto = require("crypto");
 const cloud = require("wx-server-sdk");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 });
+
+/** 分享 token 前缀：用于把可猜测的旧值（report-<时间戳>）识别为无效 */
+const SHARE_TOKEN_PREFIX = "sr";
 
 const db = cloud.database();
 const _ = db.command;
@@ -409,7 +413,10 @@ async function saveReport(payload) {
     pdfTaskStatus: payload.pdfTaskStatus || "",
     pdfErrorMessage: payload.pdfErrorMessage || "",
     coverLogoFileId: "",
-    shareToken: `report-${now}`,
+    // 创建时就生成分享 token。
+    // onShareAppMessage 是同步函数、无法等待网络，所以 token 必须随报告一起就绪。
+    // 不用 `report-<时间戳>`：时间戳可被猜测，等于没有保护。
+    shareToken: `${SHARE_TOKEN_PREFIX}${crypto.randomBytes(16).toString("hex")}`,
     status: reportStatus,
     generatedAt: reportStatus === "generated" ? (payload.generatedAt || now) : 0,
     deleted: false,
@@ -456,6 +463,28 @@ async function markReportPdfState(reportId, data = {}) {
   return fetchReport(reportId);
 }
 
+/**
+ * 只读读者（业主、施工方）不应该看到的内部字段。
+ * 分享链接是给外部人看的，任务号、错误堆栈这类运维信息与业务无关。
+ */
+const READER_HIDDEN_FIELDS = [
+  "pdfTaskId",
+  "pdfTaskStatus",
+  "pdfErrorMessage",
+  "pdfTemplateVersion",
+  "createdBy",
+  "updatedBy",
+  "deleted"
+];
+
+function stripInternalFields(report = {}) {
+  const safe = Object.assign({}, report);
+  READER_HIDDEN_FIELDS.forEach((field) => {
+    delete safe[field];
+  });
+  return safe;
+}
+
 async function detailReport(payload) {
   const { OPENID } = cloud.getWXContext();
   const report = await db.collection("reports").doc(payload.reportId).get();
@@ -465,13 +494,27 @@ async function detailReport(payload) {
       message: "报告不存在"
     };
   }
-  const access = await assertProjectOwner(report.data.projectId, OPENID);
-  if (!access.ok) {
+
+  // 两种访问方式：
+  // 1. 项目所有者本人
+  // 2. 持有有效分享 token 的读者（业主、施工方）
+  //
+  // 报告要转发给不是小程序用户、也不该拿到账号权限的人看。
+  // 用不可猜测的 token 做只读访问，比放开 owner 鉴权安全得多。
+  const ownerCheck = await assertProjectOwner(report.data.projectId, OPENID);
+  const tokenMatched = Boolean(
+    payload.shareToken
+    && report.data.shareToken
+    && payload.shareToken === report.data.shareToken
+  );
+
+  if (!ownerCheck.ok && !tokenMatched) {
     return {
       success: false,
-      message: access.message
+      message: "无权访问该报告"
     };
   }
+
   const build = await buildReportData({
     inspectionId: report.data.inspectionId
   });
@@ -479,21 +522,66 @@ async function detailReport(payload) {
     return build;
   }
 
+  const merged = {
+    ...build.data,
+    ...report.data,
+    items: build.data.items,
+    inspectionDate: build.data.inspectionDate,
+    inspectionDateText: build.data.inspectionDateText,
+    inspectorName: build.data.inspectorName,
+    inspectorPhone: build.data.inspectorPhone,
+    projectName: build.data.projectName,
+    title: report.data.title || build.data.title,
+    summary: report.data.summary || build.data.summary,
+    contextNote: report.data.contextNote || build.data.contextNote
+  };
+
   return {
     success: true,
+    data: Object.assign(
+      {},
+      ownerCheck.ok ? merged : stripInternalFields(merged),
+      // 告知客户端当前是哪种访问方式：分享进来的读者不应看到生成/删除等操作
+      { accessMode: ownerCheck.ok ? "owner" : "shared" }
+    )
+  };
+}
+
+/**
+ * 为报告生成（或复用）分享 token。
+ *
+ * token 一旦生成就复用——已经转发出去的链接不该因为再次分享而失效。
+ * 早期的 `report-<时间戳>` 可被猜测，视为无效并重新生成。
+ */
+async function createShareToken(payload) {
+  const { OPENID } = cloud.getWXContext();
+  const access = await assertReportAccess(payload.reportId, OPENID);
+  if (!access.ok) {
+    return {
+      success: false,
+      message: access.message
+    };
+  }
+
+  const existing = `${access.report.shareToken || ""}`;
+  if (existing.startsWith(SHARE_TOKEN_PREFIX) && existing.length >= 24) {
+    return {
+      success: true,
+      data: { shareToken: existing }
+    };
+  }
+
+  const shareToken = `${SHARE_TOKEN_PREFIX}${crypto.randomBytes(16).toString("hex")}`;
+  await db.collection("reports").doc(payload.reportId).update({
     data: {
-      ...build.data,
-      ...report.data,
-      items: build.data.items,
-      inspectionDate: build.data.inspectionDate,
-      inspectionDateText: build.data.inspectionDateText,
-      inspectorName: build.data.inspectorName,
-      inspectorPhone: build.data.inspectorPhone,
-      projectName: build.data.projectName,
-      title: report.data.title || build.data.title,
-      summary: report.data.summary || build.data.summary,
-      contextNote: report.data.contextNote || build.data.contextNote
+      shareToken,
+      updatedAt: Date.now()
     }
+  });
+
+  return {
+    success: true,
+    data: { shareToken }
   };
 }
 
@@ -757,6 +845,8 @@ exports.main = async (event) => {
         return await saveReport(payload);
       case "detail":
         return await detailReport(payload);
+      case "createShareToken":
+        return await createShareToken(payload);
       case "list":
         return await listReports(payload);
       case "remove":

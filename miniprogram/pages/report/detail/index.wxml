@@ -128,14 +128,25 @@
   </view>
 
   <view class="footer-actions footer-actions--fixed">
-    <view wx:if="{{report.isPdfGenerating}}" class="report-action-button report-action-button--primary report-action-button--disabled">PDF 生成中</view>
-    <view wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--primary" bindtap="openPdf">打开已生成 PDF</view>
-    <view wx:else class="report-action-button report-action-button--primary" bindtap="generatePdf">{{report.isPdfOutdated ? '重新生成最新版 PDF' : '下载 PDF 归档'}}</view>
-    <view class="report-action-row" wx:if="{{report.pdfFileId && !report.isPdfOutdated}}">
-      <view class="report-action-button report-action-button--secondary" bindtap="savePdfToLocal">保存到本地</view>
-      <view wx:if="{{!report.isPdfGenerating}}" class="report-action-button report-action-button--secondary" bindtap="generatePdf">重新生成 PDF</view>
-      <button wx:if="{{report.canShare}}" class="report-action-button report-action-button--secondary report-action-button--share" open-type="share">转发到微信</button>
-      <view class="report-action-button report-action-button--secondary" bindtap="handleHomeTap">返回首页</view>
+    <!-- 主操作是「把报告发出去」：报告页本身就是交付物，
+         PDF 只是可选归档，所以它降为次要操作 -->
+    <button
+      wx:if="{{isOwner}}"
+      class="report-action-button report-action-button--primary report-action-button--share"
+      open-type="share"
+    >转发给业主 / 施工方</button>
+
+    <view wx:if="{{isOwner}}" class="report-action-row">
+      <view wx:if="{{report.isPdfGenerating}}" class="report-action-button report-action-button--secondary report-action-button--disabled">PDF 生成中</view>
+      <view wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="openPdf">打开已生成 PDF</view>
+      <view wx:else class="report-action-button report-action-button--secondary" bindtap="generatePdf">下载 PDF 归档</view>
+
+      <view wx:if="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="savePdfToLocal">保存到本地</view>
+      <view wx:else class="report-action-button report-action-button--secondary" bindtap="handleHomeTap">返回首页</view>
+    </view>
+
+    <view wx:if="{{!isOwner}}" class="report-readonly-hint">
+      你正在查看他人分享的巡查报告，内容为只读。
     </view>
   </view>
 </view>

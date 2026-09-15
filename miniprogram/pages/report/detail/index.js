@@ -299,7 +299,9 @@ function buildReportDisplayState(report = {}) {
     conclusion: buildConclusion(buildSeverityStats(report.items || [])),
     issueGroups: buildIssueGroups(report.items || []),
     statusText,
-    canShare: Boolean(report._id && hasGeneratedPdf && !isPdfOutdated && report.status !== "pdf_generating"),
+    // 转发只要求报告存在 —— 报告页本身就是交付物，
+    // 不该等到生成 PDF 才能发给业主和施工方
+    canShare: Boolean(report._id),
     isPdfOutdated,
     isPdfGenerating: report.status === "pdf_generating",
     isPdfFailed: report.status === "pdf_failed"
@@ -310,6 +312,12 @@ Page({
   data: {
     reportId: "",
     inspectionId: "",
+    /** 收件人从分享链接带过来的只读凭据 */
+    shareToken: "",
+    /** 报告是否由当前用户拥有；非拥有者只看只读视图 */
+    isOwner: true,
+    /** 分享卡片用的 https 图片地址（cloud:// 不能直接用于分享卡） */
+    shareImageUrl: "",
     returnContext: null,
     report: null,
     pdfFilePath: "",
@@ -320,6 +328,7 @@ Page({
     this.setData({
       reportId: query.reportId || "",
       inspectionId: query.inspectionId || "",
+      shareToken: query.shareToken || "",
       returnContext: decodeReturnContext(query.returnContext) || null
     });
     wx.showShareMenu({
@@ -381,7 +390,7 @@ Page({
     let report;
     try {
       if (this.data.reportId) {
-        report = await getReportDetail(this.data.reportId);
+        report = await getReportDetail(this.data.reportId, undefined, this.data.shareToken);
       } else if (this.data.inspectionId) {
         report = await buildReportData({
           inspectionId: this.data.inspectionId
@@ -393,13 +402,15 @@ Page({
           markGuideStep("reportGenerated", true);
         }
         this.setData({
-          report: buildReportDisplayState(report)
+          report: buildReportDisplayState(report),
+          isOwner: report.accessMode !== "shared"
         });
         if (report._id) {
           this.setData({
             reportId: report._id
           });
         }
+        this.prepareShareImage(report);
       } else {
         this.setData({
           report: null,
@@ -744,38 +755,64 @@ Page({
       wx.hideLoading();
     }
   },
+  /**
+   * 准备分享卡片图片。
+   *
+   * 分享卡需要一个 https 图片地址，而报告里的图片是 cloud:// fileID，
+   * 不能直接用于分享卡。所以在加载后把它换成临时链接并缓存下来 ——
+   * onShareAppMessage 是同步函数，无法在那里等待网络。
+   */
+  async prepareShareImage(report) {
+    const items = (report && report.items) || [];
+    const first = items.find((item) => (item.annotatedImages && item.annotatedImages[0]) || (item.images && item.images[0]));
+    if (!first) {
+      return;
+    }
+
+    const fileId = (first.annotatedImages && first.annotatedImages[0]) || (first.images && first.images[0]);
+    if (!fileId || !fileId.startsWith("cloud://")) {
+      this.setData({ shareImageUrl: fileId || "" });
+      return;
+    }
+
+    try {
+      const result = await wx.cloud.getTempFileURL({ fileList: [fileId] });
+      const file = (result.fileList || [])[0] || {};
+      this.setData({ shareImageUrl: file.tempFileURL || "" });
+    } catch (error) {
+      console.warn("[report-detail] 分享图片准备失败，将使用默认卡片", error);
+    }
+  },
+
+  /** 收件人从分享链接进入时的只读视图说明 */
+  buildSharePath() {
+    const token = (this.data.report && this.data.report.shareToken) || this.data.shareToken || "";
+    const base = `/pages/report/detail/index?reportId=${this.data.reportId}`;
+    return token ? `${base}&shareToken=${token}` : base;
+  },
+
   onShareAppMessage() {
-    if (!this.data.report || !this.data.report.canShare || !this.data.reportId) {
+    // 分享的是只读报告页，不需要先生成 PDF。
+    // 原实现要求 canShare（依赖 pdfFileId），等于「没出 PDF 就不能转发」；
+    // 而报告页本身就是交付物，线上阅读才是主要形态。
+    if (!this.data.reportId) {
       return {
         title: "巡查报告",
         path: "/pages/report/list/index"
       };
     }
     return {
-      title: this.data.report ? `${this.data.report.projectName || "项目"}巡查报告` : "巡查报告",
-      path: `/pages/report/detail/index?reportId=${this.data.reportId}`,
-      imageUrl: this.data.report && this.data.report.items && this.data.report.items[0]
-        ? ((this.data.report.items[0].annotatedImages && this.data.report.items[0].annotatedImages[0])
-          || (this.data.report.items[0].images && this.data.report.items[0].images[0])
-          || "")
-        : ""
+      title: `${(this.data.report && this.data.report.projectName) || "项目"}巡查报告`,
+      path: this.buildSharePath(),
+      imageUrl: this.data.shareImageUrl || ""
     };
   },
+
   onShareTimeline() {
-    if (!this.data.report || !this.data.report.canShare || !this.data.reportId) {
-      return {
-        title: "巡查报告",
-        query: ""
-      };
-    }
     return {
-      title: this.data.report ? `${this.data.report.projectName || "项目"}巡查报告` : "巡查报告",
-      query: `reportId=${this.data.reportId}`,
-      imageUrl: this.data.report && this.data.report.items && this.data.report.items[0]
-        ? ((this.data.report.items[0].annotatedImages && this.data.report.items[0].annotatedImages[0])
-          || (this.data.report.items[0].images && this.data.report.items[0].images[0])
-          || "")
-        : ""
+      title: `${(this.data.report && this.data.report.projectName) || "项目"}巡查报告`,
+      query: this.buildSharePath().split("?")[1] || "",
+      imageUrl: this.data.shareImageUrl || ""
     };
   }
 });
