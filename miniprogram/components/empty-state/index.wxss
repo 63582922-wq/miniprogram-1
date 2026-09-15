@@ -26,3 +26,22 @@
   color: #6B6355;
   line-height: 1.6;
 }
+
+/* 空态的主操作：没有它，冷启动就是一条死路 */
+.empty-state__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 36rpx;
+  padding: 0 56rpx;
+  height: 84rpx;
+  background: #1A1814;
+  color: #D4C5A0;
+  font-size: 26rpx;
+  letter-spacing: 0.16em;
+}
+
+.empty-state__action:active {
+  opacity: 0.85;
+}
+

@@ -17,6 +17,12 @@
     </view>
   </view>
 
-  <empty-state wx:else title="暂无项目" />
+  <empty-state
+    wx:else
+    title="还没有项目"
+    description="每次巡查都要归属到一个项目。先建一个，然后就能拍照、记录问题、生成报告。"
+    actionText="创建第一个项目"
+    bindaction="goCreate"
+  />
   <app-tab-bar />
 </view>

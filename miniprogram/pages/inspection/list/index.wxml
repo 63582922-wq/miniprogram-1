@@ -1,5 +1,5 @@
 <view class="page inspection-page">
-  <page-nav-bar title="{{pageTitle}}" showBack="{{true}}" />
+  <page-nav-bar title="{{pageTitle}}" showBack="{{true}}" rightText="新建" actionSide="left" actionIconOnly="{{true}}" bind:righttap="goCreate" />
 
   <view wx:if="{{inspectionList.length}}" class="list">
     <view wx:for="{{inspectionList}}" wx:key="_id" class="inspection-row" data-inspection-id="{{item._id}}" data-inspection-title="{{item.title}}" bindtap="openDetail" bindlongpress="handleInspectionLongPress">
@@ -9,5 +9,11 @@
     </view>
   </view>
 
-  <empty-state wx:else title="暂无巡查记录" description="从这里开始新建巡查，拍照、标注、整理问题并生成报告" />
+  <empty-state
+    wx:else
+    title="暂无巡查记录"
+    description="从这里开始新建巡查，拍照、标注、整理问题并生成报告"
+    actionText="发起巡查"
+    bindaction="goCreate"
+  />
 </view>
