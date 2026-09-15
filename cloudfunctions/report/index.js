@@ -611,23 +611,19 @@ async function removeReport(payload) {
   };
 }
 
-async function generatePdf(payload) {
-  const { fileBuffer, fileName } = await requestPdfBuffer(payload);
-  if (!fileBuffer || !fileBuffer.length) {
-    return {
-      success: false,
-      message: "PDF 服务未返回有效内容"
-    };
-  }
-  const pdfFileId = await uploadPdfBuffer(fileBuffer, fileName);
-  return {
-    success: true,
-    data: {
-      pdfFileId,
-      fileName
-    }
-  };
-}
+/**
+ * 已移除 generatePdf 同步出图通道。
+ *
+ * 原因是它同时存在两个问题：
+ * 1. 没有任何鉴权——任意登录用户都能调用；
+ * 2. 把客户端传入的 payload 直接当作 URL path 交给 PDF 服务，
+ *    而请求头里带着服务端的 PDF_API_KEY。
+ *
+ * 两者相加等于：任何登录用户都能借我们的密钥驱动 Puppeteer，
+ * 并把结果写进 reports/ 云存储目录。
+ *
+ * 现在出图只走 createPdfTask → getPdfTaskStatus，两步都有归属校验。
+ */
 
 async function createPdfTask(payload) {
   if (!payload.reportId || !payload.reportPayload) {
@@ -753,27 +749,37 @@ async function getPdfTaskStatus(payload) {
 exports.main = async (event) => {
   const { action, payload = {} } = event;
 
-  switch (action) {
-    case "build":
-      return buildReportData(payload);
-    case "save":
-      return saveReport(payload);
-    case "detail":
-      return detailReport(payload);
-    case "list":
-      return listReports(payload);
-    case "remove":
-      return removeReport(payload);
-    case "generatePdf":
-      return generatePdf(payload);
-    case "createPdfTask":
-      return createPdfTask(payload);
-    case "getPdfTaskStatus":
-      return getPdfTaskStatus(payload);
-    default:
-      return {
-        success: false,
-        message: "未知操作"
-      };
+  try {
+    switch (action) {
+      case "build":
+        return await buildReportData(payload);
+      case "save":
+        return await saveReport(payload);
+      case "detail":
+        return await detailReport(payload);
+      case "list":
+        return await listReports(payload);
+      case "remove":
+        return await removeReport(payload);
+      case "createPdfTask":
+        return await createPdfTask(payload);
+      case "getPdfTaskStatus":
+        return await getPdfTaskStatus(payload);
+      default:
+        return {
+          success: false,
+          message: "未知操作"
+        };
+    }
+  } catch (error) {
+    console.error("[report] action failed", {
+      action,
+      message: error && error.message,
+      stack: error && error.stack
+    });
+    return {
+      success: false,
+      message: (error && error.message) || "报告服务异常，请稍后重试"
+    };
   }
 };

@@ -1,4 +1,4 @@
-const { callCloud, uploadToCloud } = require("./cloud");
+const { callCloud, uploadUserFile } = require("./cloud");
 
 function getReportDetail(reportId, inspectionId) {
   return callCloud("report", {
@@ -29,15 +29,11 @@ function listReports(payload = {}) {
 }
 
 function uploadReportFile(filePath, fileName) {
-  return uploadToCloud(filePath, `reports/${Date.now()}-${fileName}`);
+  return uploadUserFile(filePath, "reports", fileName);
 }
 
-function generateReportPdf(payload) {
-  return callCloud("report", {
-    action: "generatePdf",
-    payload
-  });
-}
+// generateReportPdf 已移除：对应的云端 action 因无鉴权且可被客户端指定请求路径而下线。
+// 出图统一走 createReportPdfTask + getReportPdfTaskStatus（两侧都有归属校验）。
 
 function createReportPdfTask(payload) {
   return callCloud("report", {
@@ -66,7 +62,6 @@ module.exports = {
   saveReport,
   listReports,
   uploadReportFile,
-  generateReportPdf,
   createReportPdfTask,
   getReportPdfTaskStatus,
   deleteReport

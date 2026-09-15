@@ -4,6 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 const express = require("express");
 const { renderReportPdf } = require("./src/render-report-pdf");
+const { getAllowedHostSuffixes } = require("./src/url-guard");
 
 const app = express();
 const port = process.env.PORT || 3100;
@@ -11,16 +12,27 @@ const API_KEY = process.env.PDF_API_KEY || "";
 const taskStore = new Map();
 let runningTaskId = "";
 
+// 未配置密钥时拒绝启动，而不是放行。
+//
+// 这个服务会用 Puppeteer 渲染调用方提交的内容，并且能写文件。
+// 原实现里 API_KEY 为空时 requireApiKey 直接 next()，等于把接口完全敞开：
+// 任何人都能驱动它渲染任意内容、消耗服务器 CPU 与内存。
+// 静默放行比启动失败危险得多，所以这里直接退出。
+if (!API_KEY) {
+  console.error("[report-pdf-service] 启动中止：未配置 PDF_API_KEY。");
+  console.error("该服务会执行 Puppeteer 渲染，未鉴权时等同于对公网开放。");
+  console.error("请设置后重启，例如：PDF_API_KEY=<你的密钥> npm start");
+  process.exit(1);
+}
+
 app.use(express.json({
   limit: "20mb"
 }));
 
 function requireApiKey(req, res, next) {
-  if (!API_KEY) {
-    return next();
-  }
-  const provided = (req.headers["x-api-key"] || req.query.apiKey || "").trim();
-  if (provided === API_KEY) {
+  // 只接受请求头，不接受 query 传参——URL 会进日志和浏览器历史
+  const provided = `${req.headers["x-api-key"] || ""}`.trim();
+  if (provided && provided === API_KEY) {
     return next();
   }
   res.status(401).json({
@@ -273,4 +285,49 @@ app.get("/api/report-pdf/tasks/:taskId/download", requireApiKey, (req, res) => {
 
 app.listen(port, () => {
   console.log(`report-pdf-service listening on :${port}`);
+  console.log(`[report-pdf-service] 图片域名准入：${getAllowedHostSuffixes().join(", ")}`);
 });
+
+/**
+ * 定期清理。
+ *
+ * 原实现把生成的 PDF 写到 os.tmpdir() 后从不删除，taskStore 里的记录也只增不减：
+ * 服务跑久了 /tmp 会被 PDF 撑满，最终 OOM。
+ * 这里按 TTL 回收「已结束且超过保留期」的任务，同时删掉对应的临时文件。
+ */
+const TASK_TTL_MS = Number(process.env.PDF_TASK_TTL_MS || 30 * 60 * 1000);
+const TASK_SWEEP_INTERVAL_MS = Number(process.env.PDF_TASK_SWEEP_INTERVAL_MS || 5 * 60 * 1000);
+
+function sweepFinishedTasks() {
+  const now = Date.now();
+  let removed = 0;
+
+  taskStore.forEach((task, taskId) => {
+    const isFinished = task.status === "success" || task.status === "failed";
+    if (!isFinished) {
+      return;
+    }
+    if (now - (task.finishedAt || task.updatedAt || task.createdAt) < TASK_TTL_MS) {
+      return;
+    }
+
+    if (task.tempFilePath) {
+      fs.promises.unlink(task.tempFilePath).catch(() => {});
+    }
+    taskStore.delete(taskId);
+    removed += 1;
+  });
+
+  if (removed) {
+    console.log("[report-pdf-service] sweep", {
+      removed,
+      remaining: taskStore.size
+    });
+  }
+}
+
+const sweepTimer = setInterval(sweepFinishedTasks, TASK_SWEEP_INTERVAL_MS);
+// 不要因为这个定时器拖住进程退出
+if (typeof sweepTimer.unref === "function") {
+  sweepTimer.unref();
+}

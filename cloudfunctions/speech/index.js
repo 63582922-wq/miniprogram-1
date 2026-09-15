@@ -7,6 +7,29 @@ cloud.init({
 
 const AsrClient = tencentcloud.asr.v20190614.Client;
 
+/**
+ * 从云存储 fileID 中取出路径部分。
+ * fileID 形如 cloud://<env>.<bucket>/speech-input/user/<openId>/123.mp3
+ */
+function extractCloudPath(fileID) {
+  const matched = /^cloud:\/\/[^/]+\/(.+)$/.exec(`${fileID || ""}`);
+  return matched ? matched[1] : "";
+}
+
+/**
+ * 校验 fileID 是否属于该用户。
+ *
+ * 原实现直接对客户端传来的 fileID 调用 cloud.downloadFile，
+ * 等于任何人只要拿到别人的 fileID 就能让云端代读那人的录音。
+ * 客户端上传时已按 user/{openId}/ 隔离路径，这里做对应的归属校验。
+ */
+function isFileOwnedByOpenId(fileID, openId) {
+  if (!fileID || !openId) {
+    return false;
+  }
+  return extractCloudPath(fileID).includes(`/user/${openId}/`);
+}
+
 function createSpeechError(message, extra = {}) {
   const error = new Error(message);
   Object.assign(error, extra);
@@ -122,11 +145,20 @@ function getConfigStatus() {
   };
 }
 
-async function transcribe(payload) {
+async function transcribe(payload, openId) {
   if (!payload.fileID) {
     throw createSpeechError("缺少音频文件", {
       code: "SpeechMissingFile",
       stage: "validate"
+    });
+  }
+
+  // 归属校验必须在 downloadFile 之前：否则云端会替调用者读取任意 fileID
+  if (!isFileOwnedByOpenId(payload.fileID, openId)) {
+    throw createSpeechError("无权访问该音频文件", {
+      code: "SpeechFileForbidden",
+      stage: "validate",
+      diagnosis: "fileID 不属于当前用户目录"
     });
   }
 
@@ -290,13 +322,14 @@ async function transcribe(payload) {
 
 exports.main = async (event) => {
   const { action, payload = {} } = event;
+  const { OPENID } = cloud.getWXContext();
 
   try {
     switch (action) {
       case "transcribe":
         return {
           success: true,
-          data: await transcribe(payload)
+          data: await transcribe(payload, OPENID)
         };
       case "diagnose":
         return {

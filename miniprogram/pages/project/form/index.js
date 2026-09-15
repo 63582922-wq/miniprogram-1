@@ -7,6 +7,7 @@ Page({
   data: {
     projectId: "",
     pageTitle: "新建项目",
+    isSaving: false,
     projectStatusOptions: PROJECT_STATUS_OPTIONS,
     projectStatusIndex: 0,
     form: {
@@ -165,26 +166,53 @@ Page({
       return;
     }
 
-    const saved = await saveProject({
-      projectId: this.data.projectId,
-      ...this.data.form
-    });
-    markGuideStep("projectCreated", true);
+    // 防重复提交：连点两次会创建两条项目
+    if (this.data.isSaving) {
+      return;
+    }
 
-    wx.showToast({
-      title: "保存成功",
-      icon: "success"
+    this.setData({ isSaving: true });
+    wx.showLoading({
+      title: "保存中",
+      mask: true
     });
 
-    setTimeout(() => {
-      if (isCoachStep("projectCreateForm") && !this.data.projectId && saved && saved._id) {
-        stopCoach();
-        wx.redirectTo({
-          url: `/pages/project/detail/index?projectId=${saved._id}`
-        });
-        return;
-      }
-      wx.navigateBack();
-    }, 300);
+    try {
+      const saved = await saveProject({
+        projectId: this.data.projectId,
+        ...this.data.form
+      });
+      markGuideStep("projectCreated", true);
+
+      wx.hideLoading();
+      wx.showToast({
+        title: "保存成功",
+        icon: "success"
+      });
+
+      setTimeout(() => {
+        if (isCoachStep("projectCreateForm") && !this.data.projectId && saved && saved._id) {
+          stopCoach();
+          wx.redirectTo({
+            url: `/pages/project/detail/index?projectId=${saved._id}`
+          });
+          return;
+        }
+        wx.navigateBack();
+      }, 300);
+    } catch (error) {
+      // 原实现没有 try/catch：保存失败会变成未捕获的 promise rejection，
+      // 界面上什么都不显示，用户会以为已经存上了。
+      wx.hideLoading();
+      console.error("[project-form] save failed", error);
+      wx.showModal({
+        title: "保存失败",
+        content: (error && error.message) || "请检查网络后重试",
+        showCancel: false,
+        confirmText: "知道了"
+      });
+    } finally {
+      this.setData({ isSaving: false });
+    }
   }
 });

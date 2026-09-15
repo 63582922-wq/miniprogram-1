@@ -1,4 +1,4 @@
-const { callCloud, uploadToCloud } = require("./cloud");
+const { callCloud, uploadUserFile } = require("./cloud");
 
 function sanitizeSpeechText(text = "") {
   return `${text || ""}`
@@ -63,8 +63,10 @@ async function transcribeVoiceFile(tempFilePath, options = {}) {
   }
 
   const duration = Number(options.duration || 0);
-  const cloudPath = options.cloudPath || `speech-input/${Date.now()}.mp3`;
-  const fileID = await uploadToCloud(tempFilePath, cloudPath);
+  // 录音必须落到当前用户专属目录：speech 云函数会按 openId 校验路径归属，
+  // 不这样做就等于把任意 fileID 交给云端下载，形成越权读取通道。
+  const label = `${options.label || "voice"}`.replace(/[^\w-]/g, "") || "voice";
+  const fileID = await uploadUserFile(tempFilePath, "speech-input", `${label}.mp3`);
 
   const result = await callCloud("speech", {
     action: "transcribe",

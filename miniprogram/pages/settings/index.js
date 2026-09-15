@@ -1,5 +1,5 @@
 const { getSettings, saveSettings } = require("../../services/settings");
-const { uploadToCloud } = require("../../services/cloud");
+const { uploadUserFile } = require("../../services/cloud");
 const { getCurrentUser, updateProfile } = require("../../services/user");
 const { markGuideStep } = require("../../utils/guide");
 const { isCoachStep, moveCoach, stopCoach, buildCoachTip } = require("../../utils/coach");
@@ -233,11 +233,30 @@ Page({
   async handleLogoChange(event) {
     const filePath = event.detail;
     const ext = getUploadExtension(filePath);
-    const fileId = await uploadToCloud(filePath, `logos/${Date.now()}.${ext}`);
-    this.setData({
-      "form.logoFileId": fileId,
-      "form.logoPreview": filePath
+
+    wx.showLoading({
+      title: "上传中",
+      mask: true
     });
+
+    try {
+      const fileId = await uploadUserFile(filePath, "logos", `logo.${ext}`);
+      this.setData({
+        "form.logoFileId": fileId,
+        "form.logoPreview": filePath
+      });
+      wx.hideLoading();
+    } catch (error) {
+      // 原实现没有 try/catch，上传失败时 Logo 区域毫无变化，用户不知道为什么
+      wx.hideLoading();
+      console.error("[settings] logo upload failed", error);
+      wx.showModal({
+        title: "Logo 上传失败",
+        content: (error && error.message) || "请检查网络后重试",
+        showCancel: false,
+        confirmText: "知道了"
+      });
+    }
   },
   async handleSubmit() {
     if (this.data.isSaving) {

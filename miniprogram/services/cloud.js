@@ -107,7 +107,46 @@ async function uploadToCloud(filePath, cloudPath) {
   }
 }
 
+/** 当前登录用户的 openId，取自启动时的 bootstrap 结果 */
+function getCurrentOpenId() {
+  try {
+    const app = getApp();
+    const userInfo = app && app.globalData ? app.globalData.userInfo : null;
+    return (userInfo && userInfo.openId) || "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+/**
+ * 按 openId 隔离的云存储路径。
+ *
+ * 云存储的 fileID 本身就是读取凭据——拿到就能读。路径不按用户隔离时，
+ * 只要 fileID 外泄（日志、分享、他人提交的载荷），就能读走别人的工地照片和录音。
+ * 因此所有上传都必须落到 user/{openId}/ 下面，云端再做归属校验。
+ */
+function buildUserScopedPath(folder, fileName) {
+  const openId = getCurrentOpenId();
+  if (!openId) {
+    throw createCloudError("尚未完成登录，请稍后重试", {
+      stage: "uploadScope",
+      likelyCause: "app.globalData.userInfo.openId is empty"
+    });
+  }
+
+  const safeFolder = `${folder || "files"}`.replace(/^\/+|\/+$/g, "");
+  return `${safeFolder}/user/${openId}/${Date.now()}-${fileName}`;
+}
+
+/** 上传到当前用户专属目录，返回 fileID */
+function uploadUserFile(filePath, folder, fileName) {
+  return uploadToCloud(filePath, buildUserScopedPath(folder, fileName));
+}
+
 module.exports = {
   callCloud,
-  uploadToCloud
+  uploadToCloud,
+  buildUserScopedPath,
+  uploadUserFile,
+  getCurrentOpenId
 };

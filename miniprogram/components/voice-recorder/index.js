@@ -78,7 +78,7 @@ Component({
       try {
         const result = await transcribeVoiceFile(tempFilePath, {
           duration,
-          cloudPath: `speech-input/memo-${Date.now()}.mp3`
+          label: "memo"
         });
         this.emitChange({
           ...this.properties.value,

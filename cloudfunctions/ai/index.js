@@ -30,6 +30,45 @@ const GENERIC_AREA_NAMES = ["地面", "现场", "现场问题", "问题区域", 
 const AI_BATCH_SIZE = 2;
 const AI_BATCH_PARALLEL_LIMIT = 3;
 
+/**
+ * AI 任务记录的保留时长。
+ * 任务里带着完整的草稿载荷（图片路径、语音文本），失败或被用户放弃的任务
+ * 原先会永久堆积，既占存储也留着数据。这里给一个 7 天 TTL 便于定期清理。
+ */
+const AI_TASK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * 校验调用者是否有权访问某个项目。
+ *
+ * 本函数此前完全缺失，导致三个后果：
+ * 1. analyzeInspection / createInspectionTask 可被任意登录用户传入别人的 projectId，
+ *    消耗账号的付费模型额度；
+ * 2. buildProjectHistoryMemory 会把他人项目的问题分类、区域统计和巡查摘要
+ *    通过 memoryHint / memoryAlerts 回吐给调用者，造成跨租户经营数据泄露；
+ * 3. ai_tasks 不记录归属，getInspectionTaskStatus 只要猜到 taskId
+ *    就能拿到他人的问题描述、图片路径和语音文本。
+ */
+async function assertProjectAccess(projectId, openId) {
+  if (!projectId) {
+    return { ok: false, message: "缺少项目 ID" };
+  }
+
+  let project = null;
+  try {
+    const doc = await db.collection("projects").doc(projectId).get();
+    project = doc.data;
+  } catch (error) {
+    // 文档不存在时 SDK 会抛错，统一按无权限处理，避免泄露资源是否存在
+    return { ok: false, message: "无权访问该项目" };
+  }
+
+  if (!project || project.deleted || project.ownerOpenId !== openId) {
+    return { ok: false, message: "无权访问该项目" };
+  }
+
+  return { ok: true, project };
+}
+
 function hasMeaningfulVoiceText(text = "") {
   return `${text || ""}`.trim().length > 0;
 }
@@ -877,7 +916,29 @@ function formatAnnotations(annotations = []) {
   }).join("\n");
 }
 
-async function resolveImageUrl(filePath) {
+/** 从云存储 fileID 中取出路径部分 */
+function extractCloudPath(fileID) {
+  const matched = /^cloud:\/\/[^/]+\/(.+)$/.exec(`${fileID || ""}`);
+  return matched ? matched[1] : "";
+}
+
+/** 校验 fileID 是否落在该用户自己的目录下 */
+function isFileOwnedByOpenId(fileID, openId) {
+  if (!fileID || !openId) {
+    return false;
+  }
+  return extractCloudPath(fileID).includes(`/user/${openId}/`);
+}
+
+/**
+ * 把云存储 fileID 换成可直接交给模型的临时链接。
+ *
+ * 原实现不校验归属：只要在草稿里塞入别人的 cloud:// fileID，
+ * 云端就会签发临时链接并把它送给第三方大模型，等于代读他人照片。
+ * 因此这里要求图片必须位于调用者自己的 user/{openId}/ 目录下。
+ * 归属不符时返回空字符串，让该草稿按「无图」继续处理，不中断整批分析。
+ */
+async function resolveImageUrl(filePath, openId) {
   if (!filePath) {
     return "";
   }
@@ -887,6 +948,13 @@ async function resolveImageUrl(filePath) {
   }
 
   if (filePath.startsWith("cloud://")) {
+    if (!isFileOwnedByOpenId(filePath, openId)) {
+      console.warn("[ai] 跳过不属于当前用户的图片", {
+        cloudPath: extractCloudPath(filePath) || "(无法解析)"
+      });
+      return "";
+    }
+
     const result = await cloud.getTempFileURL({
       fileList: [filePath]
     });
@@ -901,7 +969,7 @@ async function buildMultimodalMessages(payload) {
   const draftContexts = await Promise.all((payload.issueDrafts || []).map(async (draft, index) => ({
     index,
     useImage: !shouldSkipImageRecognitionForDraft(draft),
-    imageUrl: shouldSkipImageRecognitionForDraft(draft) ? "" : await resolveImageUrl(draft.imagePath),
+    imageUrl: shouldSkipImageRecognitionForDraft(draft) ? "" : await resolveImageUrl(draft.imagePath, payload.requesterOpenId),
     note: draft.voiceText || "",
     annotationText: formatAnnotations(draft.annotations || [])
   })));
@@ -1136,7 +1204,7 @@ function buildAiTaskStatus(task = {}, analysis = null) {
   };
 }
 
-async function createAnalysisTask(payload) {
+async function createAnalysisTask(payload, openId) {
   const enhancedPayload = await enrichPayloadWithMemory(payload);
   const draftIndexes = buildTaskDraftIndexes(enhancedPayload);
   const batches = chunkArray(draftIndexes, AI_BATCH_SIZE);
@@ -1144,6 +1212,10 @@ async function createAnalysisTask(payload) {
   const created = await db.collection(AI_TASK_COLLECTION).add({
     data: {
       status: "queued",
+      // 记录归属：getInspectionTaskStatus 据此校验调用者，
+      // 避免只要猜到 taskId 就能读到他人的问题描述、图片路径与语音文本
+      openId,
+      projectId: enhancedPayload.projectId || "",
       payload: enhancedPayload,
       batches,
       partialItems: [],
@@ -1152,6 +1224,7 @@ async function createAnalysisTask(payload) {
       currentBatchIndex: 0,
       errorMessage: "",
       createdAt: now,
+      expiresAt: now + AI_TASK_TTL_MS,
       updatedAt: now
     }
   });
@@ -1249,8 +1322,14 @@ async function processAnalysisTask(task) {
 }
 
 async function getAnalysisTask(taskId) {
-  const task = await db.collection(AI_TASK_COLLECTION).doc(taskId).get();
-  return task.data;
+  // 文档不存在时 SDK 会抛错，这里收敛成 null，
+  // 由调用方决定返回「任务不存在」还是「无权访问」。
+  try {
+    const task = await db.collection(AI_TASK_COLLECTION).doc(taskId).get();
+    return task.data || null;
+  } catch (error) {
+    return null;
+  }
 }
 
 async function analyzeInspectionWithModel(payload) {
@@ -1364,73 +1443,116 @@ async function analyzeInspectionWithModel(payload) {
 
 exports.main = async (event) => {
   const { action, payload = {} } = event;
+  const { OPENID } = cloud.getWXContext();
 
-  switch (action) {
-    case "analyzeInspection": {
-      const enhancedPayload = await enrichPayloadWithMemory(payload);
-      try {
-        const modelResult = await analyzeInspectionWithModel(enhancedPayload);
-        const memoryAlerts = buildMemoryAlerts(enhancedPayload, modelResult.items);
+  try {
+    switch (action) {
+      case "analyzeInspection": {
+        const access = await assertProjectAccess(payload.projectId, OPENID);
+        if (!access.ok) {
+          return { success: false, message: access.message };
+        }
+
+        // 带上调用者身份：图片归属校验需要它（见 resolveImageUrl）。
+        // 草稿里的 imagePath 来自客户端，不能仅凭项目归属就假定图片也是本人的。
+        const securedPayload = Object.assign({}, payload, { requesterOpenId: OPENID });
+        const enhancedPayload = await enrichPayloadWithMemory(securedPayload);
+        try {
+          const modelResult = await analyzeInspectionWithModel(enhancedPayload);
+          const memoryAlerts = buildMemoryAlerts(enhancedPayload, modelResult.items);
+          return {
+            success: true,
+            data: {
+              items: modelResult.items,
+              summary: modelResult.summary || buildInspectionSummary(enhancedPayload, modelResult.items),
+              aiMode: "model",
+              memoryHint: enhancedPayload.memoryHint || "",
+              memoryAlerts
+            }
+          };
+        } catch (error) {
+          console.error("analyzeInspectionWithModel failed", error);
+        }
+
+        const items = buildInspectionItems(enhancedPayload);
+        const memoryAlerts = buildMemoryAlerts(enhancedPayload, items);
         return {
           success: true,
           data: {
-            items: modelResult.items,
-            summary: modelResult.summary || buildInspectionSummary(enhancedPayload, modelResult.items),
-            aiMode: "model",
+            items,
+            summary: buildInspectionSummary(enhancedPayload, items),
+            aiMode: "fallback",
             memoryHint: enhancedPayload.memoryHint || "",
             memoryAlerts
           }
         };
-      } catch (error) {
-        console.error("analyzeInspectionWithModel failed", error);
       }
 
-      const items = buildInspectionItems(enhancedPayload);
-      const memoryAlerts = buildMemoryAlerts(enhancedPayload, items);
-      return {
-        success: true,
-        data: {
-          items,
-          summary: buildInspectionSummary(enhancedPayload, items),
-          aiMode: "fallback",
-          memoryHint: enhancedPayload.memoryHint || "",
-          memoryAlerts
+      case "createInspectionTask": {
+        const access = await assertProjectAccess(payload.projectId, OPENID);
+        if (!access.ok) {
+          return { success: false, message: access.message };
         }
-      };
-    }
-    case "createInspectionTask": {
-      const task = await createAnalysisTask(payload);
-      return {
-        success: true,
-        data: buildAiTaskStatus(task)
-      };
-    }
-    case "getInspectionTaskStatus": {
-      if (!payload.taskId) {
+
+        const task = await createAnalysisTask(
+          Object.assign({}, payload, { requesterOpenId: OPENID }),
+          OPENID
+        );
         return {
-          success: false,
-          message: "缺少任务ID"
+          success: true,
+          data: buildAiTaskStatus(task)
         };
       }
-      let task = await getAnalysisTask(payload.taskId);
-      if (!task) {
+
+      case "getInspectionTaskStatus": {
+        if (!payload.taskId) {
+          return {
+            success: false,
+            message: "缺少任务ID"
+          };
+        }
+
+        let task = await getAnalysisTask(payload.taskId);
+        if (!task) {
+          return {
+            success: false,
+            message: "AI 分析任务不存在"
+          };
+        }
+
+        // 任务只对创建者本人可见。
+        // 历史任务没有 openId 字段，一律拒绝，避免留下一条越权读取通道。
+        if (!task.openId || task.openId !== OPENID) {
+          return {
+            success: false,
+            message: "无权访问该任务"
+          };
+        }
+
+        if (task.status === "queued" || task.status === "running") {
+          task = await processAnalysisTask(task);
+        }
         return {
-          success: false,
-          message: "AI 分析任务不存在"
+          success: true,
+          data: buildAiTaskStatus(task, task.runtimeAnalysis || null)
         };
       }
-      if (task.status === "queued" || task.status === "running") {
-        task = await processAnalysisTask(task);
-      }
-      return {
-        success: true,
-        data: buildAiTaskStatus(task, task.runtimeAnalysis || null)
-      };
+
+      default:
+        return {
+          success: false,
+          message: "未知操作"
+        };
     }
-    default:
-      return {
-        success: false,
-        message: "未知操作"
-      };
+  } catch (error) {
+    console.error("[ai] action failed", {
+      action,
+      message: error && error.message,
+      stack: error && error.stack
+    });
+    return {
+      success: false,
+      message: (error && error.message) || "AI 服务异常，请稍后重试"
+    };
   }
 };

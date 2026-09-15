@@ -1,3 +1,5 @@
+const { sanitizeImageUrl } = require("./url-guard");
+
 function escapeHtml(value = "") {
   return `${value}`
     .replace(/&/g, "&amp;")
@@ -102,13 +104,17 @@ function renderSubIssue(item, index) {
 }
 
 function renderGroup(group, index) {
+  // 先做 URL 准入（挡 file:// 与内网地址），再做 HTML 转义。
+  // 原实现直接把 group.imageUrl 拼进 src 属性，既不转义也不校验来源。
+  const imageSrc = escapeHtml(sanitizeImageUrl(group.imageUrl));
+
   return `
     <section class="photo-group">
       <div class="photo-group__image-column">
         <div class="photo-group__group-title">问题 ${toChineseSectionNumber(index + 1)}</div>
         <div class="photo-group__image-wrap">
           <div class="photo-group__image-stage">
-            ${group.imageUrl ? `<img class="photo-group__image" src="${group.imageUrl}" alt="巡查图片" />` : '<div class="photo-group__empty">暂无图片</div>'}
+            ${imageSrc ? `<img class="photo-group__image" src="${imageSrc}" alt="巡查图片" />` : '<div class="photo-group__empty">暂无图片</div>'}
           </div>
         </div>
       </div>
@@ -125,6 +131,8 @@ function renderGroup(group, index) {
 function buildReportHtml(report = {}) {
   const groups = groupItemsByImage(report.items || []);
   const pages = chunkGroups(groups, 3);
+  // Logo 同样要走准入 + 转义：它来自调用方可控的 settings.logoFileId
+  const logoSrc = escapeHtml(sanitizeImageUrl(report.logoUrl));
   return `<!DOCTYPE html>
   <html lang="zh-CN">
     <head>
@@ -416,7 +424,7 @@ function buildReportHtml(report = {}) {
                 </div>`
               : ""}
           </div>
-          ${report.logoUrl ? `<img class="header__logo" src="${report.logoUrl}" alt="logo" />` : ""}
+          ${logoSrc ? `<img class="header__logo" src="${logoSrc}" alt="logo" />` : ""}
         </section>
         <section class="summary">
           ${renderText(report.contextNote || report.summary || "本报告由系统根据巡查结果自动整理生成。")}

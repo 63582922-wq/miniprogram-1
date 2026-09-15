@@ -6,6 +6,7 @@ Page({
     projectId: "",
     memoId: "",
     pageTitle: "新增待办",
+    isSaving: false,
     remindAt: "",
     remindAtDisplay: "请选择提醒日期",
     subscribeStatus: "pending",
@@ -87,23 +88,48 @@ Page({
       return;
     }
 
-    await saveMemo({
-      memoId: this.data.memoId,
-      projectId: this.data.projectId,
-      content: this.data.voice.voiceText || "语音备忘",
-      voiceText: this.data.voice.voiceText,
-      voiceFilePath: this.data.voice.voiceFilePath,
-      remindAt: this.data.remindAt,
-      subscribeStatus: this.data.subscribeStatus
+    if (this.data.isSaving) {
+      return;
+    }
+
+    this.setData({ isSaving: true });
+    wx.showLoading({
+      title: "保存中",
+      mask: true
     });
 
-    wx.showToast({
-      title: "保存成功",
-      icon: "success"
-    });
+    try {
+      await saveMemo({
+        memoId: this.data.memoId,
+        projectId: this.data.projectId,
+        content: this.data.voice.voiceText || "语音备忘",
+        voiceText: this.data.voice.voiceText,
+        voiceFilePath: this.data.voice.voiceFilePath,
+        remindAt: this.data.remindAt,
+        subscribeStatus: this.data.subscribeStatus
+      });
 
-    setTimeout(() => {
-      wx.navigateBack();
-    }, 300);
+      wx.hideLoading();
+      wx.showToast({
+        title: "保存成功",
+        icon: "success"
+      });
+
+      setTimeout(() => {
+        wx.navigateBack();
+      }, 300);
+    } catch (error) {
+      // 原实现没有 try/catch，保存失败时界面毫无反馈
+      wx.hideLoading();
+      console.error("[memo-form] save failed", error);
+      wx.showModal({
+        title: "保存失败",
+        content: (error && error.message) || "请检查网络后重试",
+        showCancel: false,
+        confirmText: "知道了"
+      });
+    } finally {
+      this.setData({ isSaving: false });
+    }
   }
 });

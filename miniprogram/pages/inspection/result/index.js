@@ -1,5 +1,5 @@
 const { confirmInspection } = require("../../../services/inspection");
-const { uploadToCloud } = require("../../../services/cloud");
+const { uploadUserFile } = require("../../../services/cloud");
 const { encodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
 const { isCoachStep, moveCoach, stopCoach, getNextCoachStep, getPrevCoachStep, buildCoachTip } = require("../../../utils/coach");
@@ -61,14 +61,14 @@ function cloneIssues(issues = []) {
 async function uploadPendingIssueAssets(form = {}) {
   const issueDrafts = await Promise.all(((form.issueDrafts) || []).map(async (item, index) => {
     const imagePath = item.imagePath && !item.imagePath.startsWith("cloud://")
-      ? await uploadToCloud(item.imagePath, `inspection-images/${Date.now()}-${index}.png`)
+      ? await uploadUserFile(item.imagePath, "inspection-images", `${index}.png`)
       : (item.imagePath || "");
     const annotatedImagePath = item.annotatedImagePath && !item.annotatedImagePath.startsWith("cloud://")
-      ? await uploadToCloud(item.annotatedImagePath, `inspection-annotated-images/${Date.now()}-${index}.png`)
+      ? await uploadUserFile(item.annotatedImagePath, "inspection-annotated-images", `${index}.png`)
       : (item.annotatedImagePath || "");
     let voiceStorageFileId = item.voiceStorageFileId || item.voiceFileId || "";
     if (item.voiceFilePath && !item.voiceFilePath.startsWith("cloud://") && !voiceStorageFileId) {
-      voiceStorageFileId = await uploadToCloud(item.voiceFilePath, `inspection-audio/${Date.now()}-${index}.mp3`);
+      voiceStorageFileId = await uploadUserFile(item.voiceFilePath, "inspection-audio", `${index}.mp3`);
     }
     return {
       ...item,

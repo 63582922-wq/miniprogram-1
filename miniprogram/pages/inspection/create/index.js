@@ -1,6 +1,6 @@
 const { listProjects } = require("../../../services/project");
 const { analyzeInspection, createInspectionTask, getInspectionTaskStatus } = require("../../../services/inspection");
-const { uploadToCloud } = require("../../../services/cloud");
+const { uploadUserFile } = require("../../../services/cloud");
 const { transcribeVoiceFile, mergeSpeechText, formatSpeechError } = require("../../../services/speech");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { isCoachStep, moveCoach, stopCoach, getNextCoachStep, getPrevCoachStep, buildCoachTip } = require("../../../utils/coach");
@@ -814,7 +814,7 @@ Page({
     try {
       const result = await transcribeVoiceFile(tempFilePath, {
         duration,
-        cloudPath: `speech-input/inspection-${Date.now()}.mp3`
+        label: "inspection"
       });
       const issueDrafts = this.data.form.issueDrafts.map((item) => {
         if (item.id !== issueId) {
@@ -891,19 +891,19 @@ Page({
       const imagePath = shouldUploadImageForAnalyze
         ? (item.imagePath.startsWith("cloud://")
           ? item.imagePath
-          : await uploadToCloud(item.imagePath, `inspection-images/${Date.now()}-${index}.png`))
+          : await uploadUserFile(item.imagePath, "inspection-images", `${index}.png`))
         : item.imagePath;
       const annotatedImagePath = shouldUploadImageForAnalyze
         ? (item.annotatedImagePath
           ? item.annotatedImagePath.startsWith("cloud://")
             ? item.annotatedImagePath
-            : await uploadToCloud(item.annotatedImagePath, `inspection-annotated-images/${Date.now()}-${index}.png`)
+            : await uploadUserFile(item.annotatedImagePath, "inspection-annotated-images", `${index}.png`)
           : "")
         : (item.annotatedImagePath || "");
 
       let voiceStorageFileId = item.voiceStorageFileId || item.voiceFileId || "";
       if (item.voiceFilePath && !item.voiceFilePath.startsWith("cloud://") && !voiceStorageFileId) {
-        voiceStorageFileId = await uploadToCloud(item.voiceFilePath, `inspection-audio/${Date.now()}-${index}.mp3`);
+        voiceStorageFileId = await uploadUserFile(item.voiceFilePath, "inspection-audio", `${index}.mp3`);
       }
 
       return {
