@@ -1,0 +1,9 @@
+{
+  "name": "setupdb",
+  "version": "1.0.0",
+  "description": "一次性创建毫厘智管所需的全部数据库集合",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
