@@ -1,4 +1,5 @@
 const { listMemos, saveMemo, deleteMemo } = require("../../../services/memo");
+const { runWithFeedback } = require("../../../utils/feedback");
 const PENDING_MEMO_CONTEXT_KEY = "pendingMemoContext";
 
 Page({
@@ -134,21 +135,24 @@ Page({
       return;
     }
 
-    await saveMemo({
-      memoId,
-      projectId: current.projectId,
-      content: current.content,
-      voiceText: current.voiceText,
-      voiceFilePath: current.voiceFilePath || current.voiceFileId || "",
-      remindAt: current.remindAt || "",
-      subscribeStatus: current.subscribeStatus || "pending",
-      status
-    });
+    // 原来直接 await saveMemo，失败时界面毫无反馈：
+    // 用户以为状态改了，其实没改。
+    const saved = await runWithFeedback(
+      { loading: "更新中", success: "已更新", errorTitle: "更新失败" },
+      () => saveMemo({
+        memoId,
+        projectId: current.projectId,
+        content: current.content,
+        voiceText: current.voiceText,
+        voiceFilePath: current.voiceFilePath || current.voiceFileId || "",
+        remindAt: current.remindAt || "",
+        subscribeStatus: current.subscribeStatus || "pending",
+        status
+      })
+    );
 
-    wx.showToast({
-      title: "已更新",
-      icon: "success"
-    });
-    this.loadMemos();
+    if (saved) {
+      this.loadMemos();
+    }
   }
 });
