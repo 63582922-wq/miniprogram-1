@@ -27,7 +27,7 @@ const RESPONSIBLE_PARTY_LABEL_MAP = {
 
 const GENERIC_CATEGORY_NAMES = ["施工", "现场问题", "问题", "其他"];
 const GENERIC_AREA_NAMES = ["地面", "现场", "现场问题", "问题区域", "其他区域"];
-const AI_BATCH_SIZE = 2;
+const AI_BATCH_SIZE = 1;
 const AI_BATCH_PARALLEL_LIMIT = 3;
 
 /**
@@ -36,6 +36,12 @@ const AI_BATCH_PARALLEL_LIMIT = 3;
  * 原先会永久堆积，既占存储也留着数据。这里给一个 7 天 TTL 便于定期清理。
  */
 const AI_TASK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * 异步任务每次调用处理批次的时间预算。
+ * 留足余量给最终写入与响应——云函数上限是 60 秒，这里给 45 秒。
+ */
+const AI_TASK_TIME_BUDGET_MS = 45 * 1000;
 
 /**
  * 校验调用者是否有权访问某个项目。
@@ -1174,7 +1180,7 @@ async function processAnalysisTask(task) {
   }
   const payload = task.payload || {};
   const batches = task.batches || [];
-  const currentBatchIndex = task.currentBatchIndex || 0;
+
   if (!batches.length) {
     // 没有草稿可分析：返回空清单，不编造任何条目
     const analysis = {
@@ -1185,38 +1191,44 @@ async function processAnalysisTask(task) {
       memoryAlerts: []
     };
     await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
-      data: {
-        status: "success",
-        analysis,
-        updatedAt: Date.now()
-      }
+      data: { status: "success", analysis, updatedAt: Date.now() }
     });
     const refreshed = await db.collection(AI_TASK_COLLECTION).doc(task._id).get();
     return refreshed.data;
   }
 
-  if (currentBatchIndex >= batches.length) {
-    return task;
-  }
-
   await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
-    data: {
-      status: "running",
-      updatedAt: Date.now()
-    }
+    data: { status: "running", updatedAt: Date.now() }
   });
 
+  // 在一次调用里尽量多处理几批，而不是每次只处理一批。
+  //
+  // 原来每轮只做一批。配合「每次请求只放 1 张图」（避免超过云函数 60 秒上限），
+  // 20 张照片就要 20 轮客户端轮询，太慢。
+  // 现在按时间预算循环，每轮并发处理 AI_BATCH_PARALLEL_LIMIT 批。
+  let cursor = task.currentBatchIndex || 0;
+  let mergedItems = (task.partialItems || []).slice();
+  const deadline = Date.now() + AI_TASK_TIME_BUDGET_MS;
+
   try {
-    const batchIndexes = batches[currentBatchIndex] || [];
-    const batchItems = await analyzeInspectionBatch(payload, batchIndexes);
-    const mergedItems = (task.partialItems || []).concat(batchItems || []);
-    const completedBatches = currentBatchIndex + 1;
-    const updateData = {
-      completedBatches,
-      currentBatchIndex: completedBatches,
-      updatedAt: Date.now()
-    };
-    if (completedBatches >= batches.length) {
+    while (cursor < batches.length) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        break;
+      }
+
+      const chunk = batches.slice(cursor, cursor + AI_BATCH_PARALLEL_LIMIT);
+      const results = await runWithConcurrency(
+        chunk.map((batchIndexes) => async () => analyzeInspectionBatch(payload, batchIndexes)),
+        AI_BATCH_PARALLEL_LIMIT
+      );
+      results.forEach((items) => {
+        mergedItems = mergedItems.concat(items || []);
+      });
+      cursor += chunk.length;
+    }
+
+    if (cursor >= batches.length) {
       const finalItems = await finalizeTaskItems(payload, mergedItems);
       const finalAnalysis = {
         items: finalItems,
@@ -1225,23 +1237,30 @@ async function processAnalysisTask(task) {
         memoryHint: payload.memoryHint || "",
         memoryAlerts: buildMemoryAlerts(payload, finalItems)
       };
-      updateData.status = "success";
-      updateData.payload = _.remove();
-      updateData.batches = _.remove();
-      updateData.partialItems = _.remove();
       await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
-        data: updateData
+        data: {
+          status: "success",
+          analysis: finalAnalysis,
+          completedBatches: cursor,
+          currentBatchIndex: cursor,
+          partialItems: _.remove(),
+          payload: _.remove(),
+          batches: _.remove(),
+          updatedAt: Date.now()
+        }
       });
-      const refreshed = await db.collection(AI_TASK_COLLECTION).doc(task._id).get();
-      return Object.assign({}, refreshed.data, {
-        runtimeAnalysis: finalAnalysis
-      });
-    } else {
-      updateData.status = "running";
-      updateData.partialItems = mergedItems;
+      const done = await db.collection(AI_TASK_COLLECTION).doc(task._id).get();
+      return Object.assign({}, done.data, { runtimeAnalysis: finalAnalysis });
     }
+
     await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
-      data: updateData
+      data: {
+        status: "running",
+        completedBatches: cursor,
+        currentBatchIndex: cursor,
+        partialItems: mergedItems,
+        updatedAt: Date.now()
+      }
     });
   } catch (error) {
     console.error("processAnalysisTask failed", error);
@@ -1273,65 +1292,29 @@ async function analyzeInspectionWithModel(payload) {
   const runtimeConfig = getAiRuntimeConfig();
   if (isOpenAiCompatibleEnabled(runtimeConfig)) {
     const drafts = payload.issueDrafts || [];
-    if (drafts.length > 5) {
-      const draftIndexes = drafts.map((_, index) => index);
-      const batches = chunkArray(draftIndexes, AI_BATCH_SIZE);
-      const batchResults = await runWithConcurrency(
-        batches.map((batchIndexes) => async () => analyzeDraftBatchWithOpenAiCompatible(payload, batchIndexes)),
-        AI_BATCH_PARALLEL_LIMIT
-      );
-      const mergedItems = batchResults.flat();
-      return {
-        items: normalizeInspectionAiItems(payload, mergedItems, {
-          fillMissingDrafts: true
-        }),
-        summary: ""
-      };
-    }
 
-    const modelResult = await analyzeInspectionWithOpenAiCompatible(payload);
-    const covered = new Set((modelResult.items || []).map((item) => item.sourceIndex));
-    const missingDraftIndexes = drafts
-      .map((_, index) => index)
-      .filter((index) => !covered.has(index));
+    // 不分「少量走单次请求、多量才分批」——统一分批。
+    //
+    // 原来 drafts.length <= 5 时会把所有图片塞进一次请求。实测踩到：
+    // 2 张高分辨率图（detail: high）一次请求就可能超过云函数 60 秒上限，
+    // 整个调用被杀死，用户只看到「AI 整理中」一直转。
+    // 现在每批只放 AI_BATCH_SIZE 张，单次请求耗时可控。
+    const draftIndexes = drafts.map((_, index) => index);
+    const batches = chunkArray(draftIndexes, AI_BATCH_SIZE);
+    const batchResults = await runWithConcurrency(
+      batches.map((batchIndexes) => async () => analyzeDraftBatchWithOpenAiCompatible(payload, batchIndexes)),
+      AI_BATCH_PARALLEL_LIMIT
+    );
+    const mergedItems = batchResults.flat();
 
-    if (missingDraftIndexes.length) {
-      const supplementedGroups = await Promise.all(missingDraftIndexes.map(async (index) => {
-        const draft = drafts[index];
-        try {
-          return await analyzeSingleDraftWithOpenAiCompatible(payload, draft, index);
-        } catch (error) {
-          console.error("analyzeSingleDraftWithOpenAiCompatible failed", {
-            index,
-            error
-          });
-          return [buildDraftBackedIssueItem(draft, index, index, 1)];
-        }
-      }));
-
-      const supplementedItems = supplementedGroups.flat();
-      const mergedItems = [...(modelResult.items || [])];
-      const mergedCovered = new Set(mergedItems.map((item) => item.sourceIndex));
-
-      supplementedItems.forEach((item) => {
-        if (!mergedCovered.has(item.sourceIndex)) {
-          mergedItems.push(item);
-          mergedCovered.add(item.sourceIndex);
-        } else if ((item.subIssueIndex || 1) > 1) {
-          mergedItems.push(item);
-        }
-      });
-
-      return {
-        ...modelResult,
-        items: normalizeInspectionAiItems(payload, mergedItems, {
-          fillMissingDrafts: true
-        })
-      };
-    }
-
-    return modelResult;
+    return {
+      items: normalizeInspectionAiItems(payload, mergedItems, {
+        fillMissingDrafts: true
+      }),
+      summary: ""
+    };
   }
+
 
   const client = getHunyuanClient();
   const userPrompt = [

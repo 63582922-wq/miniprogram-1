@@ -44,22 +44,36 @@ function createCloudError(message, extra = {}) {
   return error;
 }
 
-async function callCloud(name, data = {}) {
+async function callCloud(name, data = {}, options = {}) {
+  const {
+    /**
+     * 超时后是否重试。
+     *
+     * 默认重试是为了覆盖偶发的网络抖动。但 AI 分析这类调用本身就要跑几十秒、
+     * 且服务端已经跑满了自己的时间预算——重试只会让用户多等一轮，
+     * 而且模型已经超时的那次工作等于白做。这类调用应显式传 false。
+     */
+    retryOnTimeout = true,
+    timeout = 60000
+  } = options || {};
+
   const action = data && data.action ? data.action : "";
   const invoke = () => wx.cloud.callFunction({
     name,
     data,
-    timeout: 60000
+    timeout
   });
   try {
     let result;
-    const maxAttempts = 3;
+    const maxAttempts = retryOnTimeout ? 3 : 1;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         result = await invoke();
         break;
       } catch (invokeError) {
-        const retryable = looksLikeTimeoutError(invokeError) && attempt < maxAttempts;
+        const retryable = retryOnTimeout
+          && looksLikeTimeoutError(invokeError)
+          && attempt < maxAttempts;
         if (!retryable) {
           throw invokeError;
         }

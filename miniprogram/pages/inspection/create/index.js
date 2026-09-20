@@ -12,7 +12,15 @@ const SINGLE_PICK_LIMIT = 9;
 const UPLOAD_CONCURRENCY = 3;
 const PENDING_PROJECT_KEY = "pendingInspectionProject";
 const LATEST_INSPECTION_DRAFT_META_KEY = "latestInspectionDraftMeta";
-const ASYNC_ANALYZE_THRESHOLD = 3;
+/**
+ * 超过这个数量就走异步任务路径。
+ *
+ * 设为 0：只要有需要图片识别的草稿，一律走异步任务。
+ * 一次图片识别请求本身可能要几十秒，同步路径会让用户盯着一个不动的
+ * 全屏遮罩（实测踩到超时）；异步路径能显示「AI 正在整理（2/5 批）」的进度，
+ * 且服务端每轮有时间预算，单次调用不会顶到云函数上限。
+ */
+const ASYNC_ANALYZE_THRESHOLD = 0;
 const ANALYZE_POLL_INTERVAL = 1500;
 /** 轮询连续失败多少次后停止等待（每次失败会退避重试） */
 const ANALYZE_POLL_MAX_FAILURES = 5;

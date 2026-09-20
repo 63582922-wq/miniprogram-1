@@ -21,25 +21,36 @@ function getInspectionDetail(inspectionId) {
   });
 }
 
+/**
+ * AI 相关的三个调用都关闭超时重试。
+ *
+ * 它们本身要跑几十秒、服务端也已经用满自己的时间预算（异步任务一轮最多 45 秒），
+ * 重试只会让用户多等一轮 —— 而超时那次模型已经做完的工作等于白做。
+ */
+const AI_CALL_OPTIONS = {
+  retryOnTimeout: false,
+  timeout: 60000
+};
+
 function analyzeInspection(payload) {
   return callCloud("ai", {
     action: "analyzeInspection",
     payload
-  });
+  }, AI_CALL_OPTIONS);
 }
 
 function createInspectionTask(payload) {
   return callCloud("ai", {
     action: "createInspectionTask",
     payload
-  });
+  }, AI_CALL_OPTIONS);
 }
 
 function getInspectionTaskStatus(taskId) {
   return callCloud("ai", {
     action: "getInspectionTaskStatus",
     payload: { taskId }
-  });
+  }, AI_CALL_OPTIONS);
 }
 
 function confirmInspection(payload) {
