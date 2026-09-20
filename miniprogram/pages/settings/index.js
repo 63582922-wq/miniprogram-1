@@ -1,3 +1,4 @@
+const { getWindowInfo } = require("../../utils/system");
 const { getSettings, saveSettings } = require("../../services/settings");
 const { uploadUserFile } = require("../../services/cloud");
 const { getCurrentUser, updateProfile } = require("../../services/user");
@@ -92,7 +93,7 @@ Page({
       if (!rect || !viewport) {
         return;
       }
-      const windowHeight = wx.getSystemInfoSync().windowHeight || 0;
+      const windowHeight = getWindowInfo().windowHeight || 0;
       const safeBottom = windowHeight - 180;
       if (rect.bottom <= safeBottom) {
         return;

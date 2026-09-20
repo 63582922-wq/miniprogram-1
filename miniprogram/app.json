@@ -51,17 +51,6 @@
     ]
   },
   "sitemapLocation": "sitemap.json",
-  "permission": {
-    "scope.camera": {
-      "desc": "用于巡查拍照和图片标注"
-    },
-    "scope.record": {
-      "desc": "用于语音备注转文字"
-    },
-    "scope.writePhotosAlbum": {
-      "desc": "用于保存巡查报告"
-    }
-  },
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",
   "__usePrivacyCheck__": true

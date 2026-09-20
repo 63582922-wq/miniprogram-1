@@ -1,3 +1,5 @@
+const { getWindowInfo } = require("../../utils/system");
+
 Component({
   properties: {
     title: {
@@ -38,7 +40,7 @@ Component({
   methods: {
     computeMetrics() {
       try {
-        const systemInfo = wx.getSystemInfoSync();
+        const systemInfo = getWindowInfo();
         const menuButton = typeof wx.getMenuButtonBoundingClientRect === "function"
           ? wx.getMenuButtonBoundingClientRect()
           : null;

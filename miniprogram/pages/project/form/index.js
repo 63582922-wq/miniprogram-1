@@ -1,3 +1,4 @@
+const { getWindowInfo } = require("../../../utils/system");
 const { getProjectDetail, saveProject } = require("../../../services/project");
 const { PROJECT_STATUS_OPTIONS } = require("../../../constants/status");
 const { markGuideStep } = require("../../../utils/guide");
@@ -101,7 +102,7 @@ Page({
       if (!rect || !viewport) {
         return;
       }
-      const windowHeight = wx.getSystemInfoSync().windowHeight || 0;
+      const windowHeight = getWindowInfo().windowHeight || 0;
       const safeTop = 150;
       const safeBottom = windowHeight - 180;
       let delta = 0;
