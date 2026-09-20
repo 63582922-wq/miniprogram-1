@@ -49,10 +49,39 @@ function mapResponsiblePartyText(value) {
   return mapping[value] || "待确认";
 }
 
+/**
+ * 正整数转中文数字（1 → 一，11 → 十一，21 → 二十一）。
+ *
+ * 巡查报告的「问题 一 / 二 / 三」编号在三个地方用到：巡查结果确认页、
+ * 报告页、PDF 模板。此前各处各写一份实现，报告页一度还改成阿拉伯数字 +
+ * 1-A 的编号，导致同一份巡查出现两套编号。统一放这里，只此一份。
+ */
+function toChineseSectionNumber(value) {
+  const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const num = Number(value);
+
+  if (!Number.isFinite(num) || num <= 0) {
+    return `${value}`;
+  }
+  if (num <= 10) {
+    return num === 10 ? "十" : digits[num];
+  }
+  if (num < 20) {
+    return `十${digits[num - 10]}`;
+  }
+  if (num < 100) {
+    const tens = Math.floor(num / 10);
+    const ones = num % 10;
+    return `${digits[tens]}十${ones ? digits[ones] : ""}`;
+  }
+  return `${num}`;
+}
+
 module.exports = {
   formatDateTime,
   formatDate,
   mapSeverityText,
   mapProjectStatusText,
-  mapResponsiblePartyText
+  mapResponsiblePartyText,
+  toChineseSectionNumber
 };

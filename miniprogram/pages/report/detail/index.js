@@ -1,6 +1,6 @@
 const { getReportDetail, buildReportData, saveReport, createReportPdfTask, getReportPdfTaskStatus } = require("../../../services/report");
 const { getSettings } = require("../../../services/settings");
-const { mapSeverityText, mapResponsiblePartyText, formatDate, formatDateTime } = require("../../../utils/format");
+const { mapSeverityText, mapResponsiblePartyText, formatDate, formatDateTime, toChineseSectionNumber } = require("../../../utils/format");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
 
@@ -113,10 +113,13 @@ function buildIssueGroups(items = []) {
   groups.sort((a, b) => a.sourceIndex - b.sourceIndex);
 
   groups.forEach((group, groupIndex) => {
-    group.groupNo = groupIndex + 1;
+    // 与巡查结果确认页、PDF 模板保持同一套编号：
+    // 分组用中文数字「问题 一」，组内子条目用 1. 2.
+    // 此前这里用了「问题 1」+「1-A」，导致同一份巡查出现两套编号。
+    group.groupTitle = `问题 ${toChineseSectionNumber(groupIndex + 1)}`;
     group.issues.sort((a, b) => (a.subIssueIndex || 1) - (b.subIssueIndex || 1));
     group.issues.forEach((issue, issueIndex) => {
-      issue.issueNo = `${groupIndex + 1}-${String.fromCharCode(65 + issueIndex)}`;
+      issue.displayNo = `${issueIndex + 1}.`;
     });
   });
 

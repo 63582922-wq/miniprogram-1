@@ -1,21 +1,5 @@
-const { mapSeverityText } = require("../../utils/format");
+const { mapSeverityText, toChineseSectionNumber } = require("../../utils/format");
 const { ISSUE_SEVERITY_OPTIONS, RESPONSIBLE_PARTY_OPTIONS } = require("../../constants/status");
-
-function toChineseSectionNumber(value) {
-  const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
-  if (value <= 10) {
-    if (value === 10) {
-      return "十";
-    }
-    return digits[value] || `${value}`;
-  }
-  if (value < 20) {
-    return `十${digits[value - 10]}`;
-  }
-  const tens = Math.floor(value / 10);
-  const ones = value % 10;
-  return `${digits[tens]}十${ones ? digits[ones] : ""}`;
-}
 
 Component({
   properties: {

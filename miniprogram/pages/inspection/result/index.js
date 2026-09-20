@@ -2,22 +2,8 @@ const { confirmInspection } = require("../../../services/inspection");
 const { uploadUserFile } = require("../../../services/cloud");
 const { encodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
-
-function toChineseSectionNumber(value) {
-  const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
-  if (value <= 10) {
-    if (value === 10) {
-      return "十";
-    }
-    return digits[value] || `${value}`;
-  }
-  if (value < 20) {
-    return `十${digits[value - 10]}`;
-  }
-  const tens = Math.floor(value / 10);
-  const ones = value % 10;
-  return `${digits[tens]}十${ones ? digits[ones] : ""}`;
-}
+// 「问题 一 / 二 / 三」编号与报告页、PDF 模板共用同一实现，不再各写一份
+const { toChineseSectionNumber } = require("../../../utils/format");
 
 function getPrimaryIssueImage(item = {}) {
   return (item.annotatedImages && item.annotatedImages[0]) || (item.images && item.images[0]) || "";

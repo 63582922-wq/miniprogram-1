@@ -75,7 +75,7 @@
     </view>
 
     <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" class="card issue-group">
-      <view class="issue-group__head">问题 {{group.groupNo}}</view>
+      <view class="issue-group__head">{{group.groupTitle}}</view>
 
       <view wx:if="{{group.image}}" class="issue-group__media">
         <image
@@ -87,9 +87,9 @@
         />
       </view>
 
-      <view wx:for="{{group.issues}}" wx:for-item="issue" wx:key="issueNo" class="issue">
+      <view wx:for="{{group.issues}}" wx:for-item="issue" wx:key="displayNo" class="issue">
         <view class="issue__head">
-          <text class="issue__no">{{issue.issueNo}}</text>
+          <text class="issue__no">{{issue.displayNo}}</text>
           <text class="issue__severity issue__severity--{{issue.severity}}">{{issue.severityText}}</text>
           <text wx:if="{{issue.area}}" class="issue__area">{{issue.area}}</text>
         </view>
