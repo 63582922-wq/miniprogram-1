@@ -139,10 +139,16 @@
     <view wx:if="{{isOwner}}" class="report-action-row">
       <view wx:if="{{report.isPdfGenerating}}" class="report-action-button report-action-button--secondary report-action-button--disabled">PDF 生成中</view>
       <view wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="openPdf">打开已生成 PDF</view>
+      <view wx:elif="{{report.isPdfFailed}}" class="report-action-button report-action-button--secondary" bindtap="generatePdf">PDF 生成失败，重试</view>
       <view wx:else class="report-action-button report-action-button--secondary" bindtap="generatePdf">下载 PDF 归档</view>
 
       <view wx:if="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="savePdfToLocal">保存到本地</view>
       <view wx:else class="report-action-button report-action-button--secondary" bindtap="handleHomeTap">返回首页</view>
+    </view>
+
+    <!-- PDF 只是可选归档。它失败不该影响阅读与转发，这里把话说明白 -->
+    <view wx:if="{{isOwner && report.isPdfFailed}}" class="report-readonly-hint">
+      报告内容已就绪，可直接转发阅读。PDF 是归档用的额外产物，失败不影响上面的内容。
     </view>
 
     <view wx:if="{{!isOwner}}" class="report-readonly-hint">

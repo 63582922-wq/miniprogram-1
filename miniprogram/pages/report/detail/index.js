@@ -7,6 +7,8 @@ const { markGuideStep } = require("../../../utils/guide");
 const CURRENT_PDF_TEMPLATE_VERSION = "puppeteer-doc-v19";
 const PDF_RUNTIME_VERSION = "pdf-debug-20260407-v5";
 const PDF_TASK_POLL_INTERVAL = 3000;
+/** 「PDF 生成中」超过这个时长即视为卡死，允许重新发起 */
+const STALE_PDF_GENERATING_MS = 3 * 60 * 1000;
 
 /** 严重度：由重到轻，用于摘要卡与分布条的固定顺序 */
 const SEVERITY_KEYS = ["critical", "major", "normal"];
@@ -279,11 +281,26 @@ function isPersistentLocalPath(filePath = "") {
 function buildReportDisplayState(report = {}) {
   const hasGeneratedPdf = Boolean(report.pdfFileId);
   const isPdfOutdated = Boolean(hasGeneratedPdf && report.pdfTemplateVersion !== CURRENT_PDF_TEMPLATE_VERSION);
+
+  // 判定「生成中」是否已经卡死。
+  //
+  // 服务端挂了、被重启、或网络半途断掉时，reports.status 会永远停在
+  // pdf_generating。而界面上「生成中」既不给重试入口、顶部守卫也会挡住
+  // 重新发起 —— 用户就彻底出不来了（实测踩到过）。
+  // 超过阈值即视为失败，允许重新发起。
+  const generatingSince = Number(report.updatedAt || report.createdAt || 0);
+  const generatingStale = report.status === "pdf_generating"
+    && generatingSince > 0
+    && (Date.now() - generatingSince) > STALE_PDF_GENERATING_MS;
+
+  const isPdfGenerating = report.status === "pdf_generating" && !generatingStale;
+  const isPdfFailed = report.status === "pdf_failed" || generatingStale;
+
   let statusText = "待生成 PDF";
-  if (report.status === "pdf_generating") {
+  if (isPdfGenerating) {
     statusText = "PDF 生成中";
-  } else if (report.status === "pdf_failed") {
-    statusText = report.pdfErrorMessage ? `PDF 生成失败：${report.pdfErrorMessage}` : "PDF 生成失败";
+  } else if (isPdfFailed) {
+    statusText = report.pdfErrorMessage ? `PDF 生成失败：${report.pdfErrorMessage}` : "PDF 生成超时，可重试";
   } else if (isPdfOutdated) {
     statusText = "PDF 模板已更新，需重新生成";
   } else if (hasGeneratedPdf) {
@@ -303,8 +320,8 @@ function buildReportDisplayState(report = {}) {
     // 不该等到生成 PDF 才能发给业主和施工方
     canShare: Boolean(report._id),
     isPdfOutdated,
-    isPdfGenerating: report.status === "pdf_generating",
-    isPdfFailed: report.status === "pdf_failed"
+    isPdfGenerating,
+    isPdfFailed
   };
 }
 
@@ -645,9 +662,38 @@ Page({
         stage: currentStage,
         error
       });
+
+      // 失败必须把状态改回来。
+      // ensureReportForPdf 已经把 status 置成 pdf_generating，不回退的话
+      // 报告会永远停在「PDF 生成中」，而且不能再发起 —— 用户彻底出不来。
+      let failedReport = buildReportDisplayState({
+        ...this.data.report,
+        status: "pdf_failed",
+        pdfErrorMessage: `${currentStage}：${errorMessage}`.slice(0, 200)
+      });
+
+      if (this.data.reportId) {
+        try {
+          const saved = await saveReport({
+            reportId: this.data.reportId,
+            status: "pdf_failed",
+            pdfErrorMessage: `${currentStage}：${errorMessage}`.slice(0, 200)
+          });
+          failedReport = buildReportDisplayState({
+            ...this.data.report,
+            ...(saved || {}),
+            status: "pdf_failed"
+          });
+        } catch (saveError) {
+          console.error("[report-detail] 回写失败状态未成功，仅本地生效", saveError);
+        }
+      }
+
+      this.setData({ report: failedReport });
+
       wx.showModal({
         title: "PDF 生成失败",
-        content: `${currentStage}：${errorMessage}`,
+        content: `${currentStage}：${errorMessage}\n\n报告内容不受影响，可以直接转发阅读；PDF 稍后可重试。`,
         showCancel: false,
         confirmText: "知道了"
       });
