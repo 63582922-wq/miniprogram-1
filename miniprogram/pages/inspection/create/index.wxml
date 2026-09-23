@@ -1,39 +1,73 @@
 <view class="page inspection-create-page">
-  <page-nav-bar title="快速巡查" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleReturn" />
-  <view class="card create-card create-card--overview">
-    <view class="create-card__stats">
-      <view class="create-card__stat">
-        <view class="create-card__stat-value">{{form.issueDrafts.length}}</view>
-        <view class="create-card__stat-label">问题照片</view>
-      </view>
-      <view class="create-card__stat">
-        <view class="create-card__stat-value">{{form.projectName || '未选'}}</view>
-        <view class="create-card__stat-label">当前项目</view>
+  <page-nav-bar title="现场记录" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleReturn" />
+  <view class="record-context">
+    <view class="record-context__label">本次记录归属</view>
+    <picker range="{{projects}}" range-key="name" value="{{projectIndex}}" disabled="{{loadingProjects || pickingImages}}" bindchange="handleProjectChange"><view class="record-project"><text class="record-project__name">{{currentProjectNameText}}</text><text class="record-project__action">更换项目</text></view></picker>
+    <view class="record-context__hint">照片、标注与说明会保存在这个项目的本机草稿中</view>
+  </view>
+  <view wx:if="{{projectLoadError}}" class="precision-state">{{projectLoadError}}<button class="secondary-button" bindtap="retryLoadProjects">重新加载项目</button></view>
+
+  <view class="capture-section">
+    <view class="capture-section__head">
+      <view><view class="capture-section__title">现场照片</view><view class="section-subtitle">一张照片可标注多处问题，也可以只留存现场</view></view>
+      <view class="capture-section__tools">
+        <view class="capture-section__count">{{issueDraftCount}} / 20</view>
+        <button wx:if="{{issueDraftCount && issueDraftCount < 20}}" class="capture-section__add" disabled="{{pickingImages}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages">{{pickingImages ? '正在添加' : '继续添加'}}</button>
       </view>
     </view>
+    <button wx:if="{{!issueDraftCount}}" class="capture-section__action" disabled="{{pickingImages}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />{{pickingImages ? '正在选图' : '拍照或添加照片'}}</button>
   </view>
 
-  <view class="card create-card create-card--project">
-    <view class="field">
-      <view class="create-card__field-head">
-        <image class="create-card__section-icon" src="/images/icons/icon-project.svg" mode="aspectFit" />
-        <view class="create-card__section-title">选择项目</view>
+  <view wx:if="{{pickerError}}" class="precision-state">{{pickerError}}<button class="secondary-button" bindtap="chooseImages">重新选图</button></view>
+  <view wx:if="{{issueDraftCount}}" class="issue-draft-list">
+    <view wx:for="{{form.issueDrafts}}" wx:key="id" class="card issue-draft-card">
+      <view class="issue-draft-card__header">
+        <view class="issue-draft-card__title-wrap">
+
+          <view class="issue-draft-card__title-main">
+            <view class="issue-draft-card__title">照片 {{issueSectionTitles[index] || (index + 1)}}</view>
+          </view>
+        </view>
+        <view class="issue-draft-card__header-actions">
+          <button class="issue-draft-card__collapse" data-index="{{index}}" bindtap="toggleIssueExpanded">{{issueExpandedStates[index] ? '收起' : '展开'}}</button>
+          <button class="issue-draft-card__delete" data-index="{{index}}" bindtap="removeIssue">删除</button>
+        </view>
       </view>
-      <picker range="{{projects}}" range-key="name" value="{{projectIndex}}" bindchange="handleProjectChange">
-        <view class="field-input">{{currentProjectNameText}}</view>
-      </picker>
-      <view wx:if="{{projectLoadError}}" class="section-subtitle">{{projectLoadError}}</view>
-      <button wx:if="{{projectLoadError}}" class="secondary-button" bindtap="retryLoadProjects">重新加载项目</button>
+
+      <view wx:if="{{issueExpandedStates[index]}}" class="issue-draft-card__body">
+        <view class="issue-draft-card__media">
+          <button class="issue-draft-card__media-open" aria-label="打开照片 {{issueSectionTitles[index] || (index + 1)}} 进行精准标注" data-index="{{index}}" bindtap="openAnnotate">
+            <image class="issue-draft-card__image" src="{{item.annotatedImagePath || item.imagePath}}" mode="aspectFit" />
+            <view class="issue-draft-card__media-tip">点击照片进入标注</view>
+          </button>
+          <button class="issue-draft-card__media-action" data-index="{{index}}" bindtap="replaceIssueImage">更换照片</button>
+        </view>
+        <view wx:if="{{issueDraftCount > 1}}" class="issue-order"><text class="issue-order__label">调整顺序</text><button class="issue-order__button" disabled="{{index === 0}}" data-index="{{index}}" data-step="-1" bindtap="moveIssue">上移</button><button class="issue-order__button" disabled="{{index === issueDraftCount - 1}}" data-index="{{index}}" data-step="1" bindtap="moveIssue">下移</button></view>
+        <view class="issue-draft-card__editor">
+          <view wx:if="{{item.annotationCount || item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badges">
+            <view wx:if="{{item.annotationCount}}" class="issue-draft-card__badge">已标注 {{item.annotationCount}} 处</view>
+            <view wx:if="{{item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badge">已录音</view>
+          </view>
+          <view class="voice-hold">
+            <button class="voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}}" aria-label="{{transcribingIssueId === item.id ? (recordCancelArmed ? '松开取消录音' : '正在录音，上滑取消') : '按住开始录音'}}" data-index="{{index}}" bindlongpress="handleRecordLongPress" bindtouchmove="handleRecordMove" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordCancel">
+              <image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" /><text>{{transcribingIssueId === item.id ? (recordCancelArmed ? '松开取消' : '录音中 · 上滑取消') : '按住说话'}}</text>
+            </button>
+
+          </view>
+          <view wx:if="{{item.isTranscribing}}" class="section-subtitle issue-draft-card__transcribing">正在识别中...</view>
+          <view wx:if="{{item.speechError}}" class="precision-state">{{item.speechError}}</view><textarea auto-height maxlength="5000" class="issue-draft-card__textarea" value="{{item.voiceText}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="录完音后，文字会附在这里；也可以直接手动补充和修改" />
+        </view>
+      </view>
     </view>
   </view>
+  <empty-state wx:else title="从一张现场照片开始" description="照片可以记录问题，也可以只留存现场；不强制生成问题。" />
 
   <view class="card create-card">
     <view class="create-card__section-head">
       <view class="create-card__section-lead">
-        <image class="create-card__section-icon" src="/images/icons/icon-note.svg" mode="aspectFit" />
         <view class="create-card__section-title">现场补充</view>
       </view>
-      <view class="create-card__toggle" bindtap="toggleSupplementFields">{{showSupplementFields ? '收起' : '展开'}}</view>
+      <button class="create-card__toggle" bindtap="toggleSupplementFields">{{showSupplementFields ? '收起' : '展开'}}</button>
     </view>
     <view wx:if="{{showSupplementFields}}" class="create-card__supplement-fields">
       <view class="field">
@@ -42,64 +76,17 @@
       </view>
       <view class="field">
         <view class="field-label">现场补充</view>
-        <textarea class="field-textarea" value="{{form.note}}" data-field="note" bindinput="handleInput" placeholder="选填：补充本次巡查范围、客户特别关注点或现场背景。最终小结由 AI 自动生成。" />
+        <textarea class="field-textarea" value="{{form.note}}" data-field="note" bindinput="handleInput" placeholder="选填：补充本次巡查范围、客户特别关注点或现场背景。" />
       </view>
     </view>
   </view>
 
-  <view class="card create-card create-card--issues">
-    <view class="create-card__issue-bar">
-      <view class="create-card__section-lead">
-        <image class="create-card__section-icon" src="/images/icons/icon-issue.svg" mode="aspectFit" />
-        <view class="create-card__section-title">问题采集</view>
-      </view>
-      <view class="create-card__photo-button" bindtap="chooseImages">添加照片</view>
-      <view class="create-card__issue-count">已添加 {{form.issueDrafts.length}} / 20</view>
-    </view>
+  <view wx:if="{{issueDraftCount}}" class="create-ai-row">
+    <button class="create-ai-link" loading="{{analyzing}}" disabled="{{analyzing || !issueDraftCount}}" bindtap="handleAnalyze">{{analyzing ? 'AI 正在整理…' : '先用 AI 整理（选用）'}}</button>
   </view>
 
-  <view wx:if="{{form.issueDrafts.length}}" class="issue-draft-list">
-    <view wx:for="{{form.issueDrafts}}" wx:key="id" class="card issue-draft-card">
-      <view class="issue-draft-card__header">
-        <view class="issue-draft-card__title-wrap">
-          <view class="issue-draft-card__index">{{index + 1}}</view>
-          <view class="issue-draft-card__title-main">
-            <view class="issue-draft-card__title">问题{{issueSectionTitles[index] || (index + 1)}}</view>
-          </view>
-        </view>
-        <view class="issue-draft-card__header-actions">
-          <view class="issue-draft-card__collapse" data-index="{{index}}" bindtap="toggleIssueExpanded">{{issueExpandedStates[index] ? '收起' : '展开'}}</view>
-          <view class="issue-draft-card__delete" data-index="{{index}}" bindtap="removeIssue">删除</view>
-        </view>
-      </view>
-
-      <view wx:if="{{issueExpandedStates[index]}}" class="issue-draft-card__body">
-        <view class="issue-draft-card__media" data-index="{{index}}" bindtap="openAnnotate">
-          <image class="issue-draft-card__image" src="{{item.imagePath}}" mode="aspectFill" />
-          <view class="issue-draft-card__media-tip">点击照片进入标注</view>
-          <view class="issue-draft-card__media-action" data-index="{{index}}" catchtap="replaceIssueImage">更换照片</view>
-        </view>
-        <view class="issue-draft-card__editor">
-          <view wx:if="{{item.annotations.length || item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badges">
-            <view wx:if="{{item.annotations.length}}" class="issue-draft-card__badge">已标注 {{item.annotations.length}} 处</view>
-            <view wx:if="{{item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badge">已录音</view>
-          </view>
-          <view class="voice-hold">
-            <view class="voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}}" data-index="{{index}}" bindlongpress="handleRecordLongPress" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordTouchEnd">
-              <image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" />
-            </view>
-            <text class="voice-hold-button__text">{{transcribingIssueId === item.id ? '松开结束' : '按住说话'}}</text>
-          </view>
-          <view wx:if="{{item.isTranscribing}}" class="section-subtitle issue-draft-card__transcribing">正在识别中...</view>
-          <textarea class="issue-draft-card__textarea" value="{{item.voiceText}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="录完音后，文字会附在这里；也可以直接手动补充和修改" />
-        </view>
-      </view>
-    </view>
-  </view>
-  <empty-state wx:else title="还没有问题照片" description="先添加问题照片，再逐条补充现场信息和录音留档。" />
-
-  <view class="footer-actions">
-    <view class="create-card__photo-button inspection-create__submit-button" bindtap="handleAnalyze">分析整理</view>
+  <view wx:if="{{issueDraftCount}}" class="footer-actions create-footer-actions">
+    <button class="primary-button" disabled="{{analyzing || !issueDraftCount}}" bindtap="handleManualReview">进入人工核对</button>
   </view>
 
   <view wx:if="{{analyzing}}" class="analyze-mask">
@@ -107,8 +94,8 @@
       <view class="analyze-panel__spinner"></view>
       <view class="analyze-panel__title">AI 整理中</view>
       <view class="analyze-panel__desc">{{analyzeStageText}}</view>
-      <view class="analyze-panel__cancel" bindtap="handleCancelAnalyze">取消等待</view>
+      <button class="analyze-panel__cancel" bindtap="handleCancelAnalyze">返回记录 · 保留任务</button>
     </view>
   </view>
-  <app-tab-bar />
+
 </view>

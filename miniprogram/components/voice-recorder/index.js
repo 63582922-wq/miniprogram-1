@@ -77,7 +77,7 @@ Component({
       if (denied) {
         wx.showModal({
           title: "需要麦克风权限",
-          content: "请在设置中允许使用麦克风，然后再录音。",
+          content: "可以先在下方直接输入文字；也可在设置中允许麦克风后再录音。",
           confirmText: "去设置",
           cancelText: "知道了",
           success: (res) => {

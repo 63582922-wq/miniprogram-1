@@ -1,4 +1,5 @@
 const cloud = require("wx-server-sdk");
+const {hash,requestKey,reserve,all} = require("./reliable");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -21,10 +22,9 @@ async function safeGetDoc(collectionName, docId) {
 
 async function safeGetList(queryRef) {
   try {
-    const result = await queryRef.get();
-    return result.data || [];
+    return (await all(queryRef)).filter(row=>row.status!=="preparing");
   } catch (error) {
-    return [];
+    throw error;
   }
 }
 
@@ -55,11 +55,12 @@ async function assertProjectOwner(projectId, openId) {
 }
 
 async function createProject(payload) {
+  if(!payload.name || !payload.name.trim())throw new Error("请填写项目名称");
   const { OPENID } = cloud.getWXContext();
   const now = Date.now();
   const data = {
     name: payload.name,
-    address: payload.address,
+    address: payload.address || "",
     clientName: payload.clientName || "",
     clientPhone: payload.clientPhone || "",
     description: payload.description || "",
@@ -74,9 +75,8 @@ async function createProject(payload) {
     updatedBy: OPENID
   };
 
-  const result = await db.collection("projects").add({
-    data
-  });
+  const requestId=payload.requestId || "legacy-"+hash({...payload,requestId:undefined});
+  const result=await reserve(db.collection("projects"),requestKey("project",OPENID,requestId),hash({...payload,requestId:undefined}),data);
 
   return {
     success: true,
@@ -116,12 +116,9 @@ async function updateProject(payload) {
 
 async function listProjects(payload) {
   const { OPENID } = cloud.getWXContext();
-  const result = await db.collection("projects").where({
-    ownerOpenId: OPENID,
-    deleted: false
-  }).orderBy("updatedAt", "desc").get();
+  const result = {data:await all(db.collection("projects").where({ownerOpenId:OPENID,deleted:false}).orderBy("updatedAt","desc"))};
 
-  const list = (result.data || []).filter((item) => {
+  const matching = (result.data || []).filter((item) => {
     if (!payload.keyword) {
       return true;
     }
@@ -129,31 +126,25 @@ async function listProjects(payload) {
     return `${item.name}${item.address}`.includes(payload.keyword);
   });
 
+  const page=Math.max(1,Math.floor(Number(payload.page)||1)),pageSize=Math.min(50,Math.max(1,Math.floor(Number(payload.pageSize)||20)));
+  const list=matching.slice((page-1)*pageSize,page*pageSize);
   const projectIds = list.map((item) => item._id);
   let inspectionCountMap = {};
   let issueCountMap = {};
   let reportCountMap = {};
 
   if (projectIds.length) {
-    const inspections = await db.collection("inspections").where({
-      deleted: false,
-      projectId: _.in(projectIds)
-    }).get();
-    const inspectionItems = await db.collection("inspection_items").where({
-      deleted: false,
-      projectId: _.in(projectIds)
-    }).get();
-    const reports = await db.collection("reports").where({
-      deleted: false,
-      projectId: _.in(projectIds)
-    }).get();
+    const inspections = {data:await all(db.collection("inspections").where({deleted:false,projectId:_.in(projectIds)}))};
+    const inspectionItems = {data:await all(db.collection("inspection_items").where({deleted:false,projectId:_.in(projectIds)}))};
+    const reports = {data:await all(db.collection("reports").where({deleted:false,projectId:_.in(projectIds)}))};
 
-    inspectionCountMap = (inspections.data || []).reduce((accumulator, item) => {
+    inspectionCountMap = (inspections.data || []).filter(i=>i.status!=="preparing").reduce((accumulator, item) => {
       accumulator[item.projectId] = (accumulator[item.projectId] || 0) + 1;
       return accumulator;
     }, {});
 
-    issueCountMap = (inspectionItems.data || []).reduce((accumulator, item) => {
+    const completeIds=new Set(inspections.data.filter(i=>i.status!=="preparing").map(i=>i._id));
+    issueCountMap = (inspectionItems.data || []).filter(i=>completeIds.has(i.inspectionId)).reduce((accumulator, item) => {
       accumulator[item.projectId] = (accumulator[item.projectId] || 0) + 1;
       return accumulator;
     }, {});
@@ -175,7 +166,7 @@ async function listProjects(payload) {
     success: true,
     data: {
       list: normalizedList,
-      total: normalizedList.length
+      total: matching.length, page, pageSize, hasMore:page*pageSize<matching.length
     }
   };
 }
@@ -251,7 +242,8 @@ async function galleryProject(payload) {
 
   const photos = [];
   (items || []).forEach((item) => {
-    const inspection = inspectionMap[item.inspectionId] || {};
+    const inspection = inspectionMap[item.inspectionId];
+    if(!inspection)return;
     (item.images || []).forEach((imageUrl, imageIndex) => {
       photos.push({
         id: `${item._id}-${imageIndex}`,

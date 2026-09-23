@@ -1,0 +1,5 @@
+.product-identity{display:flex;align-items:center;gap:16rpx;padding:16rpx 0 18rpx;border-bottom:1px solid var(--a-line);color:var(--a-ink);font-family:var(--a-font-body,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",sans-serif)}
+.product-identity__mark{width:56rpx;height:56rpx;flex:none}
+.product-identity__copy{min-width:0}
+.product-identity__name{font-family:var(--a-font-display,"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC","SimSun",serif);font-size:36rpx;font-weight:500;letter-spacing:1rpx;line-height:1.15}
+.product-identity__desc{margin-top:5rpx;color:var(--a-muted);font-size:26rpx;letter-spacing:.03em;line-height:1.35;white-space:nowrap}

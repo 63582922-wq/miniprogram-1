@@ -1,19 +1,18 @@
 <view class="page report-list-page">
-  <page-nav-bar title="{{pageTitle}}" showBack="{{!isProjectMode}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-
-  <view wx:if="{{isProjectMode && projects.length}}" class="list">
-    <view wx:for="{{projects}}" wx:key="_id" class="report-row" data-project-id="{{item._id}}" data-project-name="{{item.name}}" bindtap="openProjectReports">
-      <view class="report-row__title">{{item.name}}</view>
-      <view class="report-row__desc">{{item.reportsCount}} 份报告</view>
-    </view>
+  <page-nav-bar title="" />
+  <product-identity />
+  <view class="root-section-heading"><view class="root-section-heading__title">全部报告</view></view>
+  <button class="report-filter" bindtap="chooseFilter" hover-class="is-pressed"><text>{{projectName || '全部项目'}}</text><view><text>{{projectId ? '更换项目' : '选择项目'}}</text><image src="/images/icons/icon-arrow-right.svg" /></view></button>
+  <view class="list">
+    <button wx:for="{{reports}}" wx:key="_id" class="report-row" data-report-id="{{item._id}}" data-report-title="{{item.title}}" bindtap="openReport" bindlongpress="handleReportLongPress" hover-class="is-pressed">
+      <view class="report-row__title">{{item.displayTitle}}</view><view class="report-row__desc">{{item.generatedAtDisplay}}</view>
+      <view class="report-row__foot"><text>已发布 · 在线报告</text><image src="/images/icons/icon-arrow-right.svg" /></view>
+    </button>
   </view>
-
-  <view wx:elif="{{!isProjectMode && reports.length}}" class="list">
-    <view wx:for="{{reports}}" wx:key="_id" class="report-row" data-report-id="{{item._id}}" data-report-title="{{item.title}}" bindtap="openReport" bindlongpress="handleReportLongPress">
-      <view class="report-row__title">{{item.title}}</view>
-      <view class="report-row__desc">{{item.generatedAtDisplay}}</view>
-    </view>
-  </view>
-
-  <empty-state wx:else title="暂无报告" description="{{isProjectMode ? '先选择项目，再查看该项目下的全部报告' : '当前项目下还没有生成报告'}}" />
+  <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="retryLoad">重新加载</button></view>
+  <view wx:elif="{{loading}}" class="precision-state">正在加载报告…</view>
+  <empty-state wx:elif="{{!reports.length}}" title="暂无报告" description="现场记录经人工核对后，报告会显示在这里" />
+  <button wx:if="{{hasMore && !loading && !loadError}}" class="secondary-button" bindtap="onReachBottom">加载更多</button>
+  <view wx:if="{{filterVisible}}" class="filter-mask" bindtap="closeFilter"></view>
+  <view wx:if="{{filterVisible}}" class="filter-sheet"><view class="section-title">按项目查看</view><scroll-view scroll-y class="filter-options"><button bindtap="selectFilter" data-id="">全部项目</button><button wx:for="{{filterProjects}}" wx:key="_id" data-id="{{item._id}}" bindtap="selectFilter">{{item.name}}</button></scroll-view><button class="secondary-button" bindtap="closeFilter">取消</button></view>
 </view>

@@ -1,42 +1,14 @@
 <view class="page project-form-page">
   <page-nav-bar title="{{pageTitle}}" showBack="{{true}}" />
-  <view class="card form-card">
-    <view id="coach-name-target" class="field {{coachHighlightName ? 'coach-field-highlight' : ''}}">
-      <view class="field-label">项目名称</view>
-      <input class="field-input" value="{{form.name}}" data-field="name" bindinput="handleInput" />
-    </view>
-    <view id="coach-address-target" class="field {{coachHighlightAddress ? 'coach-field-highlight' : ''}}">
-      <view class="field-label">项目地址</view>
-      <input class="field-input" value="{{form.address}}" data-field="address" bindinput="handleInput" />
-    </view>
-    <view class="field">
-      <view class="field-label">甲方姓名</view>
-      <input class="field-input" value="{{form.clientName}}" data-field="clientName" bindinput="handleInput" placeholder="甲方姓名" />
-      <view class="field-label">联系电话</view>
-      <input class="field-input" value="{{form.clientPhone}}" data-field="clientPhone" bindinput="handleInput" placeholder="联系电话" />
-    </view>
-    <view class="field">
-      <view class="field-label">项目状态</view>
-      <picker mode="selector" range="{{projectStatusOptions}}" range-key="label" value="{{projectStatusIndex}}" bindchange="handleProjectStatusChange">
-        <view class="field-input">{{projectStatusOptions[projectStatusIndex].label}}</view>
-      </picker>
-    </view>
-    <view class="field">
-      <view class="field-label">项目说明</view>
-      <textarea class="field-textarea" value="{{form.description}}" data-field="description" bindinput="handleInput" />
-    </view>
+  <view class="project-form-intro">先填写名称，其他资料可随后补充。</view>
+  <view class="field"><view class="field-label">项目名称 · 必填</view><input class="field-input" value="{{form.name}}" disabled="{{submissionLocked}}" data-field="name" bindinput="handleInput" maxlength="80" placeholder="例如：湖畔新城 · 6 栋 1201" /></view>
+  <view class="field"><view class="field-label">项目地址 · 选填</view><input class="field-input" value="{{form.address}}" disabled="{{submissionLocked}}" data-field="address" bindinput="handleInput" maxlength="200" placeholder="便于现场人员找到这里" /></view>
+  <button class="form-expand" bindtap="toggleOptional">{{showOptional ? '收起更多资料' : '更多资料（选填）'}}</button>
+  <view wx:if="{{showOptional}}" class="form-optional">
+    <view class="field"><view class="field-label">联系人</view><input class="field-input" value="{{form.clientName}}" disabled="{{submissionLocked}}" data-field="clientName" bindinput="handleInput" maxlength="50" /></view>
+    <view class="field"><view class="field-label">联系电话</view><input class="field-input" value="{{form.clientPhone}}" disabled="{{submissionLocked}}" data-field="clientPhone" bindinput="handleInput" type="text" maxlength="30" /></view>
+    <view class="field"><view class="field-label">项目说明</view><textarea class="field-textarea" value="{{form.description}}" disabled="{{submissionLocked}}" data-field="description" bindinput="handleInput" maxlength="2000" auto-height /></view>
   </view>
-  <view class="footer-actions" id="coach-save-target">
-    <button class="primary-button {{coachHighlightSave ? 'coach-highlight' : ''}}" bindtap="handleSubmit">保存项目</button>
-  </view>
-  <view wx:if="{{coachTipVisible}}" class="coach-mask" catchtap="noop"></view>
-  <view wx:if="{{coachTipVisible}}" class="coach-target-hint">
-    <text class="coach-target-hint__arrow">👇</text>
-    <text>请先点击：{{coachTargetLabel}}</text>
-  </view>
-  <view wx:if="{{coachTipVisible}}" class="coach-tip">
-    <view class="coach-tip__title">{{coachTipTitle}}</view>
-    <view class="coach-tip__desc">{{coachTipDesc}}</view>
-    <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过引导</view>
-  </view>
+  <view wx:if="{{submissionLocked}}" class="precision-state">提交内容已保留。请继续保存以确认结果，避免创建重复项目。</view>
+  <view class="footer-actions"><button class="primary-button" loading="{{isSaving}}" disabled="{{isSaving}}" bindtap="handleSubmit">{{submissionLocked ? '继续保存' : '保存项目'}}</button></view>
 </view>

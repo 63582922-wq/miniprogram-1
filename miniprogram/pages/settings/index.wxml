@@ -1,69 +1,22 @@
 <view class="page settings-page">
-  <page-nav-bar title="设置" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-
-  <logo-uploader value="{{form.logoPreview}}" bindchange="handleLogoChange" />
-
-  <view class="card form-card">
-    <view class="section-title">巡查人信息</view>
-    <view class="link-row" bindtap="openInspectorInfo">
-      <view class="link-row__text">{{form.inspectorName || '设置巡查人信息'}}</view>
-      <view class="link-row__arrow">›</view>
+  <page-nav-bar title="报告资料" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="settings-intro">这些资料会写入新报告，让接收者知道谁检查、如何联系。</view>
+  <view wx:if="{{loading}}" class="precision-state">正在加载已保存资料…</view>
+  <view wx:elif="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="loadSettings">重新加载</button></view>
+  <block wx:else>
+    <view id="settings-inspector" class="settings-section">
+      <view class="section-title">巡查人</view>
+      <view class="field"><view class="field-label">姓名</view><input class="field-input" value="{{form.inspectorName}}" data-field="inspectorName" bindinput="handleInput" maxlength="40" placeholder="填写实际巡查人姓名" /></view>
+      <view class="field"><view class="field-label">巡查联系电话 · 选填</view><input class="field-input" value="{{form.inspectorPhone}}" data-field="inspectorPhone" bindinput="handleInput" maxlength="30" placeholder="展示在报告中的联系方式" /></view>
     </view>
-  </view>
-
-  <view class="card form-card">
-    <view class="section-title">公司信息</view>
-    <view class="link-row" bindtap="openCompanyInfo">
-      <view class="link-row__text">{{form.companyName || '设置公司信息'}}</view>
-      <view class="link-row__arrow">›</view>
+    <view id="settings-company" class="settings-section">
+      <view class="section-title">报告抬头</view>
+      <logo-uploader value="{{form.logoPreview}}" bindchange="handleLogoChange" />
+      <view class="field"><view class="field-label">公司名称 · 选填</view><input class="field-input" value="{{form.companyName}}" data-field="companyName" bindinput="handleInput" maxlength="100" placeholder="填写出具报告的公司名称" /></view>
+      <view class="field"><view class="field-label">公司联系电话 · 选填</view><input class="field-input" value="{{form.companyPhone}}" data-field="companyPhone" bindinput="handleInput" maxlength="30" placeholder="供业主或施工方联系" /></view>
+      <view class="field"><view class="field-label">公司地址 · 选填</view><textarea class="field-textarea" auto-height value="{{form.companyAddress}}" data-field="companyAddress" bindinput="handleInput" maxlength="200" placeholder="填写公司地址" /></view>
+      <view class="section-subtitle">以上资料将随新报告分享给接收者。保存资料不会改写已发布的报告。</view>
     </view>
-  </view>
-
-  <view class="card form-card">
-    <view class="section-title">帮助与合规</view>
-    <view class="link-row" bindtap="openOnboarding">
-      <view class="link-row__text">查看使用向导</view>
-      <view class="link-row__arrow">›</view>
-    </view>
-    <view class="link-row" bindtap="openLegalPage">
-      <view class="link-row__text">隐私与服务说明</view>
-      <view class="link-row__arrow">›</view>
-    </view>
-  </view>
-
-  <view class="footer-actions" id="coach-save-target">
-    <view class="primary-button {{coachHighlightSave ? 'coach-highlight' : ''}}" bindtap="handleSubmit">{{isSaving ? '保存中' : '保存设置'}}</view>
-  </view>
-
-  <view wx:if="{{editingField}}" class="edit-modal-mask" bindtap="closeEditModal"></view>
-  <view wx:if="{{editingField}}" class="edit-modal">
-    <view class="section-title">{{editModalTitle}}</view>
-    <view class="field">
-      <view class="field-label">{{editModalLabel1}}</view>
-      <input class="field-input" value="{{editModalValue1}}" bindinput="handleModalInput1" placeholder="{{editModalPlaceholder1}}" />
-    </view>
-    <view wx:if="{{editModalLabel2}}" class="field">
-      <view class="field-label">{{editModalLabel2}}</view>
-      <input class="field-input" value="{{editModalValue2}}" bindinput="handleModalInput2" placeholder="{{editModalPlaceholder2}}" />
-    </view>
-    <view wx:if="{{editModalLabel3}}" class="field">
-      <view class="field-label">{{editModalLabel3}}</view>
-      <textarea class="field-textarea" value="{{editModalValue3}}" bindinput="handleModalInput3" placeholder="{{editModalPlaceholder3}}" />
-    </view>
-    <view class="edit-modal__actions">
-      <view class="edit-modal__btn edit-modal__btn--ghost" bindtap="closeEditModal">取消</view>
-      <view class="edit-modal__btn" bindtap="confirmEditModal">确定</view>
-    </view>
-  </view>
-
-  <view wx:if="{{coachTipVisible}}" class="coach-mask" catchtap="noop"></view>
-  <view wx:if="{{coachTipVisible}}" class="coach-target-hint">
-    <text class="coach-target-hint__arrow">👇</text>
-    <text>请点击这里：{{coachTargetLabel}}</text>
-  </view>
-  <view wx:if="{{coachTipVisible}}" class="coach-tip">
-    <view class="coach-tip__title">{{coachTipTitle}}</view>
-    <view class="coach-tip__desc">{{coachTipDesc}}</view>
-    <view class="coach-tip__btn coach-tip__btn--ghost" bindtap="handleCoachSkip">跳过引导</view>
-  </view>
+    <view class="footer-actions" id="coach-save-target"><button class="primary-button" disabled="{{isSaving || loading || logoUploading}}" loading="{{isSaving}}" bindtap="handleSubmit">{{logoUploading ? 'LOGO 上传中' : isSaving ? '正在保存' : '保存资料'}}</button></view>
+  </block>
 </view>

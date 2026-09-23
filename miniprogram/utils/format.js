@@ -17,6 +17,14 @@ function formatDate(value) {
   return formatDateTime(value).slice(0, 10);
 }
 
+/**
+ * 宋体只服务中文编辑式标题。纯英文、编号或代码名若强行使用宋体，
+ * 系统会回退成 Times 风格，与小程序其余界面割裂。
+ */
+function usesEditorialTypeface(value) {
+  return /[\u3400-\u9FFF]/.test(`${value || ""}`);
+}
+
 function mapSeverityText(value) {
   const mapping = {
     critical: "严重",
@@ -80,6 +88,7 @@ function toChineseSectionNumber(value) {
 module.exports = {
   formatDateTime,
   formatDate,
+  usesEditorialTypeface,
   mapSeverityText,
   mapProjectStatusText,
   mapResponsiblePartyText,

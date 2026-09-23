@@ -1,4 +1,5 @@
 const { loginAndBootstrapUser } = require("./services/user");
+const { setupPrivacyListener } = require("./utils/privacy");
 const {
   getCloudEnvId,
   isCloudEnvConfigured,
@@ -27,6 +28,7 @@ App({
   },
 
   async onLaunch() {
+    setupPrivacyListener();
     if (!wx.cloud) {
       this.showFatal(
         "基础库版本过低",
@@ -57,15 +59,33 @@ App({
       return;
     }
 
-    await this.bootstrap();
+    if (wx.getStorageSync("welcomeAcceptedV1")) this.bootstrap().catch(() => {});
   },
 
-  async bootstrap() {
+  ensureReady() {
+    if (this.globalData.appReady && this.globalData.userInfo) return Promise.resolve(this.globalData.userInfo);
+    if (!wx.getStorageSync("welcomeAcceptedV1")) {
+      if (!this.openingWelcome) {
+        this.openingWelcome = true;
+        wx.navigateTo({url:"/pages/welcome/index",complete:()=>{this.openingWelcome=false;}});
+      }
+      return Promise.reject(new Error("请先完成开始使用"));
+    }
+    return this.bootstrap();
+  },
+  bootstrap() {
+    if (this.readyPromise) return this.readyPromise;
+    this.readyPromise = this.initializeIdentity().finally(() => {this.readyPromise=null;});
+    return this.readyPromise;
+  },
+  async initializeIdentity() {
     try {
       const userInfo = await loginAndBootstrapUser();
+      if (!userInfo || !userInfo.openId) throw new Error("未能确认账号身份，请重试");
       this.globalData.userInfo = userInfo;
       this.globalData.appReady = true;
       this.globalData.bootError = null;
+      return userInfo;
     } catch (error) {
       this.globalData.appReady = false;
       console.error("[app] bootstrap failed", error);
@@ -83,11 +103,11 @@ App({
             ENV_HELP_LINES
           ].join("\n")
         );
-        return;
+        throw error;
       }
 
       this.globalData.bootError = { type: "unknown", message: this.describe(error) };
-      this.showFatal("初始化失败", this.describe(error).slice(0, 200));
+      throw error;
     }
   },
 

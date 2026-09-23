@@ -1,30 +1,8 @@
 <view class="page-nav-bar" style="padding-top: {{statusBarHeight}}px;">
-  <view class="page-nav-bar__content" style="height: {{navContentHeight}}px;">
-    <view class="page-nav-bar__left">
-      <view wx:if="{{showBack}}" class="page-nav-bar__back" bindtap="handleBackTap">
-        <image class="page-nav-bar__back-icon" src="/images/icons/nav-back.svg" mode="aspectFit" />
-      </view>
-      <view
-        wx:elif="{{rightText && actionSide === 'left'}}"
-        class="page-nav-bar__action page-nav-bar__action--left"
-        bindtap="handleRightTap"
-      >
-        <image wx:if="{{actionIconOnly}}" class="page-nav-bar__action-plus-icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />
-        <text wx:else>{{rightText}}</text>
-      </view>
-    </view>
-    <view class="page-nav-bar__center">
-      <text class="page-nav-bar__title">{{title}}</text>
-    </view>
-    <view class="page-nav-bar__right">
-      <button
-        wx:if="{{rightText && actionSide === 'right'}}"
-        class="page-nav-bar__action {{actionIconOnly ? 'page-nav-bar__action--icon-only' : ''}}"
-        bindtap="handleRightTap"
-      >
-        <image wx:if="{{actionIconOnly}}" class="page-nav-bar__action-plus-icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />
-        <text wx:else>{{rightText}}</text>
-      </button>
-    </view>
+  <view class="page-nav-bar__content" style="min-height: {{navContentHeight}}px; padding-right: {{capsuleSafeWidth}}px;">
+    <button wx:if="{{showBack}}" class="page-nav-bar__back" bindtap="handleBackTap"><image class="page-nav-bar__icon" src="/images/icons/nav-back.svg" mode="aspectFit" /><text>返回</text></button>
+    <button wx:elif="{{rightText}}" class="page-nav-bar__back" bindtap="handleRightTap"><image class="page-nav-bar__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" /><text>{{rightText}}</text></button>
+    <text class="page-nav-bar__title {{brandTitle ? 'page-nav-bar__title--brand' : ''}}">{{title}}</text>
   </view>
 </view>
+<view wx:if="{{privacyVisible}}" class="privacy-mask"><view class="privacy-dialog"><view class="privacy-title">使用前，请阅读隐私指引</view><view class="privacy-copy">照片用于现场记录与报告，录音用于语音说明。不同意仍可输入文字。</view><button class="privacy-link" bindtap="openPrivacy">查看隐私保护指引</button><button id="haoli-privacy-agree" class="privacy-agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agreePrivacy">同意并继续</button><button class="privacy-link" bindtap="rejectPrivacy">暂不同意</button></view></view>

@@ -1,52 +1,29 @@
 <view class="annotation-card">
-  <view wx:if="{{imageUrl}}" class="canvas-stage">
-    <view
-      class="canvas-viewport"
-      style="{{viewportStyle}}"
-      bindtouchstart="handleStageTouchStart"
-      catchtouchmove="handleStageTouchMove"
-      bindtouchend="handleStageTouchEnd"
-      bindtouchcancel="handleStageTouchEnd"
-    >
-      <image class="canvas-image" src="{{imageUrl}}" mode="aspectFit" bindload="handleImageReady" />
-      <view class="canvas-overlay">
-        <view
-          wx:for="{{renderItems}}"
-          wx:key="id"
-          class="mark mark--{{item.tool}} {{item.preview ? 'mark--preview' : ''}}"
-          style="{{item.style}}"
-          data-id="{{item.rawId}}"
-          data-tool="{{item.tool}}"
-          catchtouchstart="handleMarkTouchStart"
-          catchtouchmove="handleMarkTouchMove"
-          catchtouchend="handleMarkTouchEnd"
-          catchtouchcancel="handleMarkTouchEnd"
-          catchtap="handleEditText"
-        >
-          <view wx:if="{{item.tool === 'arrow'}}" class="mark__arrow-head"></view>
-          <text wx:if="{{item.tool === 'text'}}">{{item.text}}</text>
-        </view>
-      </view>
-    </view>
-  </view>
-  <view wx:else class="annotation-empty">请先选择巡查图片</view>
-  <view class="annotation-toolbar">
-    <view class="tool {{tool === 'move' ? 'tool--active' : ''}}" data-tool="move" bindtap="setTool">移动</view>
-    <view class="tool {{tool === 'box' ? 'tool--active' : ''}}" data-tool="box" bindtap="setTool">框选</view>
-    <view class="tool {{tool === 'arrow' ? 'tool--active' : ''}}" data-tool="arrow" bindtap="setTool">箭头</view>
-    <view class="tool {{tool === 'text' ? 'tool--active' : ''}}" data-tool="text" bindtap="setTool">文字</view>
-    <view class="tool tool--muted" bindtap="undo">撤销</view>
-    <view class="tool tool--muted" bindtap="redo">重做</view>
-    <view class="tool tool--muted" bindtap="resetViewport">复位</view>
-  </view>
-  <view wx:if="{{textEditorVisible}}" class="text-editor-mask">
-    <view class="text-editor">
-      <view class="text-editor__title">编辑文字</view>
-      <input class="text-editor__input" value="{{editingText}}" bindinput="handleTextInput" placeholder="请输入标注文字" focus />
-      <view class="text-editor__actions">
-        <button class="text-editor__button text-editor__button--ghost" bindtap="handleCancelTextEdit">取消</button>
-        <button class="text-editor__button text-editor__button--primary" bindtap="handleConfirmTextEdit">确定</button>
-      </view>
-    </view>
-  </view>
+ <view class="annotation-status"><text>{{workingSize ? '原图已适配' : '正在载入照片'}}</text><text>{{zoom}}%</text></view>
+ <view wx:if="{{error}}" class="annotation-error">{{error}}<button bindtap="loadImage">重新加载</button></view>
+ <canvas id="stage" type="2d" class="canvas-stage" bindtouchstart="start" catchtouchmove="move" bindtouchend="end" bindtouchcancel="end"></canvas>
+ <canvas id="export" type="2d" class="export-canvas"></canvas>
+ <view class="annotation-tool-rail">
+  <button class="tool {{tool==='select'?'tool--active':''}}" data-tool="select" bindtap="setTool"><image class="tool__icon" src="/images/icons/annotation-select.svg" mode="aspectFit"/><text>选择</text></button>
+  <button class="tool {{tool==='box'?'tool--active':''}}" data-tool="box" bindtap="setTool"><image class="tool__icon" src="/images/icons/annotation-rectangle.svg" mode="aspectFit"/><text>框选</text></button>
+  <button class="tool {{tool==='ellipse'?'tool--active':''}}" data-tool="ellipse" bindtap="setTool"><image class="tool__icon" src="/images/icons/annotation-circle.svg" mode="aspectFit"/><text>圈选</text></button>
+  <button class="tool {{tool==='arrow'?'tool--active':''}}" data-tool="arrow" bindtap="setTool"><image class="tool__icon" src="/images/icons/annotation-arrow.svg" mode="aspectFit"/><text>箭头</text></button>
+  <button class="tool {{tool==='point'?'tool--active':''}}" data-tool="point" bindtap="setTool"><image class="tool__icon" src="/images/icons/annotation-number.svg" mode="aspectFit"/><text>编号</text></button>
+ </view>
+ <view class="annotation-subrail">
+  <button class="tool tool--compact {{tool==='pan'?'tool--active':''}}" data-tool="pan" bindtap="setTool"><image class="tool__icon" src="/images/icons/annotation-pan.svg" mode="aspectFit"/><text>移动</text></button>
+  <button class="tool tool--compact {{!canUndo ? 'tool--disabled' : ''}}" bindtap="undo" disabled="{{!canUndo}}"><image class="tool__icon" src="/images/icons/annotation-undo.svg" mode="aspectFit"/><text>撤销</text></button>
+  <button class="tool tool--compact {{!canRedo ? 'tool--disabled' : ''}}" bindtap="redo" disabled="{{!canRedo}}"><image class="tool__icon" src="/images/icons/annotation-redo.svg" mode="aspectFit"/><text>重做</text></button>
+  <button class="tool tool--compact" data-factor="1.5" bindtap="zoom"><image class="tool__icon" src="/images/icons/annotation-zoom-in.svg" mode="aspectFit"/><text>放大</text></button>
+  <button class="tool tool--compact" bindtap="fit"><image class="tool__icon" src="/images/icons/annotation-fit.svg" mode="aspectFit"/><text>全图</text></button>
+  <button class="tool tool--compact {{!selected ? 'tool--disabled' : ''}}" bindtap="remove" disabled="{{!selected}}"><image class="tool__icon" src="/images/icons/annotation-delete.svg" mode="aspectFit"/><text>删除</text></button>
+ </view>
+ <view wx:if="{{selected}}" class="annotation-nudge">
+  <text class="annotation-nudge__label">微调位置</text>
+  <button class="nudge-button" aria-label="向左微调" data-delta="-1,0" bindtap="nudge"><image class="nudge-button__icon" src="/images/icons/annotation-left.svg" mode="aspectFit"/></button>
+  <button class="nudge-button" aria-label="向右微调" data-delta="1,0" bindtap="nudge"><image class="nudge-button__icon" src="/images/icons/annotation-right.svg" mode="aspectFit"/></button>
+  <button class="nudge-button" aria-label="向上微调" data-delta="0,-1" bindtap="nudge"><image class="nudge-button__icon" src="/images/icons/annotation-up.svg" mode="aspectFit"/></button>
+  <button class="nudge-button" aria-label="向下微调" data-delta="0,1" bindtap="nudge"><image class="nudge-button__icon" src="/images/icons/annotation-down.svg" mode="aspectFit"/></button>
+ </view>
+ <view class="annotation-help">双指缩放；选中标记后可拖动或调整端点</view>
 </view>

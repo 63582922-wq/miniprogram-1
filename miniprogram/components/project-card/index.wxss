@@ -1,94 +1,14 @@
-.project-card {
-  background: #F2EDE4;
-  border-radius: 4rpx;
-  padding: 24rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 14rpx;
-  border: none;
-  box-shadow: none;
-}
-
-.project-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16rpx;
-}
-
-.project-card__header-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-}
-
-.project-card__name {
-  font-size: 30rpx;
-  font-weight: 400;
-  color: #1A1814;
-  letter-spacing: 0.04em;
-}
-
-.project-card__meta {
-  font-size: 20rpx;
-  color: #6B6355;
-  line-height: 1.4;
-  font-weight: 400;
-}
-
-.project-card__client {
-  font-size: 20rpx;
-  color: #6B6355;
-  font-weight: 400;
-}
-
-.project-card__stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10rpx;
-}
-
-.project-card__stat {
-  min-height: 84rpx;
-  border-radius: 2rpx;
-  padding: 14rpx 14rpx;
-  background: transparent;
-  border: none;
-  border-bottom: 0.5px solid #E8E2D8;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 6rpx;
-}
-
-.project-card__stat--wide {
-  grid-column: span 1;
-}
-
-.project-card__stat-value {
-  font-size: 26rpx;
-  font-weight: 400;
-  color: #1A1814;
-  font-variant-numeric: tabular-nums;
-}
-
-.project-card__stat-value--small {
-  font-size: 20rpx;
-  line-height: 1.3;
-}
-
-.project-card__stat-label {
-  font-size: 18rpx;
-  font-weight: 400;
-  color: #6B6355;
-}
-
-.project-card__arrow {
-  width: 12rpx;
-  height: 12rpx;
-  margin-top: 6rpx;
-  border-top: 3rpx solid #B8A882;
-  border-right: 3rpx solid #B8A882;
-  transform: rotate(45deg);
-}
+:host{display:block;width:100%}
+.project-card{width:100%!important;margin:0!important;padding:28rpx 0!important;display:flex;flex-direction:column;gap:12rpx;background:transparent;border:0;border-bottom:1px solid var(--a-line);border-radius:0;box-shadow:none;text-align:left;font-family:var(--a-font-body,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",sans-serif);line-height:normal;color:inherit;transition:opacity var(--a-motion),transform var(--a-motion)}
+.project-card::after{border:0}.project-card--pressed{opacity:.55;transform:scale(.995)}
+.project-card__header{display:flex;align-items:flex-start;justify-content:space-between;gap:20rpx;width:100%}
+.project-card__header-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4rpx}
+.project-card__name{font-family:var(--a-font-body,"PingFang SC",-apple-system,BlinkMacSystemFont,"Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",sans-serif);font-size:36rpx;font-weight:600;color:var(--a-ink);letter-spacing:0;line-height:1.34;word-break:break-word}
+.project-card__meta,.project-card__client{font-size:26rpx;color:var(--a-muted);line-height:1.45;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-card__stats{display:flex;align-items:baseline;justify-content:space-between;gap:20rpx;padding-top:6rpx;width:100%}
+.project-card__stat-summary{display:flex;align-items:baseline;gap:7rpx;min-width:0;white-space:nowrap;color:var(--a-muted)}
+.project-card__stat-value{font-size:27rpx;font-weight:600;color:var(--a-ink);font-variant-numeric:tabular-nums}
+.project-card__stat-label{font-size:26rpx;color:var(--a-muted)}
+.project-card__stat-separator{margin:0 4rpx;color:var(--a-line)}
+.project-card__date{margin-left:auto;color:var(--a-muted);font-size:26rpx;white-space:nowrap;font-variant-numeric:tabular-nums}
+.project-card__arrow{width:12rpx;height:12rpx;margin:10rpx 5rpx 0 0;border-top:2rpx solid var(--a-muted);border-right:2rpx solid var(--a-muted);transform:rotate(45deg);flex:none}

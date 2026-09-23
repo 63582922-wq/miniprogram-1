@@ -30,7 +30,20 @@ function getUploadExtension(filePath = "") {
   return supported.includes(ext) ? ext : "png";
 }
 
+function buildCompanySettingsPayload(form = {}) {
+  return {
+    companyName: form.companyName || "",
+    companyPhone: form.companyPhone || "",
+    companyAddress: form.companyAddress || "",
+    logoFileId: form.logoFileId || "",
+    reportTemplate: form.reportTemplate || "default",
+    reportPdfEngine: "puppeteer",
+    reportPdfServiceUrl: normalizePdfServiceUrl(form.reportPdfServiceUrl)
+  };
+}
+
 Page({
+  onLoad(query = {}){this.initialSection=query.section || "";},
   data: {
     form: {
       inspectorName: "",
@@ -45,6 +58,7 @@ Page({
       reportPdfServiceUrl: DEFAULT_PDF_SERVICE_URL
     },
     isSaving: false,
+    dirty: false,
     coachTipVisible: false,
     coachTipTitle: "",
     coachTipDesc: "",
@@ -63,8 +77,7 @@ Page({
     editModalValue3: ""
   },
   onShow() {
-    this.loadSettings();
-    this.syncCoachTip();
+    if(!this.loaded)this.loadSettings();
   },
   syncCoachTip() {
     const active = isCoachStep("settingsSave");
@@ -111,8 +124,18 @@ Page({
   },
   noop() {},
   handleBackTap() {
-    wx.navigateBack({
-      delta: 1
+    if (!this.data.dirty) {
+      wx.navigateBack({delta: 1});
+      return;
+    }
+    wx.showModal({
+      title: "尚未保存资料",
+      content: "返回会放弃刚才修改的姓名、电话或公司资料。",
+      confirmText: "继续编辑",
+      cancelText: "放弃修改",
+      success: (result) => {
+        if (!result.confirm) wx.navigateBack({delta: 1});
+      }
     });
   },
   openOnboarding() {
@@ -185,11 +208,13 @@ Page({
     }
   },
   async loadSettings() {
+    this.setData({loading:true,loadError:""});
     try {
       const [result, userInfo] = await Promise.all([
         getSettings(),
         getCurrentUser()
       ]);
+      this.savedCompany = {...(result || {})};
       this.setData({
         form: {
           inspectorName: (userInfo && userInfo.nickname) || "",
@@ -202,9 +227,14 @@ Page({
           reportTemplate: (result && result.reportTemplate) || "default",
           reportPdfEngine: "puppeteer",
           reportPdfServiceUrl: normalizePdfServiceUrl(result && result.reportPdfServiceUrl)
-        }
-      });
+        },
+        dirty: false
+      }, () => this.scrollToInitialSection());
+      this.loadFailed=false;
+      this.loaded=true;
     } catch (error) {
+      this.loadFailed=true;
+      this.setData({loadError:error.message||"资料加载失败"});
       this.setData({
         form: {
           inspectorName: "",
@@ -223,15 +253,41 @@ Page({
         title: "设置加载失败",
         icon: "none"
       });
-    }
+    } finally{this.setData({loading:false});}
   },
   handleInput(event) {
     const field = event.currentTarget.dataset.field;
     this.setData({
-      [`form.${field}`]: event.detail.value
+      [`form.${field}`]: event.detail.value,
+      dirty: true
+    });
+  },
+  scrollToInitialSection() {
+    const section = this.initialSection;
+    this.initialSection = "";
+    if (!section || typeof wx.createSelectorQuery !== "function" || typeof wx.pageScrollTo !== "function") return;
+    const query = wx.createSelectorQuery();
+    query.select(`#settings-${section}`).boundingClientRect();
+    query.selectViewport().scrollOffset();
+    query.exec((result = []) => {
+      const rect = result[0];
+      const viewport = result[1] || {};
+      if (!rect) return;
+      const windowInfo = getWindowInfo();
+      const statusBarHeight = windowInfo.statusBarHeight || 20;
+      const menuButton = typeof wx.getMenuButtonBoundingClientRect === "function"
+        ? wx.getMenuButtonBoundingClientRect()
+        : null;
+      const navContentHeight = menuButton
+        ? (menuButton.top - statusBarHeight) * 2 + menuButton.height
+        : 44;
+      const visibleTop = statusBarHeight + navContentHeight + 16;
+      wx.pageScrollTo({scrollTop:Math.max(0,(viewport.scrollTop || 0) + rect.top - visibleTop),duration:180});
     });
   },
   async handleLogoChange(event) {
+    if(this.data.logoUploading)return;
+    this.setData({logoUploading:true});
     const filePath = event.detail;
     const ext = getUploadExtension(filePath);
 
@@ -240,16 +296,29 @@ Page({
       mask: true
     });
 
+    const previousLogoFileId = this.data.form.logoFileId;
+    const previousLogoPreview = this.data.form.logoPreview;
     try {
       const fileId = await uploadUserFile(filePath, "logos", `logo.${ext}`);
       this.setData({
         "form.logoFileId": fileId,
         "form.logoPreview": filePath
       });
+      const savedBase = this.savedCompany || {};
+      const savedSettings = await saveSettings(buildCompanySettingsPayload({
+        ...savedBase,
+        logoFileId: fileId
+      }));
+      this.savedCompany = {...savedBase,...(savedSettings || {}),logoFileId:fileId};
       wx.hideLoading();
+      wx.showToast({title:"LOGO 已保存",icon:"success"});
     } catch (error) {
       // 原实现没有 try/catch，上传失败时 Logo 区域毫无变化，用户不知道为什么
       wx.hideLoading();
+      this.setData({
+        "form.logoFileId": previousLogoFileId,
+        "form.logoPreview": previousLogoPreview
+      });
       console.error("[settings] logo upload failed", error);
       wx.showModal({
         title: "Logo 上传失败",
@@ -257,10 +326,11 @@ Page({
         showCancel: false,
         confirmText: "知道了"
       });
-    }
+    } finally{this.setData({logoUploading:false});}
   },
   async handleSubmit() {
-    if (this.data.isSaving) {
+    if (this.loadFailed) {wx.showModal({title:"资料未加载",content:"请先重新加载，避免空白内容覆盖已有资料。",success:r=>{if(r.confirm)this.loadSettings();}});return;}
+    if (this.data.isSaving || this.data.logoUploading || this.data.loading) {
       return;
     }
     const inspectorName = (this.data.form.inspectorName || "").trim();
@@ -283,19 +353,13 @@ Page({
       isSaving: true
     });
     try {
-      await saveSettings({
-        companyName: this.data.form.companyName,
-        companyPhone: this.data.form.companyPhone,
-        companyAddress: this.data.form.companyAddress,
-        logoFileId: this.data.form.logoFileId,
-        reportTemplate: this.data.form.reportTemplate,
-        reportPdfEngine: "puppeteer",
-        reportPdfServiceUrl: normalizePdfServiceUrl(this.data.form.reportPdfServiceUrl)
-      });
+      await saveSettings(buildCompanySettingsPayload(this.data.form));
       await updateProfile({
         nickname: inspectorName,
         phone: inspectorPhone
       });
+      this.savedCompany = {...this.data.form};
+      this.setData({dirty:false});
       markGuideStep("settingsCompleted", true);
 
       wx.showToast({
@@ -321,6 +385,8 @@ Page({
           url: "/pages/profile/index"
         });
       }, 600);
+    } catch(e) {
+      wx.showModal({title:"资料未全部保存",content:(e.message||"网络异常")+"。当前输入已保留，请重试。",showCancel:false});
     } finally {
       this.setData({
         isSaving: false

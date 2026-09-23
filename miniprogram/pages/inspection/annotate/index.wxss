@@ -1,17 +1,12 @@
-.annotate-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18rpx;
-  padding-bottom: 32rpx;
-}
+.annotate-page{min-height:100vh;padding-bottom:0;display:flex;flex-direction:column}.annotate-page .footer-actions{margin-top:auto;padding-left:0;padding-right:0}
 
 .annotate-hint {
   padding: 18rpx 22rpx;
   border-radius: 0;
-  background: #F2EDE4;
-  border: 0.5px solid #E8E2D8;
-  font-size: 22rpx;
-  color: #6B6355;
+  background: var(--a-surface, #E2DCD3);
+  border: 0.5px solid var(--a-line, #C9C1B7);
+  font-size: 26rpx;
+  color: var(--a-muted, #706D67);
   text-align: center;
   line-height: 1.6;
 }

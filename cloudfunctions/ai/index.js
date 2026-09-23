@@ -1,4 +1,5 @@
 const cloud = require("wx-server-sdk");
+const {hash,requestKey,reserve,assertMedia} = require("./reliable");
 const tencentcloud = require("tencentcloud-sdk-nodejs");
 const axios = require("axios");
 
@@ -163,7 +164,9 @@ function getHunyuanClient() {
     region: runtimeConfig.region,
     profile: {
       httpProfile: {
-        endpoint: "hunyuan.tencentcloudapi.com"
+        endpoint: "hunyuan.tencentcloudapi.com",
+        // Tencent SDK reqTimeout is in seconds; fit one request inside the advance budget.
+        reqTimeout: 30
       }
     }
   });
@@ -487,7 +490,7 @@ function getInspectionAiSystemPrompt() {
     "3. 同一张照片里，只要某个细节可以独立成立、独立核验、独立整改，就应拆成 1 条独立子问题。",
     "4. 如果是同一张照片里的多个独立问题，拆成多条问题项；这些问题项必须共享同一个 sourceIndex，并按 1 开始递增 subIssueIndex。",
     "5. 只有当多句描述明显只是同一个问题的补充说明、后果描述或同义复述时，才允许合并为 1 条子问题。",
-    "6. 如果某张照片没有任何语音或文字输入，也必须仅根据照片内容和标注信息独立识别并输出至少 1 条问题项。",
+    "6. 如果某张照片没有任何语音或文字输入，只根据照片中有证据支持的现象整理；没有可确认问题时输出空数组，不编造问题。",
     "7. 每条问题项都要补足结构化字段，并输出 summary。",
     "",
     "判断同图是否应该拆分为多个独立问题时，使用以下规则：",
@@ -501,7 +504,7 @@ function getInspectionAiSystemPrompt() {
     "输出规则：",
     "- 返回严格 JSON，不要输出 Markdown、解释、注释或额外文字。",
     "- items 是扁平数组，但同一张照片的多个问题必须拥有相同 sourceIndex，并使用 subIssueIndex 表示该照片下的第几个子问题。",
-    "- 每张照片至少产出 1 条问题项，不允许漏掉任何一张照片。",
+    "- 照片允许没有问题项。未识别到问题不等于工程合格，不生成占位缺陷。",
     "- 当某条问题主要依据语音转写整理时，description 必须润色成书面化、可直接用于巡查确认和 PDF 的问题描述，不能直接照抄口语原文。",
     "- 需要把“这个、那里、有点、好像、然后、就是”等口语化表达整理成正式巡查表述，并去掉语气词、重复词和填充词。",
     "- visualEvidence 必须写你从图片或标注中真正观察到的证据，不能只复述语音文字。",
@@ -792,18 +795,19 @@ async function runWithConcurrency(taskFactories = [], limit = 1) {
   return results;
 }
 
-function getNormalizedSourceIndex(drafts = [], item = {}, index = 0) {
-  return Number.isInteger(item.sourceIndex)
-    ? Math.max(0, Math.min(item.sourceIndex, Math.max(drafts.length - 1, 0)))
-    : Math.min(index, Math.max(drafts.length - 1, 0));
+function getNormalizedSourceIndex(drafts=[],item={}) {
+  if(drafts.length===1)return 0;
+  if(Number.isInteger(item.sourceIndex)&&item.sourceIndex>=0&&item.sourceIndex<drafts.length)return item.sourceIndex;
+  throw new Error("AI 返回的问题缺少可靠照片来源，请重试或手动整理");
 }
 
 function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
   const drafts = payload.issueDrafts || [];
   const normalized = [];
-  const fillMissingDrafts = options.fillMissingDrafts !== false;
+  const fillMissingDrafts = false; // A: no fabricated issue to fill a photo
 
   parsedItems.forEach((item, index) => {
+    if(!item || typeof item.description!=="string" || !item.description.trim())throw new Error("AI 返回空白问题，请重试或手动整理");
     const fallbackDraft = drafts[index] || {};
     const normalizedSourceIndex = getNormalizedSourceIndex(drafts, item, index);
     const sourceIndex = normalizedSourceIndex;
@@ -837,7 +841,7 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
     });
   }
 
-  return ensureVoiceIssueCoverage(payload, normalized).sort((left, right) => {
+  return normalized.sort((left, right) => {
     if (left.sourceIndex !== right.sourceIndex) {
       return left.sourceIndex - right.sourceIndex;
     }
@@ -982,14 +986,15 @@ async function analyzeInspectionWithOpenAiCompatible(payload) {
         Authorization: `Bearer ${runtimeConfig.apiKey}`,
         "Content-Type": "application/json"
       },
-      timeout: 60000
+      timeout: 30000
     }
   );
 
   const choice = (((response || {}).data || {}).choices || [])[0] || {};
   const message = choice.message || {};
   const parsed = safeJsonParse(message.content || "");
-  const items = Array.isArray(parsed.items) ? parsed.items : [];
+  if(!Array.isArray(parsed.items))throw new Error("AI 返回结构不完整，请重试或手动整理");
+  const items = parsed.items;
 
   return {
     items: normalizeInspectionAiItems(payload, items),
@@ -1026,7 +1031,7 @@ async function analyzeSingleDraftWithOpenAiCompatible(payload, draft, originalIn
         Authorization: `Bearer ${runtimeConfig.apiKey}`,
         "Content-Type": "application/json"
       },
-      timeout: 60000
+      timeout: 30000
     }
   );
 
@@ -1050,27 +1055,7 @@ async function analyzeDraftBatchWithOpenAiCompatible(payload, draftIndexes = [])
     ...item,
     sourceIndex: draftIndexes[item.sourceIndex] !== undefined ? draftIndexes[item.sourceIndex] : draftIndexes[0] || 0
   }));
-  const covered = new Set(batchItems.map((item) => item.sourceIndex));
-  const missingDraftIndexes = draftIndexes.filter((index) => !covered.has(index));
-
-  if (!missingDraftIndexes.length) {
-    return batchItems;
-  }
-
-  const supplementedGroups = await Promise.all(missingDraftIndexes.map(async (index) => {
-    const draft = (payload.issueDrafts || [])[index];
-    try {
-      return await analyzeSingleDraftWithOpenAiCompatible(payload, draft, index);
-    } catch (error) {
-      console.error("analyzeSingleDraftWithOpenAiCompatible failed", {
-        index,
-        error
-      });
-      return [buildDraftBackedIssueItem(draft, index, index, 1)];
-    }
-  }));
-
-  return [...batchItems, ...supplementedGroups.flat()];
+  return batchItems;
 }
 
 async function analyzeInspectionBatch(payload, draftIndexes = []) {
@@ -1087,47 +1072,10 @@ async function analyzeInspectionBatch(payload, draftIndexes = []) {
 }
 
 async function finalizeTaskItems(payload, mergedItems = []) {
-  const normalizedItems = normalizeInspectionAiItems(payload, mergedItems, {
-    fillMissingDrafts: true
-  });
-  const drafts = payload.issueDrafts || [];
-  const sourceIndexesToRetry = drafts
-    .map((_, index) => index)
-    .filter((sourceIndex) => {
-      const sourceItems = normalizedItems.filter((item) => item.sourceIndex === sourceIndex);
-      return isLowConfidenceSourceItems(sourceItems, sourceIndex);
-    });
-
-  if (!sourceIndexesToRetry.length) {
-    return normalizedItems;
-  }
-
-  const retriedGroups = await Promise.all(sourceIndexesToRetry.map(async (sourceIndex) => {
-    const draft = drafts[sourceIndex];
-    try {
-      return await analyzeSingleDraftWithOpenAiCompatible(payload, draft, sourceIndex);
-    } catch (error) {
-      console.error("finalizeTaskItems retry failed", {
-        sourceIndex,
-        error
-      });
-      return normalizedItems.filter((item) => item.sourceIndex === sourceIndex);
-    }
+  return normalizeInspectionAiItems(payload, mergedItems, {fillMissingDrafts:false}).map((item,index)=>({
+    ...item, id:item.id || "ai-"+item.sourceIndex+"-"+index,
+    sourcePhotoId:(payload.issueDrafts || [])[item.sourceIndex]?.id || ""
   }));
-
-  const retriedMap = new Map();
-  sourceIndexesToRetry.forEach((sourceIndex, index) => {
-    retriedMap.set(sourceIndex, retriedGroups[index] || []);
-  });
-
-  const replacedItems = normalizedItems.filter((item) => !retriedMap.has(item.sourceIndex));
-  retriedMap.forEach((items) => {
-    replacedItems.push(...items);
-  });
-
-  return normalizeInspectionAiItems(payload, replacedItems, {
-    fillMissingDrafts: true
-  });
 }
 
 function buildTaskDraftIndexes(payload = {}) {
@@ -1142,18 +1090,21 @@ function buildAiTaskStatus(task = {}, analysis = null) {
     completedBatches: task.completedBatches || 0,
     currentBatchIndex: task.currentBatchIndex || 0,
     errorMessage: task.errorMessage || "",
-    analysis
+    analysis: analysis || task.analysis || null
   };
 }
 
 async function createAnalysisTask(payload, openId) {
+  if(!Array.isArray(payload.issueDrafts)||payload.issueDrafts.length>20)throw new Error("照片数据不完整或超过20张");
+  payload.issueDrafts.forEach(p=>{if(!p.imagePath)throw new Error("照片尚未上传");assertMedia(p.imagePath,openId);assertMedia(p.annotatedImagePath,openId);});
   const enhancedPayload = await enrichPayloadWithMemory(payload);
   const draftIndexes = buildTaskDraftIndexes(enhancedPayload);
   const batches = chunkArray(draftIndexes, AI_BATCH_SIZE);
   const now = Date.now();
-  const created = await db.collection(AI_TASK_COLLECTION).add({
-    data: {
+  const id=requestKey("analysis",openId,payload.requestId || "legacy-"+hash(payload));
+  const created = await reserve(db.collection(AI_TASK_COLLECTION),id,hash(payload),{
       status: "queued",
+      lockUntil: 0,
       // 记录归属：getInspectionTaskStatus 据此校验调用者，
       // 避免只要猜到 taskId 就能读到他人的问题描述、图片路径与语音文本
       openId,
@@ -1168,7 +1119,6 @@ async function createAnalysisTask(payload, openId) {
       createdAt: now,
       expiresAt: now + AI_TASK_TTL_MS,
       updatedAt: now
-    }
   });
   const task = await db.collection(AI_TASK_COLLECTION).doc(created._id).get();
   return task.data;
@@ -1207,26 +1157,29 @@ async function processAnalysisTask(task) {
   // 20 张照片就要 20 轮客户端轮询，太慢。
   // 现在按时间预算循环，每轮并发处理 AI_BATCH_PARALLEL_LIMIT 批。
   let cursor = task.currentBatchIndex || 0;
-  let mergedItems = (task.partialItems || []).slice();
-  const deadline = Date.now() + AI_TASK_TIME_BUDGET_MS;
-
+  const completed={...(task.batchResults||{})};
+  const legacyItems=!task.batchResults?(task.partialItems||[]):[];
+  if(!task.batchResults)for(let i=0;i<cursor;i++)completed[i]=[];
+  let mergedItems=legacyItems.slice();
+  const deadline=Date.now()+AI_TASK_TIME_BUDGET_MS;
   try {
-    while (cursor < batches.length) {
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) {
-        break;
-      }
-
-      const chunk = batches.slice(cursor, cursor + AI_BATCH_PARALLEL_LIMIT);
-      const results = await runWithConcurrency(
-        chunk.map((batchIndexes) => async () => analyzeInspectionBatch(payload, batchIndexes)),
-        AI_BATCH_PARALLEL_LIMIT
-      );
-      results.forEach((items) => {
-        mergedItems = mergedItems.concat(items || []);
-      });
-      cursor += chunk.length;
+    while(true){
+      const pending=batches.map((_,i)=>i).filter(i=>!Object.prototype.hasOwnProperty.call(completed,i));
+      if(!pending.length)break;
+      if(deadline-Date.now()<31000)break;
+      const indices=pending.slice(0,AI_BATCH_PARALLEL_LIMIT);
+      const results=await Promise.all(indices.map(async i=>{
+        try{return {i,items:await analyzeInspectionBatch(payload,batches[i])};}
+        catch(error){return {i,error};}
+      }));
+      for(const r of results)if(!r.error)completed[r.i]=r.items||[];
+      cursor=Object.keys(completed).length;
+      mergedItems=legacyItems.concat(...Object.keys(completed).sort((a,b)=>Number(a)-Number(b)).map(i=>completed[i]));
+      await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{batchResults:completed,completedBatches:cursor,currentBatchIndex:cursor,partialItems:mergedItems,updatedAt:Date.now()}});
+      const failure=results.find(r=>r.error);if(failure)throw failure.error;
     }
+    cursor=Object.keys(completed).length;
+    mergedItems=legacyItems.concat(...Object.keys(completed).sort((a,b)=>Number(a)-Number(b)).map(i=>completed[i]));
 
     if (cursor >= batches.length) {
       const finalItems = await finalizeTaskItems(payload, mergedItems);
@@ -1244,6 +1197,7 @@ async function processAnalysisTask(task) {
           completedBatches: cursor,
           currentBatchIndex: cursor,
           partialItems: _.remove(),
+          batchResults: _.remove(),
           payload: _.remove(),
           batches: _.remove(),
           updatedAt: Date.now()
@@ -1309,7 +1263,7 @@ async function analyzeInspectionWithModel(payload) {
 
     return {
       items: normalizeInspectionAiItems(payload, mergedItems, {
-        fillMissingDrafts: true
+        fillMissingDrafts: false
       }),
       summary: ""
     };
@@ -1340,7 +1294,8 @@ async function analyzeInspectionWithModel(payload) {
 
   const text = extractAssistantText(response);
   const parsed = safeJsonParse(text);
-  const items = Array.isArray(parsed.items) ? parsed.items : [];
+  if(!Array.isArray(parsed.items))throw new Error("AI 返回结构不完整，请重试或手动整理");
+  const items = parsed.items;
 
   return {
     items: normalizeInspectionAiItems(payload, items).map((item) => {
@@ -1427,6 +1382,8 @@ exports.main = async (event) => {
         };
       }
 
+      case "readInspectionTaskStatus":
+      case "advanceInspectionTask":
       case "getInspectionTaskStatus": {
         if (!payload.taskId) {
           return {
@@ -1452,8 +1409,15 @@ exports.main = async (event) => {
           };
         }
 
-        if (task.status === "queued" || task.status === "running") {
-          task = await processAnalysisTask(task);
+        if(action !== "readInspectionTaskStatus" && ["queued","running","failed"].includes(task.status)) {
+          const now=Date.now();
+          const claimed=await db.collection(AI_TASK_COLLECTION).where(_.and([
+            {_id:task._id,status:_.neq("success")},_.or([{lockUntil:_.lte(now)},{lockUntil:_.exists(false)}])
+          ])).update({data:{lockUntil:now+180000}});
+          if(claimed.stats && claimed.stats.updated){
+            try{const latest=await getAnalysisTask(task._id);task=latest.status==="success"?latest:await processAnalysisTask({...latest,status:"running"});}
+            finally{await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{lockUntil:0}});}
+          }
         }
         return {
           success: true,

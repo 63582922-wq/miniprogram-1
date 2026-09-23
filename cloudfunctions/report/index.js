@@ -5,6 +5,7 @@ const path = require("path");
 const https = require("https");
 const crypto = require("crypto");
 const cloud = require("wx-server-sdk");
+const {hash,requestKey,reserve,all} = require("./reliable");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -15,6 +16,17 @@ const SHARE_TOKEN_PREFIX = "sr";
 
 const db = cloud.database();
 const _ = db.command;
+
+async function findLatestActiveByOpenId(collectionName, openId) {
+  const result = await db.collection(collectionName).where({openId}).get();
+  return result.data
+    .filter((row) => row && row.deleted !== true)
+    .sort((first, second) => {
+      const firstTime = Number(first.updatedAt || first.createdAt || 0);
+      const secondTime = Number(second.updatedAt || second.createdAt || 0);
+      return secondTime - firstTime;
+    })[0] || null;
+}
 
 async function assertProjectOwner(projectId, openId) {
   if (!projectId) {
@@ -267,16 +279,16 @@ async function uploadPdfBuffer(fileBuffer, fileName) {
   }
 }
 
-async function buildReportData(payload) {
+async function buildReportData(payload, trustedRead = false) {
   const { OPENID } = cloud.getWXContext();
   const inspection = await db.collection("inspections").doc(payload.inspectionId).get();
-  if (!inspection.data || inspection.data.deleted) {
+  if (!inspection.data || inspection.data.deleted || inspection.data.status === "preparing") {
     return {
       success: false,
       message: "巡查不存在"
     };
   }
-  const projectCheck = await assertProjectOwner(inspection.data.projectId, OPENID);
+  const projectCheck = trustedRead ? {ok:true,project:(await db.collection("projects").doc(inspection.data.projectId).get()).data} : await assertProjectOwner(inspection.data.projectId, OPENID);
   if (!projectCheck.ok) {
     return {
       success: false,
@@ -284,19 +296,15 @@ async function buildReportData(payload) {
     };
   }
   const projectRow = projectCheck.project;
-  const items = await db.collection("inspection_items").where({
-    inspectionId: payload.inspectionId,
-    deleted: false
-  }).orderBy("sortOrder", "asc").get();
+  const items = {data:await all(db.collection("inspection_items").where({inspectionId:payload.inspectionId,deleted:false}).orderBy("sortOrder","asc"))};
   const user = await db.collection("users").where({
     openId: inspection.data.inspectorOpenId,
     deleted: false
   }).get();
-  const settings = await db.collection("app_settings").where({
-    openId: inspection.data.inspectorOpenId,
-    deleted: false
-  }).get();
-  const appSettings = settings.data[0] || {};
+  const appSettings = await findLatestActiveByOpenId(
+    "app_settings",
+    inspection.data.inspectorOpenId
+  ) || {};
 
   return {
     success: true,
@@ -314,8 +322,9 @@ async function buildReportData(payload) {
       companyAddress: appSettings.companyAddress || "",
       logoFileId: appSettings.logoFileId || "",
       reportTemplate: appSettings.reportTemplate || "default",
-      summary: inspection.data.aiSummary || `本次巡查共识别 ${items.data.length} 个问题项，建议按严重程度优先处理高风险问题。`,
+      summary: inspection.data.aiSummary || `本次记录 ${items.data.length} 个问题项。记录仅覆盖所拍照片与现场说明，不代表工程验收合格。`,
       contextNote: inspection.data.note || "",
+      photos: inspection.data.photos || [],
       items: items.data
     }
   };
@@ -324,6 +333,12 @@ async function buildReportData(payload) {
 async function saveReport(payload) {
   const { OPENID } = cloud.getWXContext();
   const now = Date.now();
+  if(payload.reportId){
+    const access=await assertReportAccess(payload.reportId,OPENID);
+    if(!access.ok)return {success:false,message:access.message};
+    // Published content is immutable; PDF lifecycle has dedicated actions.
+    if(access.report.snapshotVersion)return {success:true,data:access.report};
+  }
   const reportStatus = payload.status || (payload.pdfFileId ? "generated" : "draft");
 
   if (payload.reportId) {
@@ -396,6 +411,8 @@ async function saveReport(payload) {
     };
   }
 
+  const prior=await db.collection("reports").where({inspectionId:payload.inspectionId,deleted:false}).limit(1).get();
+  if(prior.data.length)return {success:true,data:prior.data[0]};
   const data = {
     inspectionId: payload.inspectionId,
     projectId: payload.projectId,
@@ -426,25 +443,23 @@ async function saveReport(payload) {
     updatedBy: OPENID
   };
 
-  const created = await db.collection("reports").add({
-    data
+  const built=await buildReportData({inspectionId:payload.inspectionId});
+  if(!built.success)return built;
+  const snapshot=stripInternalFields(built.data);
+  const publisher = await db.collection("users").where({openId:OPENID,deleted:false}).get();
+  snapshot.publisherName = publisher.data[0] ? publisher.data[0].nickname || "" : "";
+  snapshot.publisherPhone = publisher.data[0] ? publisher.data[0].phone || "" : "";
+  delete snapshot.shareToken;
+  const id=requestKey("report",OPENID,payload.inspectionId);
+  // One publication per inspection; no later client payload can mutate the snapshot.
+  let existing=null;try{existing=(await db.collection("reports").doc(id).get()).data;}catch(e){}
+  const published=existing || await reserve(db.collection("reports"),id,hash(snapshot),{
+    ...data,...snapshot,status:"published",publicationStatus:"published",snapshotVersion:2,snapshot,
+    publishedAt:now,shareState:"active",pdfTaskStatus:"idle"
   });
-
-  await db.collection("inspections").doc(payload.inspectionId).update({
-    data: {
-      reportId: created._id,
-      updatedAt: now,
-      updatedBy: OPENID
-    }
-  });
-
-  return {
-    success: true,
-    data: {
-      ...data,
-      _id: created._id
-    }
-  };
+  if(published.deleted)throw new Error("报告已删除");
+  await db.collection("inspections").doc(payload.inspectionId).update({data:{reportId:id,updatedAt:now,updatedBy:OPENID}});
+  return {success:true,data:{...published.snapshot,...published}};
 }
 
 async function fetchReport(reportId) {
@@ -474,15 +489,28 @@ const READER_HIDDEN_FIELDS = [
   "pdfTemplateVersion",
   "createdBy",
   "updatedBy",
-  "deleted"
+  "deleted", "pdfAttempt", "pdfTaskStartedAt"
 ];
 
 function stripInternalFields(report = {}) {
   const safe = Object.assign({}, report);
+  ["snapshot","requestHash","inspectorOpenId","voiceFileId","voiceFilePath","voiceStorageFileId","analysis","aiRawResult","payload"].forEach(k=>delete safe[k]);
+  safe.items=(report.items||[]).map(i=>{const p={...i};["aiRawResult","voiceFileId","voiceFilePath","voiceStorageFileId","createdBy","updatedBy"].forEach(k=>delete p[k]);return p;});
+  safe.photos=(report.photos||[]).map(p=>({id:p.id,sourceIndex:p.sourceIndex,imagePath:p.imagePath,annotatedImagePath:p.annotatedImagePath,caption:p.caption||p.voiceText||"",annotations:p.annotations||[]}));
   READER_HIDDEN_FIELDS.forEach((field) => {
     delete safe[field];
   });
   return safe;
+}
+
+async function readerReport(report){
+  // Explicit allowlist: future internal fields must not silently become share data.
+  const pick=(source,keys)=>Object.fromEntries(keys.filter(k=>source[k]!==undefined).map(k=>[k,source[k]]));
+  const safe=pick(report,["_id","title","projectName","summary","contextNote","inspectorName","inspectorPhone","publisherName","publisherPhone","companyName","companyPhone","companyAddress","logoFileId","inspectionDate","inspectionDateText","publishedAt","createdAt","generatedAt","shareState","snapshotVersion"]);
+  safe.photos=(report.photos||[]).map(p=>({...pick(p,["id","sourceIndex","imagePath","annotatedImagePath"]),caption:p.caption||p.voiceText||""}));
+  safe.items=(report.items||[]).map(i=>pick(i,["id","sourcePhotoId","sourceIndex","subIssueIndex","sortOrder","description","suggestion","severity","responsibleParty","category","area","images","annotatedImages","createdAt"]));
+  const media=await preparePdfSnapshot(safe);
+  return {...safe,items:media.items,photos:media.photos,logoFileId:media.logoUrl};
 }
 
 async function detailReport(payload) {
@@ -505,6 +533,7 @@ async function detailReport(payload) {
   const tokenMatched = Boolean(
     payload.shareToken
     && report.data.shareToken
+    && report.data.shareState !== "revoked"
     && payload.shareToken === report.data.shareToken
   );
 
@@ -515,17 +544,16 @@ async function detailReport(payload) {
     };
   }
 
-  const build = await buildReportData({
-    inspectionId: report.data.inspectionId
-  });
+  const build = report.data.snapshotVersion ? {success:true,data:report.data.snapshot} : await buildReportData({inspectionId:report.data.inspectionId}, true);
   if (!build.success) {
     return build;
   }
 
   const merged = {
-    ...build.data,
     ...report.data,
+    ...build.data,
     items: build.data.items,
+    photos: build.data.photos || [],
     inspectionDate: build.data.inspectionDate,
     inspectionDateText: build.data.inspectionDateText,
     inspectorName: build.data.inspectorName,
@@ -540,7 +568,7 @@ async function detailReport(payload) {
     success: true,
     data: Object.assign(
       {},
-      ownerCheck.ok ? merged : stripInternalFields(merged),
+      ownerCheck.ok ? merged : await readerReport(merged),
       // 告知客户端当前是哪种访问方式：分享进来的读者不应看到生成/删除等操作
       { accessMode: ownerCheck.ok ? "owner" : "shared" }
     )
@@ -563,7 +591,7 @@ async function createShareToken(payload) {
     };
   }
 
-  const existing = `${access.report.shareToken || ""}`;
+  const existing = access.report.shareState === "revoked" || payload.rotate ? "" : `${access.report.shareToken || ""}`;
   if (existing.startsWith(SHARE_TOKEN_PREFIX) && existing.length >= 24) {
     return {
       success: true,
@@ -575,6 +603,7 @@ async function createShareToken(payload) {
   await db.collection("reports").doc(payload.reportId).update({
     data: {
       shareToken,
+      shareState: "active",
       updatedAt: Date.now()
     }
   });
@@ -585,62 +614,24 @@ async function createShareToken(payload) {
   };
 }
 
+async function revokeShareToken(payload) {
+  const {OPENID}=cloud.getWXContext();
+  const access=await assertReportAccess(payload.reportId,OPENID);
+  if(!access.ok)return {success:false,message:access.message};
+  await db.collection("reports").doc(payload.reportId).update({data:{shareToken:"",shareState:"revoked",updatedAt:Date.now()}});
+  return {success:true,data:{shareToken:"",shareState:"revoked"}};
+}
 async function listReports(payload = {}) {
-  const { OPENID } = cloud.getWXContext();
-  const projects = await db.collection("projects").where({
-    ownerOpenId: OPENID,
-    deleted: false
-  }).get();
-  const projectIds = (projects.data || []).map((item) => item._id);
-  if (!projectIds.length) {
-    return {
-      success: true,
-      data: {
-        list: [],
-        total: 0
-      }
-    };
-  }
-
-  const query = {
-    deleted: false,
-    projectId: _.in(projectIds)
-  };
-
-  if (payload.projectId) {
-    if (!projectIds.includes(payload.projectId)) {
-      return {
-        success: true,
-        data: {
-          list: [],
-          total: 0
-        }
-      };
-    }
-    query.projectId = payload.projectId;
-  }
-
-  const countResult = await db.collection("reports").where(query).count();
-  const total = countResult.total || 0;
-  const pageSize = Math.min(Math.max(Number(payload.pageSize) || 20, 1), 100);
-  const page = Math.max(Number(payload.page) || 1, 1);
-  const skip = (page - 1) * pageSize;
-
-  const result = await db.collection("reports").where(query)
-    .orderBy("generatedAt", "desc")
-    .skip(skip)
-    .limit(pageSize)
-    .get();
-
-  return {
-    success: true,
-    data: {
-      list: result.data || [],
-      total,
-      page,
-      pageSize
-    }
-  };
+  const {OPENID}=cloud.getWXContext();
+  const projects=await all(db.collection("projects").where({ownerOpenId:OPENID,deleted:false}));
+  let ids=projects.map(p=>p._id);
+  if(payload.projectId){if(!ids.includes(payload.projectId))return {success:false,message:"无权查看该项目报告"};ids=[payload.projectId];}
+  const rows=[];
+  for(let i=0;i<ids.length;i+=50)rows.push(...await all(db.collection("reports").where({deleted:false,projectId:_.in(ids.slice(i,i+50))})));
+  // Legacy reports have no publishedAt; keep their original publication/creation order.
+  rows.sort((a,b)=>(b.publishedAt??b.createdAt??b.generatedAt??0)-(a.publishedAt??a.createdAt??a.generatedAt??0)||String(a._id).localeCompare(String(b._id)));
+  const page=Math.max(1,Math.floor(Number(payload.page)||1)),pageSize=Math.min(50,Math.max(1,Math.floor(Number(payload.pageSize)||20)));
+  return {success:true,data:{list:rows.slice((page-1)*pageSize,page*pageSize).map(r=>{const {_id,title,projectId,publishedAt,createdAt,generatedAt,status,pdfTaskStatus}=r;return {_id,title,projectId,publishedAt,createdAt,generatedAt,status,pdfTaskStatus};}),total:rows.length,page,pageSize,hasMore:page*pageSize<rows.length}};
 }
 
 async function removeReport(payload) {
@@ -713,42 +704,55 @@ async function removeReport(payload) {
  * 现在出图只走 createPdfTask → getPdfTaskStatus，两步都有归属校验。
  */
 
+async function preparePdfSnapshot(snapshot) {
+  const payload=JSON.parse(JSON.stringify(snapshot));
+  const ids=[payload.logoFileId,...(payload.photos||[]).flatMap(p=>[p.imagePath,p.annotatedImagePath]),...(payload.items||[]).flatMap(p=>[...(p.images||[]),...(p.annotatedImages||[])])].filter(p=>typeof p==="string"&&p.startsWith("cloud://"));
+  const urls={};const unique=[...new Set(ids)];
+  for(let i=0;i<unique.length;i+=50){
+    const result=await cloud.getTempFileURL({fileList:unique.slice(i,i+50)});
+    (result.fileList||[]).forEach(f=>{if(f.tempFileURL)urls[f.fileID]=f.tempFileURL;});
+  }
+  const url=p=>{if(p&&p.startsWith("cloud://")&&!urls[p])throw new Error("报告图片暂不可用，请重试");return urls[p]||p||"";};
+  payload.logoUrl=url(payload.logoFileId);
+  payload.inspectionDate=payload.inspectionDateText||payload.inspectionDate;
+  payload.photos=(payload.photos||[]).map(p=>({...p,imagePath:url(p.imagePath),annotatedImagePath:url(p.annotatedImagePath)}));
+  payload.items=(payload.items||[]).map(p=>({...p,images:(p.images||[]).map(url),annotatedImages:(p.annotatedImages||[]).map(url),
+    severityText:({normal:"一般",major:"较重",critical:"严重"})[p.severity]||"一般",
+    responsiblePartyText:({pending:"待确认",constructor:"施工方",supplier:"供应方",client:"业主"})[p.responsibleParty]||"待确认"}));
+  return payload;
+}
 async function createPdfTask(payload) {
-  if (!payload.reportId || !payload.reportPayload) {
-    return {
-      success: false,
-      message: "缺少报告ID或PDF任务数据"
-    };
+  const {OPENID}=cloud.getWXContext(),access=await assertReportAccess(payload.reportId,OPENID);
+  if(!access.ok)return {success:false,message:access.message};
+  const previous=access.report;
+  if(previous.pdfTaskId&&["starting","queued","running"].includes(previous.pdfTaskStatus)){
+    return {success:true,data:{taskId:previous.pdfTaskId,taskStatus:previous.pdfTaskStatus,report:previous}};
   }
-  const { OPENID } = cloud.getWXContext();
-  const access = await assertReportAccess(payload.reportId, OPENID);
-  if (!access.ok) {
-    return {
-      success: false,
-      message: access.message
-    };
+  const attempt=(previous.pdfAttempt||0)+1,taskId="pdf-"+hash([payload.reportId,"precision-A-v2",attempt]).slice(0,40),now=Date.now();
+  const acquired=await db.collection("reports").where(_.and([{_id:payload.reportId},
+    previous.pdfAttempt===undefined?{pdfAttempt:_.exists(false)}:{pdfAttempt:previous.pdfAttempt}
+  ])).update({data:{pdfAttempt:attempt,pdfTaskId:taskId,pdfTaskStatus:"starting",status:"pdf_generating",pdfTaskStartedAt:now,pdfErrorMessage:"",updatedAt:now}});
+  if(!acquired.stats.updated){const row=await fetchReport(payload.reportId);return {success:true,data:{taskId:row.pdfTaskId,taskStatus:row.pdfTaskStatus,report:row}};}
+  let reportPayload;
+  try{
+    const snapshot=previous.snapshotVersion?previous.snapshot:(await buildReportData({inspectionId:previous.inspectionId})).data;
+    if(!snapshot)throw new Error("报告数据不完整");
+    reportPayload={...await preparePdfSnapshot(snapshot),jobId:taskId};
+  }catch(e){
+    await markReportPdfState(payload.reportId,{status:"pdf_failed",pdfTaskStatus:"failed",pdfErrorMessage:e.message});
+    throw e;
   }
-  const response = await requestJson("/api/report-pdf/tasks", "POST", payload.reportPayload);
-  if (!response || !response.success || !response.data || !response.data.taskId) {
-    throw new Error(response && response.message ? response.message : "创建 PDF 任务失败");
+  try{
+    const response=await requestJson("/api/report-pdf/tasks","POST",reportPayload);
+    if(!response?.success||response.data?.taskId!==taskId)throw new Error(response?.message||"PDF服务版本不匹配，请先部署兼容服务");
+    const report=await markReportPdfState(payload.reportId,{pdfTaskStatus:response.data.status||"queued"});
+    return {success:true,data:{taskId,taskStatus:report.pdfTaskStatus,report}};
+  }catch(e){
+    // The service may have accepted the POST before its response was lost.
+    // Keep the known job ID; reading it settles the outcome without creating another render.
+    const report=await markReportPdfState(payload.reportId,{pdfErrorMessage:"任务响应尚未确认，正在查询同一任务"});
+    return {success:true,data:{taskId,taskStatus:"starting",report}};
   }
-  const report = await markReportPdfState(payload.reportId, {
-    status: "pdf_generating",
-    pdfFileId: "",
-    pdfTemplateVersion: "",
-    pdfTaskId: response.data.taskId,
-    pdfTaskStatus: response.data.status || "queued",
-    pdfErrorMessage: "",
-    generatedAt: 0
-  });
-  return {
-    success: true,
-    data: {
-      taskId: response.data.taskId,
-      taskStatus: response.data.status || "queued",
-      report
-    }
-  };
 }
 
 async function getPdfTaskStatus(payload) {
@@ -766,7 +770,19 @@ async function getPdfTaskStatus(payload) {
       message: access.message
     };
   }
-  const response = await requestJson(`/api/report-pdf/tasks/${payload.taskId}`, "GET");
+  if(access.report.pdfTaskId!==payload.taskId)throw new Error("PDF任务与报告不匹配");
+  if(access.report.pdfTaskStatus==="success" && access.report.pdfFileId)return {success:true,data:{taskStatus:"success",report:access.report}};
+  if(Date.now()-(access.report.pdfTaskStartedAt||access.report.updatedAt)>10*60*1000 && ["starting","queued","running"].includes(access.report.pdfTaskStatus)){
+    const report=await markReportPdfState(payload.reportId,{status:"pdf_failed",pdfTaskStatus:"failed",pdfErrorMessage:"PDF任务超时，请按原报告重试；在线阅读不受影响"});
+    return {success:true,data:{taskStatus:"failed",report,errorMessage:report.pdfErrorMessage}};
+  }
+  let response;
+  try{response=await requestJson("/api/report-pdf/tasks/"+payload.taskId,"GET");}
+  catch(e){
+    if(Date.now()-(access.report.pdfTaskStartedAt||0)<30000)return {success:true,data:{taskStatus:access.report.pdfTaskStatus||"starting",report:access.report}};
+    const report=await markReportPdfState(payload.reportId,{status:"pdf_failed",pdfTaskStatus:"failed",pdfErrorMessage:"PDF服务不可用或任务已丢失，请重新生成；在线报告不受影响"});
+    return {success:true,data:{taskStatus:"failed",report,errorMessage:report.pdfErrorMessage}};
+  }
   if (!response || !response.success || !response.data) {
     throw new Error(response && response.message ? response.message : "获取 PDF 任务状态失败");
   }
@@ -845,6 +861,7 @@ exports.main = async (event) => {
         return await saveReport(payload);
       case "detail":
         return await detailReport(payload);
+      case "revokeShareToken": return await revokeShareToken(payload);
       case "createShareToken":
         return await createShareToken(payload);
       case "list":

@@ -45,6 +45,12 @@ function createCloudError(message, extra = {}) {
 }
 
 async function callCloud(name, data = {}, options = {}) {
+  const isBootstrap = name === "auth" && data.action === "initSession";
+  const isSharedRead = name === "report" && data.action === "detail" && data.payload && data.payload.shareToken;
+  if (!isBootstrap && !isSharedRead && typeof getApp === "function") {
+    const app = getApp();
+    if (app && app.ensureReady) await app.ensureReady();
+  }
   const {
     /**
      * 超时后是否重试。

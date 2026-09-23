@@ -13,21 +13,21 @@
         <view class="onboarding-step__status">{{item.statusText}}</view>
       </view>
       <view class="onboarding-step__desc">{{item.desc}}</view>
-      <view class="onboarding-step__tip-trigger" data-step="{{item.key}}" bindtap="handleStepTip">说明</view>
-      <view wx:if="{{item.showAction}}" class="primary-button onboarding-step__action" data-step="{{item.key}}" bindtap="handleStepAction">{{item.actionText}}</view>
+      <button class="onboarding-step__tip-trigger" data-step="{{item.key}}" bindtap="handleStepTip">说明</button>
+      <button wx:if="{{item.showAction}}" class="primary-button onboarding-step__action" data-step="{{item.key}}" bindtap="handleStepAction">{{item.actionText}}</button>
     </view>
   </view>
 
   <view class="onboarding-actions">
-    <view class="secondary-button" bindtap="finishAndExit">稍后再做</view>
-    <view class="primary-button" bindtap="handleCompleteTap">我已完成，开始使用</view>
+    <button class="secondary-button" bindtap="finishAndExit">稍后再做</button>
+    <button class="primary-button" bindtap="handleCompleteTap">我已完成，开始使用</button>
   </view>
 
   <view wx:if="{{tipVisible}}" class="guide-tip-mask" bindtap="closeStepTip">
     <view class="guide-tip-panel" catchtap="noop">
       <view class="guide-tip-title">{{tipTitle}}</view>
       <view class="guide-tip-content">{{tipContent}}</view>
-      <view class="guide-tip-button" bindtap="closeStepTip">我知道了</view>
+      <button class="guide-tip-button" bindtap="closeStepTip">我知道了</button>
     </view>
   </view>
 </view>

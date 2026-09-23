@@ -10,71 +10,53 @@
   <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
   <view class="card report-state">
     <view class="section-title">报告暂时无法打开</view>
-    <view class="section-subtitle">{{loadError}}</view>
+    <view class="section-subtitle">{{loadError}}</view><button class="secondary-button" bindtap="loadReport">重试打开</button>
   </view>
 </view>
 
 <view class="page report-page" wx:elif="{{report}}">
   <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
 
-  <!-- 封面区：这是什么报告、谁出的、什么时候 -->
-  <view class="card report-cover">
+  <!-- 报告首先是一份可交付文档：公司标识与出具人优先于产品标记。 -->
+  <view class="report-cover">
     <view class="report-cover__top">
+      <view class="report-cover__product-kind">现场记录报告</view>
       <view class="report-cover__no">{{report.reportNo}}</view>
-      <image wx:if="{{report.logoFileId}}" class="report-cover__logo" src="{{report.logoFileId}}" mode="aspectFit" />
     </view>
-    <view class="report-cover__title">{{report.projectName || report.title}}</view>
+    <view class="report-cover__title {{reportTitleClass}}">{{report.projectName || report.title}}</view>
     <view class="report-cover__meta">
       <text>{{report.inspectionDateDisplay}}</text>
       <text wx:if="{{report.inspectorName}}"> · 巡查人 {{report.inspectorName}}</text>
     </view>
-    <view wx:if="{{report.companyName}}" class="report-cover__company">{{report.companyName}}</view>
-  </view>
-
-  <!-- 摘要卡：读者 3 秒内要拿到的答案 -->
-  <view class="card report-summary">
-    <view class="report-summary__kpis">
-      <view class="kpi">
-        <view class="kpi__n kpi__n--critical">{{report.severityStats.critical}}</view>
-        <view class="kpi__l">严重</view>
-      </view>
-      <view class="kpi">
-        <view class="kpi__n kpi__n--major">{{report.severityStats.major}}</view>
-        <view class="kpi__l">较重</view>
-      </view>
-      <view class="kpi">
-        <view class="kpi__n kpi__n--normal">{{report.severityStats.normal}}</view>
-        <view class="kpi__l">一般</view>
-      </view>
-      <view class="kpi">
-        <view class="kpi__n">{{report.severityStats.total}}</view>
-        <view class="kpi__l">合计</view>
+    <view class="report-cover__issuer">
+      <image wx:if="{{report.logoFileId}}" class="report-cover__logo" src="{{report.logoFileId}}" mode="aspectFit" />
+      <view class="report-cover__issuer-copy">
+        <view class="report-cover__issuer-label">报告出具单位</view>
+        <view class="report-cover__company">{{report.companyName || '个人出具'}}</view>
+        <view class="report-cover__issuer-person">报告出具人：{{report.publisherName || report.inspectorName || '未填写'}}</view>
+        <view wx:if="{{report.companyPhone || report.publisherPhone || report.inspectorPhone}}" class="report-cover__issuer-person">联系电话：{{report.companyPhone || report.publisherPhone || report.inspectorPhone}}</view>
       </view>
     </view>
-    <view class="report-summary__bar">
-      <view class="bar__seg bar__seg--critical" style="width:{{report.severityStats.criticalPercent}}%"></view>
-      <view class="bar__seg bar__seg--major" style="width:{{report.severityStats.majorPercent}}%"></view>
-      <view class="bar__seg bar__seg--normal" style="width:{{report.severityStats.normalPercent}}%"></view>
-    </view>
-    <view class="report-summary__conclusion">{{report.conclusion}}</view>
+    <view wx:if="{{!isOwner}}" class="report-cover__readonly">只读分享 · 仅此报告可见</view>
   </view>
 
+  <view class="report-summary"><view class="report-summary__conclusion">{{report.conclusion}}</view></view>
   <report-section wx:if="{{report.summary}}" title="巡查小结" content="{{report.summary}}" />
 
   <report-section wx:if="{{report.contextNote}}" title="现场补充" content="{{report.contextNote}}" />
 
-  <!-- 问题清单：按照片分组，同图多问题只出现一次照片 -->
+  <!-- 现场内容：按照片分组，同图多问题只出现一次照片 -->
   <view class="report-issues">
     <view class="report-issues__head">
-      <view class="section-title">问题清单</view>
-      <view class="report-issues__count">{{report.severityStats.total}} 项</view>
+      <view class="section-title">照片与问题</view>
+      <view class="report-issues__count">{{report.issueGroups.length}} 张 · {{report.severityStats.total}} 项问题</view>
     </view>
 
-    <view wx:if="{{!report.issueGroups.length}}" class="card report-state">
+    <view wx:if="{{!report.issueGroups.length}}" class="report-state">
       <view class="section-subtitle">本次巡查未记录问题项。</view>
     </view>
 
-    <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" class="card issue-group">
+    <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" class="issue-group">
       <view class="issue-group__head">{{group.groupTitle}}</view>
 
       <view wx:if="{{group.image}}" class="issue-group__media">
@@ -87,6 +69,8 @@
         />
       </view>
 
+      <view wx:if="{{group.caption}}" class="precision-state">现场说明：{{group.caption}}</view>
+      <view wx:if="{{!group.issues.length}}" class="precision-state">本组未记录问题，照片保留为现场记录；不代表工程验收合格。</view>
       <view wx:for="{{group.issues}}" wx:for-item="issue" wx:key="displayNo" class="issue">
         <view class="issue__head">
           <text class="issue__no">{{issue.displayNo}}</text>
@@ -104,14 +88,19 @@
   </view>
 
   <!-- 结尾区：出具信息与状态 -->
-  <view class="card report-footer">
+  <view class="report-footer">
+    <view class="report-footer__title">出具信息</view>
+    <view class="report-footer__row"><text class="report-footer__label">巡查人</text><text class="report-footer__value">{{report.inspectorName || '未填写'}}</text></view>
+    <view wx:if="{{report.inspectorPhone}}" class="report-footer__row"><text class="report-footer__label">巡查人电话</text><button class="report-footer__value report-footer__value--link report-footer__phone" data-phone="{{report.inspectorPhone}}" bindtap="handleCallCompany">{{report.inspectorPhone}}</button></view>
+    <view wx:if="{{report.publisherName}}" class="report-footer__row"><text class="report-footer__label">报告出具人</text><text class="report-footer__value">{{report.publisherName}}</text></view>
+    <view wx:if="{{report.publisherPhone && report.publisherPhone !== report.inspectorPhone}}" class="report-footer__row"><text class="report-footer__label">出具人电话</text><button class="report-footer__value report-footer__value--link report-footer__phone" data-phone="{{report.publisherPhone}}" bindtap="handleCallCompany">{{report.publisherPhone}}</button></view>
     <view class="report-footer__row">
       <text class="report-footer__label">出具单位</text>
-      <text class="report-footer__value">{{report.companyName || '未填写'}}</text>
+      <text class="report-footer__value">{{report.companyName || '个人出具'}}</text>
     </view>
     <view wx:if="{{report.companyPhone}}" class="report-footer__row">
       <text class="report-footer__label">联系电话</text>
-      <text class="report-footer__value report-footer__value--link" data-phone="{{report.companyPhone}}" bindtap="handleCallCompany">{{report.companyPhone}}</text>
+      <button class="report-footer__value report-footer__value--link report-footer__phone" data-phone="{{report.companyPhone}}" bindtap="handleCallCompany">{{report.companyPhone}}</button>
     </view>
     <view wx:if="{{report.companyAddress}}" class="report-footer__row">
       <text class="report-footer__label">地址</text>
@@ -125,30 +114,31 @@
       <text class="report-footer__label">出具时间</text>
       <text class="report-footer__value">{{report.generatedAtDisplay || '待生成'}}</text>
     </view>
+    <button wx:if="{{isOwner}}" class="share-manage" bindtap="manageShare">{{report.shareState === 'revoked' ? '已撤销分享 · 生成新链接' : '分享设置'}}</button>
+    <view wx:if="{{isOwner && pdfStatusError}}" class="report-readonly-hint">{{pdfStatusError}}</view>
+    <view wx:if="{{isOwner && report.isPdfFailed}}" class="report-readonly-hint">PDF 生成失败，可重试。在线报告仍可阅读和转发。</view>
+    <view class="report-product-signature"><image class="report-product-signature__mark" src="/images/brand/haoli-symbol-v8.png" mode="aspectFit" /><view><view class="report-product-signature__name">毫厘智管</view><view class="report-product-signature__desc">现场记录 · 精准标注 · 清楚交付</view></view></view>
   </view>
 
   <view class="footer-actions footer-actions--fixed">
     <!-- 主操作是「把报告发出去」：报告页本身就是交付物，
          PDF 只是可选归档，所以它降为次要操作 -->
+    <view class="report-delivery-row">
     <button
-      wx:if="{{isOwner}}"
+      wx:if="{{isOwner && report.shareToken && report.shareState !== 'revoked'}}"
       class="report-action-button report-action-button--primary report-action-button--share"
       open-type="share"
-    >转发给业主 / 施工方</button>
+    >转发这份报告</button>
+    <button wx:elif="{{isOwner}}" class="report-action-button report-action-button--primary" bindtap="manageShare">生成可转发链接</button>
 
-    <view wx:if="{{isOwner}}" class="report-action-row">
-      <view wx:if="{{report.isPdfGenerating}}" class="report-action-button report-action-button--secondary report-action-button--disabled">PDF 生成中</view>
-      <view wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="openPdf">打开已生成 PDF</view>
-      <view wx:elif="{{report.isPdfFailed}}" class="report-action-button report-action-button--secondary" bindtap="generatePdf">PDF 生成失败，重试</view>
-      <view wx:else class="report-action-button report-action-button--secondary" bindtap="generatePdf">下载 PDF 归档</view>
+    <view wx:if="{{isOwner}}" class="report-pdf-action">
+      <button wx:if="{{pdfStatusError}}" class="report-action-button report-action-button--secondary" bindtap="retryPdfStatus">重查 PDF</button>
+      <view wx:elif="{{pdfSubmitting || report.isPdfGenerating}}" class="report-action-button report-action-button--secondary report-action-button--disabled">PDF 生成中</view>
+      <button wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="openPdf">打开 PDF</button>
+      <button wx:elif="{{report.isPdfFailed}}" class="report-action-button report-action-button--secondary" bindtap="generatePdf">重试 PDF</button>
+      <button wx:else class="report-action-button report-action-button--secondary" bindtap="generatePdf">下载 PDF</button>
 
-      <view wx:if="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="savePdfToLocal">保存到本地</view>
-      <view wx:else class="report-action-button report-action-button--secondary" bindtap="handleHomeTap">返回首页</view>
     </view>
-
-    <!-- PDF 只是可选归档。它失败不该影响阅读与转发，这里把话说明白 -->
-    <view wx:if="{{isOwner && report.isPdfFailed}}" class="report-readonly-hint">
-      报告内容已就绪，可直接转发阅读。PDF 是归档用的额外产物，失败不影响上面的内容。
     </view>
 
     <view wx:if="{{!isOwner}}" class="report-readonly-hint">

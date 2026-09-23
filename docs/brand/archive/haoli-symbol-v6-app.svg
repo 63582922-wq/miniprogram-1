@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">毫厘智管应用图标</title>
+  <desc id="desc">两块错位的深绿平面，以一道精确留白和一粒朱砂色定位点形成记忆点。</desc>
+  <rect width="1024" height="1024" rx="224" fill="#F4F0E8"/>
+  <path d="M155 178H491V464H416V846H155V178Z" fill="#113B37"/>
+  <path d="M533 178H869V846H608V560H533V178Z" fill="#113B37"/>
+  <path d="M491 178H533V518H608V560H458V464H491V178Z" fill="#F4F0E8"/>
+  <rect x="491" y="483" width="42" height="42" fill="#D8673B"/>
+</svg>

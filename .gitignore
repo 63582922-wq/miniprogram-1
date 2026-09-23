@@ -1,10 +1,17 @@
 node_modules/
+.env
+.env.*
+!.env.example
+*.log
 .report-pdf-service-latest.tar.gz
 report-pdf-service.tar.gz
 report-pdf-service-patch.tgz
 *.tar.gz
 *.tgz
 .trae/
+.preview/
+output/
+tmp/
 .claude/settings.local.json
 .claude/worktrees/
 project.private.config.json

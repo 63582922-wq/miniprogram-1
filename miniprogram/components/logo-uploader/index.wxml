@@ -1,4 +1,5 @@
 <view class="logo-card">
-  <button class="logo-button" bindtap="chooseLogo">上传Logo</button>
   <image wx:if="{{value}}" class="logo-preview" src="{{value}}" mode="aspectFit" />
+  <view class="logo-copy"><view class="logo-title">公司 LOGO</view><view class="logo-hint">用于报告抬头</view></view>
+  <button class="logo-button" aria-label="{{value ? '更换公司 LOGO' : '上传公司 LOGO'}}" bindtap="chooseLogo">{{value ? '更换' : '上传'}}</button>
 </view>

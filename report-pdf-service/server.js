@@ -161,7 +161,8 @@ function createTask(reportPayload = {}) {
     error.statusCode = 400;
     throw error;
   }
-  const taskId = createTaskId();
+  const taskId = /^pdf-[a-f0-9]{40}$/.test(reportPayload.jobId || "") ? reportPayload.jobId : createTaskId();
+  if(taskStore.has(taskId))return getTaskSnapshot(taskStore.get(taskId));
   const fileName = buildPdfFileName(reportPayload);
   const task = {
     taskId,

@@ -2,60 +2,33 @@ const { listProjects, deleteProject } = require("../../../services/project");
 const { getGuideProgress, isGuideCompleted } = require("../../../utils/guide");
 const { startCoach } = require("../../../utils/coach");
 const ONBOARDING_SEEN_KEY = "onboardingSeenV1";
+const { openRecord } = require("../../../utils/record-entry");
+const { syncTabBar } = require("../../../utils/tab-bar");
 
 Page({
   data: {
-    keyword: "",
+    keyword: "",loading:false,loadError:"",page:0,hasMore:false,
     projectList: [],
     onboardingCheckedInSession: false
   },
-  onShow() {
-    if (this.tryShowOnboarding()) {
-      return;
-    }
-    this.loadProjects();
+  onShow(){syncTabBar(this,"pages/project/list/index");this.loadProjects();},
+  onReachBottom(){if(this.data.hasMore)this.loadProjects(true);},
+  async loadProjects(append=false){
+    append=append===true;if(append&&this.data.loading)return;
+    const sequence = this.loadSequence = (this.loadSequence || 0) + 1;
+    this.setData({loading:true,loadError:""});
+    try{const result=await listProjects({keyword:this.data.keyword,page:append?this.data.page+1:1,pageSize:20});
+      if(sequence!==this.loadSequence)return;
+      this.setData({projectList:append?this.data.projectList.concat(result.list||[]):result.list||[],page:result.page||1,hasMore:!!result.hasMore});
+    }catch(e){if(sequence===this.loadSequence)this.setData({loadError:e.message||"项目加载失败，请重试"});}
+    finally{if(sequence===this.loadSequence)this.setData({loading:false});}
   },
-  tryShowOnboarding() {
-    if (this.data.onboardingCheckedInSession) {
-      return false;
-    }
-    this.setData({
-      onboardingCheckedInSession: true
-    });
-    const progress = getGuideProgress();
-    const guideDone = isGuideCompleted(progress);
-    if (guideDone) {
-      return false;
-    }
-    wx.setStorageSync(ONBOARDING_SEEN_KEY, true);
-    if (progress.settingsCompleted) {
-      startCoach("projectCreateForm");
-      wx.navigateTo({
-        url: "/pages/project/form/index"
-      });
-      return true;
-    }
-    startCoach("settingsSave");
-    wx.navigateTo({
-      url: "/pages/settings/index"
-    });
-    return true;
+  startRecord(){
+    this.setData({selectingProject:true});
+    wx.showToast({title:"请选择项目开始记录",icon:"none"});
+    if(!this.data.projectList.length&&!this.data.loading&&!this.data.keyword&&!this.data.loadError)this.goCreate();
   },
-  async loadProjects() {
-    try {
-      const result = await listProjects({
-        keyword: this.data.keyword
-      });
-      this.setData({
-        projectList: result.list || []
-      });
-    } catch (error) {
-      wx.showToast({
-        title: error.message || "加载失败",
-        icon: "none"
-      });
-    }
-  },
+  cancelSelection(){this.setData({selectingProject:false});},
   handleKeywordInput(event) {
     this.setData({
       keyword: event.detail.value
@@ -71,13 +44,19 @@ Page({
   },
   openDetail(event) {
     const { _id } = event.detail;
+    if (this.data.selectingProject) {
+      this.setData({selectingProject:false});
+      const p=this.data.projectList.find(x=>x._id===_id);
+      openRecord(_id,p&&p.name).catch(e=>wx.showToast({title:e.message,icon:"none"}));return;
+    }
     wx.navigateTo({
       url: `/pages/project/detail/index?projectId=${_id}`
     });
   },
   async handleProjectLongPress(event) {
-    const projectId = event.currentTarget.dataset.projectId;
-    const projectName = event.currentTarget.dataset.projectName || "该项目";
+    const project = event.detail || {};
+    const projectId = project._id || event.currentTarget.dataset.projectId;
+    const projectName = project.name || event.currentTarget.dataset.projectName || "该项目";
     if (!projectId) {
       return;
     }

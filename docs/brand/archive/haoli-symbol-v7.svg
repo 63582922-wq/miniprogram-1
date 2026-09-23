@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">毫厘智管几何标记</title>
+  <desc id="desc">两块不对称的平面围出一条折开的留白；中间一点朱砂标记复核位置。</desc>
+  <rect width="1024" height="1024" rx="176" fill="#F4F0E8"/>
+  <path d="M162 188H474V430L434 470V836H162V188Z" fill="#103B36"/>
+  <path d="M550 188H862V836H590V594L550 554V188Z" fill="#103B36"/>
+  <circle cx="512" cy="512" r="22" fill="#D8673B"/>
+</svg>

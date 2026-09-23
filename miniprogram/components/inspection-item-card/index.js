@@ -33,6 +33,7 @@ Component({
     }
   },
   data: {
+    editing: false,
     severityOptions: ISSUE_SEVERITY_OPTIONS,
     responsiblePartyOptions: RESPONSIBLE_PARTY_OPTIONS,
     severityIndex: 0,
@@ -54,6 +55,7 @@ Component({
     }
   },
   methods: {
+    toggleEditing(){this.setData({editing:!this.data.editing});},
     handleChange(event) {
       const field = event.currentTarget.dataset.field;
       this.triggerEvent("change", {

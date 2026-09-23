@@ -1,12 +1,19 @@
 .project-page {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  padding-bottom: 180rpx;
+  /* The page is one continuous surface. Flex gap used to create paper-colour
+     seams between the dark hero, search field and project list. */
+  gap: 0;
+  padding-bottom: 300rpx;
+}
+
+.project-page .precision-head {
+  margin-bottom: 0;
 }
 
 .project-search {
-  padding: 0;
+  padding: 16rpx 0 10rpx;
+  background: var(--a-paper);
 }
 
 .project-search__input {
@@ -17,4 +24,9 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  margin-bottom: 0;
+  width:100%;
 }
+.project-record-action{position:fixed;left:36rpx;right:36rpx;bottom:calc(118rpx + env(safe-area-inset-bottom));z-index:30;padding-top:12rpx;background:var(--a-paper);border-top:1px solid var(--a-line)}
+.project-record-action image{width:40rpx;height:40rpx;margin-right:14rpx}
+.selection-hint{display:flex;align-items:center;justify-content:space-between;padding:12rpx 0;font-size:28rpx;color:var(--a-active)}.selection-hint button{font-size:28rpx;padding:16rpx;margin:0;color:var(--a-muted)}

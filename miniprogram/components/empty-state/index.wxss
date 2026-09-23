@@ -1,47 +1,46 @@
 .empty-state {
-  padding: 88rpx 36rpx;
+  padding: 56rpx 24rpx;
   border-radius: 4rpx;
   background: transparent;
   text-align: center;
   border: none;
-}
-
-.empty-state__icon {
-  width: 88rpx;
-  height: 88rpx;
-  margin: 0 auto 20rpx;
-  opacity: 0.35;
+  font-family: var(--a-font-body, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif);
 }
 
 .empty-state__title {
+  font-family: var(--a-font-body, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif);
   font-size: 30rpx;
-  font-weight: 400;
-  color: #1A1814;
+  font-weight: 600;
+  color: var(--a-ink, #191816);
   letter-spacing: 0.04em;
 }
 
 .empty-state__description {
   margin-top: 14rpx;
-  font-size: 22rpx;
-  color: #6B6355;
+  font-size: 26rpx;
+  color: var(--a-muted, #706D67);
   line-height: 1.6;
 }
 
 /* 空态的主操作：没有它，冷启动就是一条死路 */
 .empty-state__action {
+  width: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 36rpx;
+  margin: 28rpx auto 0;
   padding: 0 56rpx;
   height: 84rpx;
-  background: #1A1814;
-  color: #D4C5A0;
+  background: var(--a-accent);
+  color: var(--a-accent-ink);
   font-size: 26rpx;
   letter-spacing: 0.16em;
+}
+
+.empty-state__action::after {
+  border: 0;
 }
 
 .empty-state__action:active {
   opacity: 0.85;
 }
-

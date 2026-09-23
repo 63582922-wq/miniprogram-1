@@ -2,6 +2,7 @@
   "navigationStyle": "custom",
   "usingComponents": {
     "page-nav-bar": "/components/page-nav-bar/index",
-    "empty-state": "/components/empty-state/index"
+    "empty-state": "/components/empty-state/index",
+    "product-identity": "/components/product-identity/index"
   }
 }

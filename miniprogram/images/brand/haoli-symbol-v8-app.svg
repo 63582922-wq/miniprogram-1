@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">毫厘智管应用图标</title>
+  <desc id="desc">三块平面以恒定的留白并置，朱砂色薄面代表需要被看见的细微差异。</desc>
+  <rect width="1024" height="1024" rx="224" fill="#E9E4DD"/>
+  <path d="M145 222L444 144V812L145 890V222Z" fill="#191816"/>
+  <path d="M478 236L563 214V786L478 808V236Z" fill="#DE6E3F"/>
+  <path d="M597 170L879 96V764L597 838V170Z" fill="#191816"/>
+</svg>

@@ -1,94 +1,131 @@
 .inspection-result-page {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  padding-bottom: 260rpx;
+  gap: 0;
+  padding-bottom: calc(176rpx + env(safe-area-inset-bottom));
 }
 
-.result-hero {
-  gap: 14rpx;
-  background: #F2EDE4;
-  color: #1A1814;
-}
-
-.result-hero__eyebrow {
-  font-size: 20rpx;
-  color: #6B6355;
-  font-weight: 400;
-}
-
-.result-hero__title {
-  font-size: 30rpx;
-  font-weight: 400;
-  color: #1A1814;
-  letter-spacing: 0.04em;
-}
-
-.result-hero__meta {
-  font-size: 20rpx;
-  color: #6B6355;
-  font-weight: 400;
-}
-
-.result-hero__stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12rpx;
-}
-
-.result-hero__stat {
-  min-height: 92rpx;
-  border-radius: 2rpx;
-  background: transparent;
-  border: none;
-  border-bottom: 0.5px solid #E8E2D8;
-  padding: 16rpx;
+.review-identity {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: space-between;
-  gap: 6rpx;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 1px solid var(--a-line);
+  font-size: var(--a-type-action);
 }
 
-.result-hero__stat-value {
+.review-identity__logo {
+  width: 80rpx;
+  height: 80rpx;
+  flex: none;
+  background: var(--a-field);
+  border-radius: 4rpx;
+}
+
+.review-identity__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.review-identity__company {
+  margin-top: 4rpx;
+  font-family: var(--a-font-body);
+  font-size: 34rpx;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.review-identity__freeze {
+  margin-top: 10rpx;
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: 1.5;
+}
+
+.review-identity__edit {
+  width: auto !important;
+  min-height: 44px;
+  margin: 0 !important;
+  padding: 16rpx !important;
+  flex: none;
+  border: 1px solid var(--a-line);
+  color: var(--a-active);
   font-size: 26rpx;
-  color: #1A1814;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-}
-
-.result-hero__stat-label {
-  font-size: 18rpx;
-  color: #6B6355;
-  font-weight: 400;
 }
 
 .result-guide {
   display: flex;
   flex-direction: column;
   gap: 14rpx;
+  padding: 24rpx 0;
+  border-bottom: 1px solid var(--a-line);
+}
+
+.result-guide__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.result-guide__content {
+  color: var(--a-ink);
+  font-size: var(--a-type-body);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.result-edit-link {
+  width: auto !important;
+  min-height: 44px;
+  margin: 0 !important;
+  padding: 8rpx 0 8rpx 20rpx !important;
+  flex: none;
+  background: transparent;
+  color: var(--a-active);
+  font-size: 26rpx;
+}
+
+.result-edit-link::after {
+  border: 0;
+}
+
+.result-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.result-caption__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
 }
 
 .result-memory {
   display: flex;
   flex-direction: column;
   gap: 10rpx;
-  background: transparent;
-  border: none;
-  border-bottom: 0.5px solid #E8E2D8;
+  padding: 24rpx 0;
+  border-bottom: 1px solid var(--a-line);
 }
 
 .result-memory__label {
-  font-size: 20rpx;
+  color: var(--a-muted);
+  font-size: 26rpx;
   line-height: 1.4;
-  color: #6B6355;
-  font-weight: 400;
-  letter-spacing: 2rpx;
+  letter-spacing: .08em;
 }
 
-.result-memory__text {
-  font-size: 22rpx;
+.result-memory__text,
+.result-memory__item {
+  color: var(--a-muted);
+  font-size: 26rpx;
   line-height: 1.7;
-  color: #6B6355;
 }
 
 .result-memory__list {
@@ -100,9 +137,6 @@
 .result-memory__item {
   position: relative;
   padding-left: 22rpx;
-  font-size: 20rpx;
-  line-height: 1.7;
-  color: #6B6355;
 }
 
 .result-memory__item::before {
@@ -113,25 +147,29 @@
   width: 8rpx;
   height: 8rpx;
   border-radius: 50%;
-  background: #B8A882;
+  background: var(--a-line);
 }
 
-.result-guide__head {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
+.detail-text {
+  font-size: var(--a-type-body);
+  line-height: 1.7;
 }
 
-.result-guide__icon {
-  width: 36rpx;
-  height: 36rpx;
-  flex-shrink: 0;
+.result-list-heading {
+  padding: 24rpx 0 16rpx;
+  border-bottom: 1px solid var(--a-line);
+}
+
+.list {
+  padding-bottom: 12rpx;
 }
 
 .result-group {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+  padding: 28rpx 0;
+  border-bottom: 1px solid var(--a-line);
 }
 
 .result-group__head {
@@ -142,31 +180,32 @@
 }
 
 .result-group__title {
-  font-size: 26rpx;
-  font-weight: 400;
-  color: #1A1814;
-  letter-spacing: 0.04em;
+  min-width: 0;
+  color: var(--a-ink);
+  font-family: var(--a-font-body);
+  font-size: 40rpx;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .result-group__count {
-  padding: 8rpx 18rpx;
-  border-radius: 0;
+  flex: none;
+  padding: 0;
   background: transparent;
-  color: #6B6355;
-  font-size: 18rpx;
-  font-weight: 400;
-  border: 0.5px solid #B8A882;
+  color: var(--a-muted);
+  border: 0;
+  font-size: 26rpx;
 }
 
 .result-group__media {
-  border-radius: 2rpx;
   overflow: hidden;
-  background: #F2EDE4;
+  background: var(--a-surface);
 }
 
 .result-group__image {
   width: 100%;
-  height: 340rpx;
+  height: 420rpx;
   display: block;
 }
 
@@ -176,11 +215,19 @@
   gap: 12rpx;
 }
 
-.list {
-  padding-bottom: 12rpx;
+.result-add-issue {
+  width: auto !important;
+  min-height: 44px;
+  margin: 0 !important;
+  padding: 0 !important;
+  align-self: flex-start;
+  background: transparent;
+  color: var(--a-active);
+  font-size: 28rpx;
+  text-decoration: underline;
+  text-underline-offset: 7rpx;
 }
 
-/* 每条问题带一个删除入口：AI 误报必须能去掉 */
 .issue-entry {
   display: flex;
   flex-direction: column;
@@ -190,27 +237,25 @@
 .issue-entry + .issue-entry {
   margin-top: 16rpx;
   padding-top: 16rpx;
-  border-top: 0.5px solid #E8E2D8;
+  border-top: 1px solid var(--a-line);
 }
 
 .issue-entry__delete {
+  width: auto !important;
+  min-height: 44px;
+  margin: 0 !important;
+  padding: 8rpx 0 !important;
+  display: flex;
+  align-items: center;
   align-self: flex-end;
-  padding: 8rpx 16rpx;
-  font-size: 22rpx;
-  color: #B3402E;
-  letter-spacing: 0.04em;
+  color: var(--a-danger);
+  font-size: 26rpx;
+}
+
+.issue-entry__delete::after {
+  border: 0;
 }
 
 .issue-entry__delete:active {
-  opacity: 0.6;
-}
-
-
-/* 底部快速路径的说明文字 */
-.result-hint {
-  margin-top: 12rpx;
-  font-size: 22rpx;
-  color: #6B6355;
-  text-align: center;
-  line-height: 1.5;
+  opacity: .58;
 }

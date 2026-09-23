@@ -1,12 +1,14 @@
 .voice-card {
-  background: #F2EDE4;
-  border-radius: 4rpx;
-  padding: 26rpx;
+  background: transparent;
+  border-radius: 0;
+  padding: 24rpx 0;
   display: flex;
   flex-direction: column;
   gap: 20rpx;
   border: none;
+  border-bottom: 1px solid var(--a-line, #C9C1B7);
   box-shadow: none;
+  font-family: var(--a-font-body, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif);
 }
 
 .field-label-row {
@@ -19,7 +21,7 @@
 .voice-title {
   font-size: 26rpx;
   font-weight: 400;
-  color: #1A1814;
+  color: var(--a-ink, #191816);
 }
 
 .voice-hold-button {
@@ -27,11 +29,11 @@
   height: 96rpx;
   margin: 0 auto 16rpx;
   padding: 0 28rpx;
-  background: #1A1814;
-  color: #D4C5A0;
+  background: var(--a-accent);
+  color: var(--a-accent-ink);
   border: none;
-  border-radius: 0;
-  font-size: 22rpx;
+  border-radius: var(--a-radius-control);
+  font-size: 26rpx;
   font-weight: 400;
   display: flex;
   flex-direction: row;
@@ -47,8 +49,8 @@
 }
 
 .voice-hold-button--active {
-  background: #1A1814;
-  color: #D4C5A0;
+  background: var(--a-accent-strong);
+  color: var(--a-accent-ink);
   transform: scale(0.98);
 }
 
@@ -59,14 +61,14 @@
 }
 
 .voice-hold-button__text {
-  font-size: 22rpx;
+  font-size: 26rpx;
   line-height: 1;
   transform: translateY(2rpx);
 }
 
 .voice-tip {
-  font-size: 20rpx;
-  color: #6B6355;
+  font-size: 26rpx;
+  color: var(--a-muted, #706D67);
   line-height: 1.6;
 }
 
@@ -76,10 +78,10 @@
   border-radius: 0;
   background: transparent;
   border: none;
-  border-bottom: 0.5px solid #E8E2D8;
+  border-bottom: 0.5px solid var(--a-line, #C9C1B7);
   padding: 24rpx 0;
-  color: #1A1814;
-  font-size: 22rpx;
+  color: var(--a-ink, #191816);
+  font-size: 26rpx;
   line-height: 1.6;
   box-sizing: border-box;
 }

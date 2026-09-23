@@ -1,447 +1,68 @@
 const { sanitizeImageUrl } = require("./url-guard");
 
-function escapeHtml(value = "") {
-  return `${value}`
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderText(value = "") {
-  return escapeHtml(value).replace(/\n/g, "<br />");
-}
-
-function formatSlashDate(value = "") {
-  if (!value) {
-    return "";
-  }
-  return `${value}`.replace(/-/g, " / ");
-}
-
-function toChineseSectionNumber(value) {
-  const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
-  if (value <= 10) {
-    if (value === 10) {
-      return "十";
-    }
-    return digits[value] || `${value}`;
-  }
-  if (value < 20) {
-    return `十${digits[value - 10]}`;
-  }
-  const tens = Math.floor(value / 10);
-  const ones = value % 10;
-  return `${digits[tens]}十${ones ? digits[ones] : ""}`;
-}
-
-function groupItemsByImage(items = []) {
-  const groups = [];
-  const map = new Map();
-
-  items.forEach((item, index) => {
-    const primaryImage = (item.annotatedImages && item.annotatedImages[0]) || (item.images && item.images[0]) || "";
-    const key = primaryImage || `source-${item.sourceIndex ?? index}`;
-    if (!map.has(key)) {
-      const group = {
-        key,
-        imageUrl: primaryImage,
-        items: [],
-        sourceIndex: item.sourceIndex ?? index,
-        minOrder: item.order || index + 1
-      };
-      map.set(key, group);
-      groups.push(group);
-    }
-    const group = map.get(key);
-    group.minOrder = Math.min(group.minOrder, item.order || index + 1);
-    group.items.push({
-      ...item,
-      order: item.order || index + 1
-    });
+const escapeHtml=(v="")=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const text=v=>escapeHtml(v).replace(/\n/g,"<br>");
+function chinese(n){const d=["零","一","二","三","四","五","六","七","八","九"];if(n<10)return d[n];if(n===10)return "十";if(n<20)return "十"+d[n-10];return d[Math.floor(n/10)]+"十"+(n%10?d[n%10]:"");}
+function groupItemsByImage(items=[],photos=[]){
+  const groups=[],map=new Map();
+  photos.forEach((p,i)=>{const g={key:p.id,imageUrl:"",originalImageUrl:p.imagePath||"",annotatedImageUrl:p.annotatedImagePath||"",caption:p.caption||"",items:[],sourceIndex:i};groups.push(g);map.set(p.id,g);});
+  items.forEach((item,index)=>{
+    const image=(item.annotatedImages||[])[0]||(item.images||[])[0]||"";
+    // IDs are authoritative for v2. Legacy preserves historical image grouping and order.
+    const key=item.sourcePhotoId||image||"legacy-"+(item.sourceIndex??index);
+    if(!map.has(key)){const g={key,imageUrl:image,items:[],sourceIndex:item.sourceIndex??index};groups.push(g);map.set(key,g);}
+    map.get(key).items.push(item);
   });
-
-  return groups.sort((left, right) => {
-    return (left.minOrder ?? 0) - (right.minOrder ?? 0);
-  });
+  groups.forEach(g=>{g.imageUrl=g.items.length?(g.annotatedImageUrl||g.imageUrl||g.originalImageUrl):(g.originalImageUrl||g.imageUrl||g.annotatedImageUrl);});
+  return groups;
 }
-
-function chunkGroups(groups = [], size = 3) {
-  const pages = [];
-  for (let index = 0; index < groups.length; index += size) {
-    pages.push(groups.slice(index, index + size));
-  }
-  return pages;
+function checkedImage(value){
+  const safe=sanitizeImageUrl(value);
+  if(value&&!safe)throw new Error("报告照片来源不可用，请检查云存储地址后重试");
+  return escapeHtml(safe);
 }
-
-function resolveSeverityClass(value = "") {
-  if (value === "critical") {
-    return "issue__badge--critical";
-  }
-  if (value === "major") {
-    return "issue__badge--major";
-  }
-  return "issue__badge--normal";
+function renderGroup(g,index){
+  const image=checkedImage(g.imageUrl);
+  const title=(g.items.length?"问题 ":"现场照片 ")+chinese(index+1);
+  const count=g.items.length?`${g.items.length} 项问题`:"未记录问题";
+  return `<section class="photo-group ${index===0?'photo-group--first':''}"><figure>
+    <h2>${title}<span>${count}</span></h2>
+    ${image?`<img class="photo" src="${image}" alt="现场照片">`:'<p class="muted">旧记录未保留照片来源</p>'}
+    </figure>${g.caption?`<p class="muted">现场说明：${text(g.caption)}</p>`:""}
+    ${g.items.length?g.items.map((i,n)=>`<article class="issue ${(i.description||'').length+(i.suggestion||'').length<500?'issue--short':''}">
+      <h3><span class="number">${i.subIssueIndex||n+1}.</span> ${text(i.description)}</h3>
+      <p class="meta">${[i.severityText,i.responsiblePartyText,i.area,i.category].filter(Boolean).map(escapeHtml).join(" / ")}</p>
+      ${i.suggestion?`<p class="suggestion"><strong>建议</strong> ${text(i.suggestion)}</p>`:""}
+    </article>`).join(""):'<p class="muted zero-note">本组未记录问题，照片保留为现场记录。未记录问题不代表工程验收合格。</p>'}
+  </section>`;
 }
-
-function renderSubIssue(item, index) {
-  return `
-    <article class="sub-issue">
-      <div class="sub-issue__line">
-        <span class="sub-issue__index">${item.subIssueIndex || index + 1}.</span>
-        <span class="sub-issue__text">${renderText(item.description || "待补充")}</span>
-      </div>
-      <div class="sub-issue__meta">
-        <span>${escapeHtml(item.severityText || "待定")}</span>
-        <span>${escapeHtml(item.responsiblePartyText || "待确认")}</span>
-        <span>${escapeHtml(item.area || "待确认区域")}</span>
-        <span>${escapeHtml(item.category || "待确认分类")}</span>
-      </div>
-      <div class="sub-issue__suggestion"><span>建议：</span>${renderText(item.suggestion || "待补充")}</div>
-    </article>
-  `;
+function buildReportHtml(report={}){
+  const groups=groupItemsByImage(report.items||[],report.photos||[]);
+  const logo=checkedImage(report.logoUrl);
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHtml(report.title||"现场巡查报告")}</title>
+  <style>
+  @page{size:A4;margin:14mm 14mm 18mm}
+  :root{--paper:#E9E4DD;--ink:#191816;--muted:#706D67;--line:#C9C1B7;--surface:#E2DCD3;--accent:#DE6E3F}
+  *{box-sizing:border-box}html,body{background:var(--paper)}body{margin:0;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-size:11pt;line-height:1.7;overflow-wrap:anywhere;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .header{border-top:5px solid var(--accent);border-bottom:1px solid var(--line);padding:18px 0;margin-bottom:18px}.kicker{font-size:9pt;color:var(--muted);letter-spacing:2px;font-weight:500}
+  h1,h2{font-family:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC","SimSun",serif;font-weight:500}h1{margin:8px 0 12px;font-size:26pt;line-height:1.25;letter-spacing:-.5px}p{margin:8px 0;orphans:3;widows:3}
+  .meta,.company{font-size:9pt;color:var(--muted);line-height:1.7}.company{margin-top:8px}.logo{float:right;width:60px;height:60px;object-fit:contain;margin-left:20px}
+  .summary{margin:20px 0 26px;padding:0 0 16px;border-bottom:1px solid var(--line)}.summary strong{font-size:10pt}.scope{font-size:9pt;color:var(--muted);margin-top:12px}
+  figure{margin:0;break-inside:avoid}h2{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 12px;font-size:18pt;line-height:1.5;border-bottom:2px solid var(--ink);padding-bottom:10px}h2 span{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC",sans-serif;font-size:9pt;font-weight:400;color:var(--muted)}
+  .photo-group{break-inside:auto}.photo-group+.photo-group{margin-top:28px}.photo{width:100%;height:auto;max-height:90mm;object-fit:contain;display:block;background:var(--surface)}.photo-group--first .photo{max-height:75mm}.issue--short{break-inside:avoid!important}
+  .issue{padding:14px 0;border-bottom:1px solid var(--line);break-inside:auto}h3{font-size:12pt;line-height:1.75;margin:0;font-weight:400;orphans:3;widows:3}.number{font-weight:600}
+  .suggestion{font-size:11pt;margin-top:8px}.suggestion strong{font-weight:600}.muted{color:var(--muted);font-size:10pt}.zero-note{padding:14px 0}
+  .test-label{font-size:10pt;padding:10px;border:1px solid var(--accent);color:#A93E2E;margin-bottom:12px}
+  </style></head><body>
+    ${report.testLabel?`<div class="test-label">${escapeHtml(report.testLabel)}</div>`:""}
+    <header class="header">${logo?`<img class="logo" src="${logo}" alt="单位标识">`:""}<div class="kicker">毫厘智管 / FIELD NOTES</div><h1>${escapeHtml(report.title||"现场记录报告")}</h1>
+    <div class="meta">${escapeHtml(report.projectName)} / ${escapeHtml(report.inspectionDateText||report.inspectionDate||"")} / 巡查人 ${escapeHtml(report.inspectorName||"未填写")} ${escapeHtml(report.inspectorPhone||"")}</div>
+    ${report.publisherName?`<div class="meta">报告出具人 ${escapeHtml(report.publisherName)} ${escapeHtml(report.publisherPhone||"")}</div>`:""}
+    <div class="company">出具方 ${escapeHtml(report.companyName||"个人出具")}${report.companyPhone?` / ${escapeHtml(report.companyPhone)}`:""}${report.companyAddress?`<br>${escapeHtml(report.companyAddress)}`:""}</div></header>
+    <section class="summary"><strong>巡查小结</strong><p>${text(report.summary||"本次记录仅覆盖所拍照片与现场说明。")}</p>
+    ${report.contextNote?`<strong>现场补充</strong><p>${text(report.contextNote)}</p>`:""}
+    <p class="scope">内容经记录人核对。未记录问题不代表工程验收合格；照片标注仅用于指出现场位置，不用于测量实物尺寸。</p></section>
+    ${groups.map(renderGroup).join("")||'<p class="muted">旧记录无可用照片分组，请以已保存的文字为准。</p>'}
+  </body></html>`;
 }
-
-function renderGroup(group, index) {
-  // 先做 URL 准入（挡 file:// 与内网地址），再做 HTML 转义。
-  // 原实现直接把 group.imageUrl 拼进 src 属性，既不转义也不校验来源。
-  const imageSrc = escapeHtml(sanitizeImageUrl(group.imageUrl));
-
-  return `
-    <section class="photo-group">
-      <div class="photo-group__image-column">
-        <div class="photo-group__group-title">问题 ${toChineseSectionNumber(index + 1)}</div>
-        <div class="photo-group__image-wrap">
-          <div class="photo-group__image-stage">
-            ${imageSrc ? `<img class="photo-group__image" src="${imageSrc}" alt="巡查图片" />` : '<div class="photo-group__empty">暂无图片</div>'}
-          </div>
-        </div>
-      </div>
-      <div class="photo-group__issues">
-        <div class="photo-group__issues-title">问题描述</div>
-        <div class="photo-group__subissues">
-          ${group.items.map(renderSubIssue).join("")}
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function buildReportHtml(report = {}) {
-  const groups = groupItemsByImage(report.items || []);
-  const pages = chunkGroups(groups, 3);
-  // Logo 同样要走准入 + 转义：它来自调用方可控的 settings.logoFileId
-  const logoSrc = escapeHtml(sanitizeImageUrl(report.logoUrl));
-  return `<!DOCTYPE html>
-  <html lang="zh-CN">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>${escapeHtml(report.title || "巡查报告")}</title>
-      <style>
-        @page { size: A4; margin: 0; }
-        * { box-sizing: border-box; }
-        body {
-          margin: 0;
-          font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Zen Hei", sans-serif;
-          color: #F5F5F5;
-          background: #111111;
-        }
-        .page {
-          width: 100%;
-          min-height: 297mm;
-          background: #111111;
-          padding: 7mm 7mm 6mm;
-          display: flex;
-          flex-direction: column;
-        }
-        .page + .page {
-          page-break-before: always;
-        }
-        .header {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 10px;
-          align-items: start;
-          padding: 1px 0 6px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        .header__title {
-          font-size: 18px;
-          font-weight: 700;
-          line-height: 1.3;
-          margin-bottom: 6px;
-          letter-spacing: 0.02em;
-        }
-        .header__meta {
-          display: flex;
-          align-items: center;
-          gap: 26px;
-          flex-wrap: wrap;
-          font-size: 11px;
-          color: #F5F5F5;
-        }
-        .header__meta-item {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          min-width: 0;
-          white-space: nowrap;
-        }
-        .header__meta-label {
-          color: #A3A3A3;
-          font-weight: 600;
-        }
-        .header__meta-value {
-          color: #F5F5F5;
-        }
-        .header__company {
-          margin-top: 6px;
-          font-size: 9px;
-          line-height: 1.25;
-          color: #D4D4D4;
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 12px;
-        }
-        .header__company-item {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          min-width: 0;
-        }
-        .header__company-label {
-          color: #A3A3A3;
-          font-weight: 600;
-          white-space: nowrap;
-        }
-        .header__company-value {
-          color: #D4D4D4;
-          word-break: break-all;
-        }
-        .header__logo {
-          width: 68px;
-          height: 68px;
-          object-fit: contain;
-          flex-shrink: 0;
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.03);
-          padding: 8px;
-        }
-        .summary {
-          margin: 4px 0 6px;
-          padding: 6px 8px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.025);
-          font-size: 9px;
-          line-height: 1.3;
-          color: #D4D4D4;
-        }
-        .content {
-          display: grid;
-          grid-template-rows: repeat(3, minmax(0, 1fr));
-          gap: 8px;
-          flex: 1;
-          min-height: 0;
-        }
-        .photo-group {
-          display: grid;
-          grid-template-columns: 68% minmax(0, 1fr);
-          gap: 4px;
-          page-break-inside: avoid;
-          break-inside: avoid;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-          padding: 4px;
-          background: rgba(255, 255, 255, 0.025);
-          min-height: 0;
-          height: 100%;
-          align-items: start;
-        }
-        .photo-group__image-column {
-          display: grid;
-          grid-template-rows: auto auto;
-          align-content: start;
-          gap: 2px;
-          min-width: 0;
-          min-height: 0;
-        }
-        .photo-group__group-title {
-          color: #F5F5F5;
-          font-size: 11px;
-          font-weight: 700;
-          line-height: 1.2;
-        }
-        .photo-group__image-wrap {
-          width: 100%;
-          aspect-ratio: 16 / 9;
-          min-height: 0;
-          max-height: none;
-          border-radius: 8px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 0;
-        }
-        .photo-group__image-stage {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.02);
-        }
-        .photo-group__image {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          object-position: center;
-          display: block;
-          background: transparent;
-          border-radius: 0;
-        }
-        .photo-group__empty {
-          color: #A3A3A3;
-          font-size: 14px;
-        }
-        .photo-group__issues {
-          display: grid;
-          grid-template-rows: auto 1fr;
-          gap: 1px;
-          width: 92%;
-          min-width: 0;
-          min-height: 0;
-          align-content: start;
-          justify-self: start;
-          margin-top: 15px;
-        }
-        .photo-group__issues-title {
-          color: #F5F5F5;
-          font-size: 12px;
-          font-weight: 700;
-        }
-        .photo-group__subissues {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-        }
-        .sub-issue {
-          padding-bottom: 1px;
-          border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
-        }
-        .sub-issue:last-child {
-          border-bottom: 0;
-          padding-bottom: 0;
-        }
-        .sub-issue__line {
-          display: flex;
-          align-items: flex-start;
-          gap: 3px;
-        }
-        .sub-issue__index {
-          min-width: 12px;
-          color: #F5F5F5;
-          font-size: 10px;
-          font-weight: 700;
-          line-height: 1.2;
-        }
-        .sub-issue__text {
-          flex: 1;
-          color: #F1F1F1;
-          font-size: 9px;
-          line-height: 1.25;
-          font-weight: 600;
-        }
-        .sub-issue__meta {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 1px 3px;
-          margin: 0 0 0 11px;
-          color: #A3A3A3;
-          font-size: 8px;
-          line-height: 1.2;
-        }
-        .sub-issue__meta span::before {
-          content: "· ";
-        }
-        .sub-issue__suggestion {
-          margin: 0 0 0 11px;
-          color: #D4D4D4;
-          font-size: 8px;
-          line-height: 1.2;
-        }
-        .sub-issue__suggestion span {
-          color: #A3A3A3;
-          font-weight: 600;
-        }
-        .footer {
-          margin-top: 3px;
-          padding-top: 3px;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-          font-size: 7px;
-          color: #A3A3A3;
-          line-height: 1.1;
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        .footer__line {
-          margin-bottom: 2px;
-        }
-        .footer__page {
-          white-space: nowrap;
-          color: #737373;
-        }
-        @media print {
-          body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      ${pages.map((pageGroups, pageIndex) => `
-      <main class="page">
-        <section class="header">
-          <div class="header__main">
-            <div class="header__title">${escapeHtml(report.title || "巡查报告")} ${report.inspectionDate ? `/ ${escapeHtml(formatSlashDate(report.inspectionDate))}` : ""}</div>
-            <div class="header__meta">
-              <div class="header__meta-item"><span class="header__meta-label">项目：</span><span class="header__meta-value">${escapeHtml(report.projectName || "-")}</span></div>
-              <div class="header__meta-item"><span class="header__meta-label">日期：</span><span class="header__meta-value">${escapeHtml(report.inspectionDate || "-")}</span></div>
-              <div class="header__meta-item"><span class="header__meta-label">巡查员：</span><span class="header__meta-value">${escapeHtml(report.inspectorName || "-")}</span></div>
-              <div class="header__meta-item"><span class="header__meta-label">联系方式：</span><span class="header__meta-value">${escapeHtml(report.inspectorPhone || "-")}</span></div>
-            </div>
-            ${(report.companyName || report.companyAddress)
-              ? `<div class="header__company">
-                  ${report.companyName ? `<div class="header__company-item"><span class="header__company-label">公司：</span><span class="header__company-value">${escapeHtml(report.companyName)}</span></div>` : ""}
-                  ${report.companyAddress ? `<div class="header__company-item"><span class="header__company-label">地址：</span><span class="header__company-value">${escapeHtml(report.companyAddress)}</span></div>` : ""}
-                </div>`
-              : ""}
-          </div>
-          ${logoSrc ? `<img class="header__logo" src="${logoSrc}" alt="logo" />` : ""}
-        </section>
-        <section class="summary">
-          ${renderText(report.contextNote || report.summary || "本报告由系统根据巡查结果自动整理生成。")}
-        </section>
-        <section class="content">
-          ${pageGroups.map((group, groupIndex) => renderGroup(group, pageIndex * 3 + groupIndex)).join("")}
-        </section>
-        <footer class="footer">
-          <div></div>
-          <div class="footer__page">${pageIndex + 1} / ${pages.length || 1}</div>
-        </footer>
-      </main>
-      `).join("")}
-    </body>
-  </html>`;
-}
-
-module.exports = {
-  buildReportHtml
-};
+module.exports={buildReportHtml,groupItemsByImage};

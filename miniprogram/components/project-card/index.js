@@ -10,6 +10,9 @@ Component({
   methods: {
     handleTap() {
       this.triggerEvent("open", this.properties.project);
+    },
+    handleLongPress() {
+      this.triggerEvent("longpress", this.properties.project);
     }
   },
   observers: {

@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const { buildReportHtml } = require("./report-template");
+const { sanitizeImageUrl } = require("./url-guard");
 
 async function renderReportPdf(reportPayload) {
   const launchOptions = {
@@ -13,22 +14,26 @@ async function renderReportPdf(reportPayload) {
 
   try {
     const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on("request",request=>sanitizeImageUrl(request.url()) ? request.continue() : request.abort());
     const html = buildReportHtml(reportPayload);
-    await page.emulateMediaType("screen");
+    await page.emulateMediaType("print");
     await page.setContent(html, {
       waitUntil: "networkidle0"
     });
+    const broken=await page.evaluate(()=>Array.from(document.images).some(i=>!i.complete||!i.naturalWidth));
+    if(broken)throw new Error("报告图片加载失败，请按原报告重试；不会生成缺少现场照片的 PDF");
+    await page.evaluate(()=>document.fonts.ready);
 
     return await page.pdf({
       format: "A4",
       printBackground: true,
       preferCSSPageSize: true,
-      displayHeaderFooter: false,
+      displayHeaderFooter: true,
+      headerTemplate: "<span></span>",
+      footerTemplate: '<div style="font-size:9px;color:#706D67;width:100%;padding:0 14mm;text-align:right"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',
       margin: {
-        top: "0",
-        right: "0",
-        bottom: "0",
-        left: "0"
+        top: "14mm", right: "14mm", bottom: "18mm", left: "14mm"
       }
     });
   } finally {

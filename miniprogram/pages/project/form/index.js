@@ -1,219 +1,66 @@
-const { getWindowInfo } = require("../../../utils/system");
 const { getProjectDetail, saveProject } = require("../../../services/project");
 const { PROJECT_STATUS_OPTIONS } = require("../../../constants/status");
 const { markGuideStep } = require("../../../utils/guide");
-const { isCoachStep, stopCoach, buildCoachTip } = require("../../../utils/coach");
-
+const { identity } = require("../../../utils/inspection-model");
+const KEY="projectCreateDraftV2";
 Page({
-  data: {
-    projectId: "",
-    pageTitle: "新建项目",
-    isSaving: false,
-    projectStatusOptions: PROJECT_STATUS_OPTIONS,
-    projectStatusIndex: 0,
-    form: {
-      name: "",
-      address: "",
-      clientName: "",
-      clientPhone: "",
-      description: "",
-      status: "active"
-    },
-    coachTipVisible: false,
-    coachTipTitle: "",
-    coachTipDesc: "",
-    coachHighlightSave: false,
-    coachHighlightName: false,
-    coachHighlightAddress: false,
-    coachTargetLabel: "项目名称",
-    coachActiveTargetLabel: ""
-  },
-  async onLoad(query) {
-    if (query.projectId) {
-      this.setData({
-        projectId: query.projectId,
-        pageTitle: "编辑项目"
-      });
-      await this.loadDetail(query.projectId);
-    }
-  },
-  onShow() {
-    const active = isCoachStep("projectCreateForm") && !this.data.projectId;
-    const tip = buildCoachTip("projectCreateForm");
-    this.setData({
-      coachTipVisible: active,
-      coachTipTitle: tip.title,
-      coachTipDesc: "先填写高亮输入框，再点击“保存项目”。",
-      coachHighlightSave: active,
-      coachTargetLabel: "项目名称",
-      coachActiveTargetLabel: "项目名称"
-    }, () => {
-      if (active) {
-        this.ensureCoachTargetVisible("项目名称");
-      }
-    });
-    this.updateCoachFormTip();
-  },
-  updateCoachFormTip() {
-    if (!this.data.coachTipVisible) {
-      this.setData({
-        coachHighlightName: false,
-        coachHighlightAddress: false,
-        coachTipDesc: "",
-        coachActiveTargetLabel: ""
-      });
-      return;
-    }
-    const hasName = Boolean((this.data.form.name || "").trim());
-    const hasAddress = Boolean((this.data.form.address || "").trim());
-    const missing = [];
-    if (!hasName) {
-      missing.push("项目名称");
-    }
-    if (!hasAddress) {
-      missing.push("项目地址");
-    }
-    const nextTargetLabel = !hasName ? "项目名称" : (!hasAddress ? "项目地址" : "保存项目");
-    const targetChanged = nextTargetLabel !== this.data.coachActiveTargetLabel;
-    this.setData({
-      coachHighlightName: !hasName,
-      coachHighlightAddress: !hasAddress,
-      coachTargetLabel: nextTargetLabel,
-      coachActiveTargetLabel: nextTargetLabel,
-      coachTipDesc: missing.length
-        ? `当前缺少：${missing.join("、")}。先补齐，再点击保存。`
-        : "很好，必填项已完成。点击「保存项目」继续下一步。"
-    }, () => {
-      if (targetChanged) {
-        this.ensureCoachTargetVisible(nextTargetLabel);
-      }
-    });
-  },
-  ensureCoachTargetVisible(targetLabel) {
-    const selector = targetLabel === "项目地址"
-      ? "#coach-address-target"
-      : (targetLabel === "保存项目" ? "#coach-save-target" : "#coach-name-target");
-    const query = wx.createSelectorQuery();
-    query.select(selector).boundingClientRect();
-    query.selectViewport().scrollOffset();
-    query.exec((result = []) => {
-      const rect = result[0];
-      const viewport = result[1];
-      if (!rect || !viewport) {
-        return;
-      }
-      const windowHeight = getWindowInfo().windowHeight || 0;
-      const safeTop = 150;
-      const safeBottom = windowHeight - 180;
-      let delta = 0;
-      if (rect.top < safeTop) {
-        delta = rect.top - safeTop - 20;
-      } else if (rect.bottom > safeBottom) {
-        delta = rect.bottom - safeBottom + 20;
-      }
-      if (!delta) {
-        return;
-      }
-      wx.pageScrollTo({
-        scrollTop: Math.max(0, (viewport.scrollTop || 0) + delta),
-        duration: 220
-      });
-    });
-  },
-  handleCoachSkip() {
-    stopCoach();
-    this.setData({
-      coachTipVisible: false,
-      coachHighlightSave: false
-    });
-  },
-  noop() {},
-  async loadDetail(projectId) {
-    const result = await getProjectDetail(projectId);
-    const projectStatusIndex = PROJECT_STATUS_OPTIONS.findIndex((item) => item.value === (result.project.status || "active"));
-    this.setData({
-      form: {
-        name: result.project.name || "",
-        address: result.project.address || "",
-        clientName: result.project.clientName || "",
-        clientPhone: result.project.clientPhone || "",
-        description: result.project.description || "",
-        status: result.project.status || "active"
-      },
-      projectStatusIndex: projectStatusIndex >= 0 ? projectStatusIndex : 0
-    });
-  },
-  handleInput(event) {
-    const field = event.currentTarget.dataset.field;
-    this.setData({
-      [`form.${field}`]: event.detail.value
-    });
-    this.updateCoachFormTip();
-  },
-  handleProjectStatusChange(event) {
-    const projectStatusIndex = Number(event.detail.value || 0);
-    const selected = PROJECT_STATUS_OPTIONS[projectStatusIndex] || PROJECT_STATUS_OPTIONS[0];
-    this.setData({
-      projectStatusIndex,
-      "form.status": selected.value
-    });
-  },
-  async handleSubmit() {
-    if (!this.data.form.name || !this.data.form.address) {
-      wx.showToast({
-        title: "请填写项目名称和地址",
-        icon: "none"
-      });
-      return;
-    }
-
-    // 防重复提交：连点两次会创建两条项目
-    if (this.data.isSaving) {
-      return;
-    }
-
-    this.setData({ isSaving: true });
-    wx.showLoading({
-      title: "保存中",
-      mask: true
-    });
-
-    try {
-      const saved = await saveProject({
-        projectId: this.data.projectId,
-        ...this.data.form
-      });
-      markGuideStep("projectCreated", true);
-
-      wx.hideLoading();
-      wx.showToast({
-        title: "保存成功",
-        icon: "success"
-      });
-
-      setTimeout(() => {
-        if (isCoachStep("projectCreateForm") && !this.data.projectId && saved && saved._id) {
-          stopCoach();
-          wx.redirectTo({
-            url: `/pages/project/detail/index?projectId=${saved._id}`
-          });
-          return;
+  data:{projectId:"",pageTitle:"新建项目",isSaving:false,submissionLocked:false,showOptional:false,
+    projectStatusOptions:PROJECT_STATUS_OPTIONS,projectStatusIndex:0,
+    form:{name:"",address:"",clientName:"",clientPhone:"",description:"",status:"active"}},
+  async onLoad(query){
+    this.loadFailed=true;
+    try {await getApp().ensureReady();this.draftKey=KEY+":"+getApp().globalData.userInfo.openId;}
+    catch(e){wx.showToast({title:e.message,icon:"none"});return;}
+    this.loadFailed=false;
+    this.requestId=identity("project");
+    if(query.projectId){
+      this.setData({projectId:query.projectId,pageTitle:"编辑项目"});
+      try{const r=await getProjectDetail(query.projectId);const p=r.project;
+        this.setData({form:{name:p.name||"",address:p.address||"",clientName:p.clientName||"",clientPhone:p.clientPhone||"",description:p.description||"",status:p.status||"active"},
+          projectStatusIndex:Math.max(0,PROJECT_STATUS_OPTIONS.findIndex(x=>x.value===p.status))});
+      }catch(e){this.loadFailed=true;wx.showModal({title:"项目加载失败",content:e.message||"请返回重试",showCancel:false});}
+    }else{
+      let d=wx.getStorageSync(this.draftKey);
+      if(!d){
+        const legacy=wx.getStorageSync(KEY);
+        if(legacy&&legacy.form){
+          const choice=await new Promise(resolve=>wx.showModal({title:"恢复旧版项目草稿？",content:"本机有尚未完成的新建项目。确认属于你的记录后可继续；原草稿不会被删除。",confirmText:"恢复草稿",cancelText:"新建项目",success:resolve,fail:()=>resolve({confirm:false})}));
+          if(choice.confirm){d=legacy;wx.setStorageSync(this.draftKey,legacy);}
         }
-        wx.navigateBack();
-      }, 300);
-    } catch (error) {
-      // 原实现没有 try/catch：保存失败会变成未捕获的 promise rejection，
-      // 界面上什么都不显示，用户会以为已经存上了。
-      wx.hideLoading();
-      console.error("[project-form] save failed", error);
-      wx.showModal({
-        title: "保存失败",
-        content: (error && error.message) || "请检查网络后重试",
-        showCancel: false,
-        confirmText: "知道了"
-      });
-    } finally {
-      this.setData({ isSaving: false });
+      }
+      if(d && d.form){this.requestId=d.requestId;this.setData({form:d.form,submissionLocked:!!d.submitted});}
     }
+  },
+  onHide(){this.saveDraft();},
+  onUnload(){this.saveDraft();},
+  saveDraft(){
+    if(this.data.projectId || this.saved || !this.draftKey)return true;
+    try{wx.setStorageSync(this.draftKey,{requestId:this.requestId,form:this.data.form,submitted:this.data.submissionLocked});return true;}
+    catch(e){wx.showModal({title:"草稿保存失败",content:"请释放本机空间后重试，请勿关闭。",showCancel:false});return false;}
+  },
+  toggleOptional(){this.setData({showOptional:!this.data.showOptional});},
+  handleInput(e){if(this.data.submissionLocked)return;const field=e.currentTarget.dataset.field;
+    if(!["name","address","clientName","clientPhone","description"].includes(field))return;
+    this.setData({["form."+field]:e.detail.value});this.saveDraft();
+  },
+  handleProjectStatusChange(e){if(this.data.submissionLocked)return;const i=Number(e.detail.value);
+    this.setData({projectStatusIndex:i,"form.status":PROJECT_STATUS_OPTIONS[i].value});this.saveDraft();
+  },
+  async handleSubmit(){
+    if(this.data.isSaving || this.loadFailed)return;
+    if(!this.data.form.name.trim()){wx.showToast({title:"请填写项目名称",icon:"none"});return;}
+    if(!this.data.projectId){this.setData({submissionLocked:true});if(!this.saveDraft())return;}
+    this.setData({isSaving:true});
+    try{
+      const saved=await saveProject({...this.data.form,requestId:this.requestId,projectId:this.data.projectId});
+      const savedId = saved && (saved._id || (saved.project && saved.project._id));
+      if (!savedId || (this.data.projectId && savedId !== this.data.projectId)) {
+        throw new Error("服务端未返回可确认的项目编号，请重试恢复本次保存");
+      }
+      this.saved=true;if(!this.data.projectId)wx.removeStorageSync(this.draftKey);
+      markGuideStep("projectCreated",true);
+      wx.redirectTo({url:"/pages/project/detail/index?projectId="+encodeURIComponent(savedId)});
+    }catch(e){wx.showModal({title:"保存尚未确认",content:(e.message||"网络异常")+"。重试将继续同一次保存，不会重复创建。",showCancel:false});}
+    finally{this.setData({isSaving:false});}
   }
 });

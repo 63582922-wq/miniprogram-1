@@ -1,4 +1,4 @@
-<view class="project-card" bindtap="handleTap">
+<button class="project-card" bindtap="handleTap" bindlongpress="handleLongPress" hover-class="project-card--pressed">
   <view class="project-card__header">
     <view class="project-card__header-main">
       <view class="project-card__name">{{project.name}}</view>
@@ -6,19 +6,13 @@
     </view>
     <view class="project-card__arrow"></view>
   </view>
-  <view class="project-card__client">甲方 · {{clientNameText}}</view>
+  <view wx:if="{{project.clientName}}" class="project-card__client">甲方 · {{clientNameText}}</view>
   <view class="project-card__stats">
-    <view class="project-card__stat">
-      <view class="project-card__stat-value">{{inspectionsCount}}</view>
-      <view class="project-card__stat-label">巡查</view>
+    <view class="project-card__stat-summary">
+      <text class="project-card__stat-value">{{inspectionsCount}}</text><text class="project-card__stat-label">次记录</text>
+      <text class="project-card__stat-separator">·</text>
+      <text class="project-card__stat-value">{{issuesCount}}</text><text class="project-card__stat-label">个问题</text>
     </view>
-    <view class="project-card__stat">
-      <view class="project-card__stat-value">{{issuesCount}}</view>
-      <view class="project-card__stat-label">问题</view>
-    </view>
-    <view class="project-card__stat project-card__stat--wide">
-      <view class="project-card__stat-value project-card__stat-value--small">{{dateText}}</view>
-      <view class="project-card__stat-label">最近巡查</view>
-    </view>
+    <view class="project-card__date">{{inspectionsCount ? '最近 ' : '创建 '}}{{dateText}}</view>
   </view>
-</view>
+</button>

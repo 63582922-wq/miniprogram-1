@@ -1,13 +1,7 @@
 <view class="custom-tab-bar">
-  <view wx:for="{{list}}" wx:key="pagePath" class="custom-tab-bar__item {{item.isPrimary ? 'custom-tab-bar__item--primary-wrap' : ''}}" data-path="{{item.pagePath}}" bindtap="switchTab">
-    <view class="custom-tab-bar__inner {{selected === item.pagePath ? 'custom-tab-bar__inner--selected' : ''}} {{item.isPrimary ? 'custom-tab-bar__inner--primary' : ''}}">
-      <view class="custom-tab-bar__icon-shell {{selected === item.pagePath ? 'custom-tab-bar__icon-shell--selected' : ''}} {{item.isPrimary ? 'custom-tab-bar__icon-shell--primary' : ''}}">
-        <image wx:if="{{item.isPrimary}}" class="custom-tab-bar__camera-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />
-        <image wx:elif="{{item.iconName === 'project'}}" class="custom-tab-bar__icon" src="/images/icons/icon-tab-project.svg" mode="aspectFit" />
-        <image wx:elif="{{item.iconName === 'memo'}}" class="custom-tab-bar__icon" src="/images/icons/icon-tab-memo.svg" mode="aspectFit" />
-        <image wx:elif="{{item.iconName === 'report'}}" class="custom-tab-bar__icon" src="/images/icons/icon-tab-report.svg" mode="aspectFit" />
-        <image wx:elif="{{item.iconName === 'profile'}}" class="custom-tab-bar__icon" src="/images/icons/icon-tab-profile.svg" mode="aspectFit" />
-      </view>
-    </view>
-  </view>
+  <button wx:for="{{list}}" wx:key="pagePath" class="custom-tab-bar__item {{selected === item.pagePath ? 'is-selected' : ''}}" data-path="{{item.pagePath}}" bindtap="switchTab" hover-class="is-pressed" aria-label="{{item.text}}">
+    <image class="custom-tab-bar__icon" src="/images/icons/icon-tab-{{selected === item.pagePath ? item.activeIconName : item.iconName}}.svg" mode="aspectFit" />
+    <text class="custom-tab-bar__label">{{item.text}}</text>
+    <view wx:if="{{selected === item.pagePath}}" class="custom-tab-bar__indicator"></view>
+  </button>
 </view>

@@ -1,146 +1,168 @@
 .report-page {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  padding-bottom: 180rpx;
+  gap: 0;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
-/* ===== 封面区 ===== */
+.report-state {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
 .report-cover {
   display: flex;
   flex-direction: column;
   gap: 10rpx;
+  margin: 0;
+  padding: 32rpx 0 28rpx;
+  background: transparent;
+  color: var(--a-ink);
+  border-bottom: 1px solid var(--a-line);
 }
 
 .report-cover__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20rpx;
+  flex-wrap: wrap;
+  gap: 8rpx 20rpx;
 }
 
-/* 报告编号用等宽字体：它是被引用、被对账的标识，需要逐字符可辨 */
+.report-cover__product-kind,
+.report-cover__issuer-label,
+.report-cover__readonly {
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  letter-spacing: .08em;
+  line-height: 1.45;
+}
+
 .report-cover__no {
-  font-size: 20rpx;
-  color: #6B6355;
-  letter-spacing: 0.1em;
-  font-family: "SF Mono", "Menlo", monospace;
+  color: var(--a-muted);
+  font-family: var(--a-font-body);
+  font-size: 26rpx;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em;
+}
+
+.report-cover__title {
+  color: var(--a-ink);
+  font-family: var(--a-font-display);
+  font-size: 52rpx;
+  font-weight: 500;
+  letter-spacing: -.4rpx;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.report-cover__title--ui {
+  font-family: var(--a-font-body);
+  font-size: 48rpx;
+  font-weight: 600;
+  letter-spacing: -.4rpx;
+}
+
+.report-cover__meta {
+  color: var(--a-muted);
+  font-size: 26rpx;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.55;
+}
+
+.report-cover__issuer {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 14rpx;
+  padding-top: 18rpx;
+  border-top: 1px solid var(--a-line);
 }
 
 .report-cover__logo {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 2rpx;
-  flex-shrink: 0;
+  flex: none;
+  border-radius: 4rpx;
 }
 
-.report-cover__title {
-  font-size: 40rpx;
-  color: #1A1814;
-  line-height: 1.3;
-}
-
-.report-cover__meta {
-  font-size: 24rpx;
-  color: #6B6355;
+.report-cover__issuer-copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .report-cover__company {
-  font-size: 24rpx;
-  color: #1A1814;
+  margin-top: 3rpx;
+  color: var(--a-ink);
+  font-family: var(--a-font-body);
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
-/* ===== 摘要卡 ===== */
+.report-cover__issuer-person {
+  margin-top: 6rpx;
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
 .report-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 1px solid var(--a-line);
 }
-
-.report-summary__kpis {
-  display: flex;
-  justify-content: space-between;
-}
-
-.kpi {
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-}
-
-.kpi__n {
-  font-size: 52rpx;
-  line-height: 1;
-  color: #1A1814;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 严重度只用颜色区分数字，不做彩色背景块 */
-.kpi__n--critical { color: #B3402E; }
-.kpi__n--major { color: #B8862B; }
-.kpi__n--normal { color: #5C7A5C; }
-
-.kpi__l {
-  font-size: 22rpx;
-  color: #6B6355;
-}
-
-.report-summary__bar {
-  display: flex;
-  height: 6rpx;
-  border-radius: 4rpx;
-  overflow: hidden;
-  background: #E8E2D8;
-}
-
-.bar__seg {
-  height: 100%;
-}
-
-.bar__seg--critical { background: #B3402E; }
-.bar__seg--major { background: #B8862B; }
-.bar__seg--normal { background: #5C7A5C; }
 
 .report-summary__conclusion {
-  font-size: 26rpx;
-  color: #1A1814;
-  line-height: 1.6;
+  color: var(--a-ink);
+  font-family: var(--a-font-body);
+  font-size: var(--a-type-body);
+  font-weight: 400;
+  line-height: 1.55;
 }
 
-/* ===== 问题清单 ===== */
 .report-issues {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
 }
 
 .report-issues__head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 0 4rpx;
+  gap: 20rpx;
+  padding: 24rpx 0 16rpx;
 }
 
 .report-issues__count {
-  font-size: 22rpx;
-  color: #6B6355;
+  flex: none;
+  color: var(--a-muted);
+  font-size: 26rpx;
+  font-variant-numeric: tabular-nums;
 }
 
 .issue-group {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+  padding: 28rpx 0;
+  border-top: 2px solid var(--a-ink);
 }
 
 .issue-group__head {
-  font-size: 30rpx;
-  color: #1A1814;
-  letter-spacing: 0.06em;
+  color: var(--a-ink);
+  font-family: var(--a-font-body);
+  font-size: 40rpx;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .issue-group__media {
   width: 100%;
   overflow: hidden;
+  background: var(--a-surface);
 }
 
 .issue-group__image {
@@ -153,73 +175,89 @@
   flex-direction: column;
   gap: 8rpx;
   padding-top: 16rpx;
-  border-top: 0.5px solid #E8E2D8;
+  border-top: 1px solid var(--a-line);
 }
 
 .issue__head {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  flex-wrap: wrap;
+  gap: 8rpx 12rpx;
+}
+
+.issue__no,
+.issue__severity,
+.issue__area,
+.issue__meta {
+  font-size: 26rpx;
 }
 
 .issue__no {
-  font-size: 24rpx;
-  color: #1A1814;
-  font-family: "SF Mono", "Menlo", monospace;
-  letter-spacing: 0.04em;
+  color: var(--a-ink);
+  font-family: var(--a-font-body);
+  font-weight: 600;
+  letter-spacing: .02em;
 }
 
 .issue__severity {
-  font-size: 22rpx;
   padding: 2rpx 12rpx;
   border-radius: 4rpx;
 }
 
 .issue__severity--critical {
-  color: #B3402E;
-  background: rgba(179, 64, 46, 0.08);
+  color: var(--a-danger);
+  background: #F2DDD8;
 }
 
 .issue__severity--major {
-  color: #B8862B;
-  background: rgba(184, 134, 43, 0.1);
+  color: var(--a-warning);
+  background: #F1E5D4;
 }
 
 .issue__severity--normal {
-  color: #5C7A5C;
-  background: rgba(92, 122, 92, 0.1);
+  color: var(--a-ink);
+  background: var(--a-surface);
 }
 
-.issue__area {
-  font-size: 22rpx;
-  color: #6B6355;
+.issue__area,
+.issue__meta {
+  color: var(--a-muted);
 }
 
 .issue__desc {
-  font-size: 26rpx;
-  color: #1A1814;
-  line-height: 1.65;
+  color: var(--a-ink);
+  font-size: var(--a-type-body);
+  line-height: 1.7;
 }
 
 .issue__suggestion {
-  font-size: 24rpx;
-  color: #6B6355;
-  line-height: 1.6;
+  color: var(--a-muted);
+  font-size: var(--a-type-action);
+  line-height: 1.65;
 }
 
 .issue__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
-  font-size: 20rpx;
-  color: #94908A;
+  gap: 8rpx 16rpx;
+  line-height: 1.5;
 }
 
-/* ===== 结尾区 ===== */
 .report-footer {
   display: flex;
   flex-direction: column;
   gap: 14rpx;
+  padding: 28rpx 0;
+  border-top: 1px solid var(--a-line);
+}
+
+.report-footer__title {
+  margin-bottom: 8rpx;
+  color: var(--a-ink);
+  font-family: var(--a-font-body);
+  font-size: 34rpx;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .report-footer__row {
@@ -230,101 +268,155 @@
 
 .report-footer__label {
   width: 140rpx;
-  flex-shrink: 0;
-  font-size: 22rpx;
-  color: #94908A;
+  flex: none;
+  color: var(--a-muted);
+  font-size: 26rpx;
 }
 
 .report-footer__value {
+  min-width: 0;
   flex: 1;
-  font-size: 24rpx;
-  color: #1A1814;
+  color: var(--a-ink);
+  font-size: 26rpx;
   line-height: 1.55;
-  word-break: break-all;
+  word-break: break-word;
 }
 
 .report-footer__value--link {
-  color: #B3402E;
+  color: var(--a-danger);
 }
 
-/* ===== 状态态 ===== */
-.report-state {
+.report-footer__phone {
+  min-height: 44px;
+  margin: -12rpx 0 !important;
+  padding: 12rpx 0 !important;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: transparent;
+  border-radius: 0;
+  text-align: left;
+}
+
+.report-footer__phone::after {
+  border: 0;
+}
+
+.share-manage {
+  width: auto !important;
+  min-height: 44px;
+  margin: 8rpx 0 0 !important;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background: transparent;
+  color: var(--a-active);
+  font-size: 26rpx;
+  text-decoration: underline;
+  text-underline-offset: 7rpx;
+}
+
+.share-manage::after,
+.report-action-button::after {
+  border: 0;
+}
+
+.report-product-signature {
+  display: flex;
+  align-items: center;
   gap: 14rpx;
+  margin-top: 16rpx;
+  padding-top: 20rpx;
+  border-top: 1px solid var(--a-line);
+}
+
+.report-product-signature__mark {
+  width: 54rpx;
+  height: 54rpx;
+  flex: none;
+}
+
+.report-product-signature__name {
+  font-family: var(--a-font-display);
+  font-size: 26rpx;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+  line-height: 1.2;
+}
+
+.report-product-signature__desc {
+  margin-top: 5rpx;
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  letter-spacing: .04em;
+  line-height: 1.4;
+}
+
+.report-page .footer-actions--fixed {
+  gap: 8rpx;
+}
+
+.report-delivery-row {
+  display: flex;
+  align-items: stretch;
+  gap: 12rpx;
+  width: 100%;
+}
+
+.report-delivery-row > .report-action-button {
+  min-width: 0;
+  flex: 1;
+}
+
+.report-pdf-action {
+  min-width: 0;
+  flex: 0 0 220rpx;
 }
 
 .report-action-button {
   width: 100%;
-  height: 84rpx;
+  min-height: 48px;
+  height: auto;
   margin: 0;
-  padding: 0 44rpx;
-  border-radius: 0;
-  font-size: 24rpx;
-  font-weight: 400;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-.report-action-button--primary {
-  background: #1A1814;
-  color: #D4C5A0;
-  box-shadow: none;
-  letter-spacing: 0.2em;
-}
-
-.report-action-button--secondary {
-  width: 100%;
-  background: transparent;
-  color: #6B6355;
-  border: 0.5px solid #B8A882;
-  font-size: 24rpx;
-  font-weight: 400;
-  height: 84rpx;
-  padding: 0 24rpx;
-  box-shadow: none;
-  letter-spacing: 0.1em;
-}
-
-.report-action-button--disabled {
-  opacity: 0.72;
-}
-
-.report-action-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12rpx;
-  width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
-}
-
-.report-action-row .report-action-button {
-  width: 100%;
-  min-width: 0;
-}
-
-.report-action-button--share::after {
-  border: none;
-}
-
-.report-action-button--share {
-  height: 84rpx;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--a-radius-control);
+  box-sizing: border-box;
+  font-size: 28rpx;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.3;
   text-align: center;
-  overflow: hidden;
 }
 
+.report-action-button--primary {
+  background: var(--a-accent);
+  color: var(--a-accent-ink);
+}
 
-/* 分享进来的只读视图提示 */
+.report-action-button--secondary {
+  background: transparent;
+  color: var(--a-ink);
+  border: 1px solid var(--a-line);
+}
+
+.report-pdf-action .report-action-button {
+  padding-left: 10rpx;
+  padding-right: 10rpx;
+  font-size: var(--a-type-caption);
+}
+
+.report-action-button--disabled {
+  opacity: .5;
+}
+
 .report-readonly-hint {
-  font-size: 22rpx;
-  color: #6B6355;
-  text-align: center;
+  padding: 2rpx 0;
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
   line-height: 1.5;
-  padding: 8rpx 0;
+  text-align: center;
 }

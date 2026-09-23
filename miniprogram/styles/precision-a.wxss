@@ -1,0 +1,54 @@
+/*
+ * 毫厘智管 · 现场记录系统
+ * Warm paper, neutral ink, vermilion action. The product mark uses the same
+ * ink and vermilion pair; no retired petrol-green remains in the interface.
+ */
+page{
+  --a-type-display:60rpx;
+  --a-type-title:48rpx;
+  --a-type-object:36rpx;
+  --a-type-body:32rpx;
+  --a-type-action:30rpx;
+  --a-type-meta:27rpx;
+  --a-type-caption:26rpx;
+  --a-space-1:8rpx;
+  --a-space-2:16rpx;
+  --a-space-3:24rpx;
+  --a-space-4:32rpx;
+  --a-space-5:40rpx;
+  --a-page-inset:36rpx;
+  --a-radius-control:8rpx;
+  --a-radius-object:10rpx;
+  --a-icon:40rpx;
+  --a-hit:44px;
+  --a-motion:180ms;
+  /* Two type roles only: Songti for editorial object titles, PingFang/system
+     sans for every control, list, form and explanatory sentence. */
+  --a-font-display:"Songti SC","STSongti-SC-Regular","STSong","Source Han Serif SC","Noto Serif CJK SC","SimSun",serif;
+  --a-font-body:"PingFang SC",-apple-system,BlinkMacSystemFont,"Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+  --a-ink:#191816;
+  --a-paper:#E9E4DD;
+  --a-field:#F2EEE8;
+  --a-muted:#706D67;
+  --a-line:#C9C1B7;
+  --a-accent:#DE6E3F;
+  --a-accent-strong:#C75C35;
+  --a-accent-text:#B74F2D;
+  --a-accent-ink:#191816;
+  --a-active:#191816;
+  --a-photo-matte:#DDD6CC;
+  --a-bronze:#8A8378;
+  --a-surface:#E2DCD3;
+  --a-danger:#A93E2E;
+  --a-warning:#946022;
+  background:var(--a-paper);
+  color:var(--a-ink);
+  font-family:var(--a-font-body);
+  font-size:32rpx;
+  line-height:1.6;
+}
+.precision-head{background:var(--a-paper);color:var(--a-ink);padding:28rpx 0 34rpx;margin:0}
+.precision-head__kicker{color:var(--a-active);font-size:var(--a-type-caption);letter-spacing:.12em;margin-bottom:12rpx}
+.precision-head__title{font-family:var(--a-font-body);font-size:var(--a-type-display);font-weight:600;line-height:1.14;letter-spacing:-1rpx}
+.precision-head__project{font-size:var(--a-type-meta);color:var(--a-muted);margin-top:22rpx;min-height:44px;display:flex;align-items:center;justify-content:space-between}
+.precision-state{padding:28rpx 0;border-top:1px solid var(--a-line);font-size:var(--a-type-meta);color:var(--a-muted)}

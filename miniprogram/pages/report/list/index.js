@@ -2,16 +2,19 @@ const { listReports, deleteReport } = require("../../../services/report");
 const { listProjects } = require("../../../services/project");
 const { formatDateTime } = require("../../../utils/format");
 const { encodeReturnContext } = require("../../../utils/router");
+const { syncTabBar } = require("../../../utils/tab-bar");
 
 const PENDING_REPORT_CONTEXT_KEY = "pendingReportContext";
 const LAST_REPORT_CONTEXT_KEY = "lastReportContext";
 
 Page({
   data: {
+    loading:false,loadError:"",page:0,hasMore:false,
+    projectPage:0,projectHasMore:false,
     projectId: "",
     projectName: "",
     pageTitle: "全部报告",
-    isProjectMode: true,
+    isProjectMode: false,
     entrySource: "",
     reports: [],
     projects: []
@@ -21,11 +24,12 @@ Page({
     this.setData({
       projectId: query.projectId || "",
       projectName,
-      isProjectMode: !query.projectId,
+      isProjectMode: false,
       pageTitle: query.projectId ? "项目报告" : "全部报告"
     });
   },
   onShow() {
+    syncTabBar(this, "pages/report/list/index");
     if (this.applyStoredContext()) {
       this.loadReports();
       return;
@@ -46,19 +50,13 @@ Page({
       return true;
     }
 
-    const remembered = wx.getStorageSync(LAST_REPORT_CONTEXT_KEY);
-    if (remembered && remembered.projectId) {
-      this.applyProjectContext(remembered.projectId, remembered.projectName || "", "");
-      return true;
-    }
-
     return false;
   },
   applyProjectContext(projectId, projectName, entrySource = "") {
     this.setData({
       projectId,
       projectName,
-      isProjectMode: !projectId,
+      isProjectMode: false,
       entrySource,
       pageTitle: projectId ? "项目报告" : "全部报告"
     });
@@ -73,40 +71,29 @@ Page({
       projectName
     });
   },
-  async loadProjects() {
-    try {
-      const result = await listProjects();
-      this.setData({
-        projects: (result.list || []).map((item) => ({
-          ...item,
-          reportsCount: item.reportsCount || 0,
-          lastInspectionAtDisplay: item.lastInspectionAt ? formatDateTime(item.lastInspectionAt) : "暂无报告"
-        }))
-      });
-    } catch (error) {
-      wx.showToast({
-        title: error.message || "加载失败",
-        icon: "none"
-      });
-    }
+  onReachBottom(){
+    if(this.data.isProjectMode&&this.data.projectHasMore){this.loadProjects(true);return;}
+    if(!this.data.isProjectMode&&this.data.hasMore)this.loadReports(true);
   },
-  async loadReports() {
-    try {
-      const result = await listReports({
-        projectId: this.data.projectId
+  retryLoad(){return this.data.isProjectMode?this.loadProjects():this.loadReports();},
+  async loadProjects(append=false){
+    append=append===true;if(this.data.loading)return;this.setData({loading:true,loadError:"",hasMore:false});
+    try{const r=await listProjects({page:append?this.data.projectPage+1:1,pageSize:20});this.setData({projects:append?this.data.projects.concat(r.list||[]):r.list||[],projectPage:r.page||1,projectHasMore:!!r.hasMore});}
+    catch(e){this.setData({loadError:e.message||"加载失败"});}
+    finally{this.setData({loading:false});}
+  },
+  async loadReports(append=false){
+    append=append===true;if(append&&this.data.loading)return;const sequence=this.sequence=(this.sequence||0)+1;this.setData({loading:true,loadError:""});
+    try{const r=await listReports({projectId:this.data.projectId,page:append?this.data.page+1:1,pageSize:20});
+      if(sequence!==this.sequence)return;
+      const rows=(r.list||[]).map(i=>{
+        const title=`${i.title||""}`.trim();
+        const projectTitle=title.replace(/巡查报告$/,"").trim();
+        return {...i,displayTitle:projectTitle||title||"未命名项目",generatedAtDisplay:formatDateTime(i.publishedAt||i.createdAt||i.generatedAt)||""};
       });
-      this.setData({
-        reports: (result.list || []).map((item) => ({
-          ...item,
-          generatedAtDisplay: formatDateTime(item.generatedAt || item.createdAt) || "待生成"
-        }))
-      });
-    } catch (error) {
-      wx.showToast({
-        title: error.message || "加载失败",
-        icon: "none"
-      });
-    }
+      this.setData({reports:append?this.data.reports.concat(rows):rows,page:r.page||1,hasMore:!!r.hasMore});
+    }catch(e){if(sequence===this.sequence)this.setData({loadError:e.message||"加载失败"});}
+    finally{if(sequence===this.sequence)this.setData({loading:false});}
   },
   openProjectReports(event) {
     const { projectId, projectName } = event.currentTarget.dataset;
@@ -118,10 +105,16 @@ Page({
     this.applyProjectContext("", "", "");
     this.persistProjectContext("", "");
     this.setData({
-      reports: []
+      reports: [],projectPage:0,projectHasMore:false
     });
-    this.loadProjects();
+    this.loadReports();
   },
+  async chooseFilter(){
+    try{const r=await listProjects();this.setData({filterProjects:r.list||[],filterVisible:true});}
+    catch(e){wx.showToast({title:e.message||"项目加载失败",icon:"none"});}
+  },
+  closeFilter(){this.setData({filterVisible:false});},
+  selectFilter(e){const id=e.currentTarget.dataset.id;const p=(this.data.filterProjects||[]).find(x=>x._id===id);this.applyProjectContext(id||"",p?p.name:"");this.closeFilter();this.loadReports();},
   handleBackTap() {
     if (this.data.entrySource === "projectDetail" && this.data.projectId) {
       wx.navigateTo({

@@ -1,10 +1,11 @@
 const { getReportDetail, buildReportData, saveReport, createReportPdfTask, getReportPdfTaskStatus } = require("../../../services/report");
 const { getSettings } = require("../../../services/settings");
-const { mapSeverityText, mapResponsiblePartyText, formatDate, formatDateTime, toChineseSectionNumber } = require("../../../utils/format");
+const { mapSeverityText, mapResponsiblePartyText, formatDate, formatDateTime, toChineseSectionNumber, usesEditorialTypeface } = require("../../../utils/format");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
+const { createReportShareToken, revokeReportShareToken } = require("../../../services/report");
 
-const CURRENT_PDF_TEMPLATE_VERSION = "puppeteer-doc-v19";
+const CURRENT_PDF_TEMPLATE_VERSION = "warm-editorial-v3";
 const PDF_RUNTIME_VERSION = "pdf-debug-20260407-v5";
 const PDF_TASK_POLL_INTERVAL = 3000;
 /** 「PDF 生成中」超过这个时长即视为卡死，允许重新发起 */
@@ -44,9 +45,9 @@ function buildSeverityStats(items = []) {
 /** 一句话结论：把摘要翻译成一句能直接读给对方听的话 */
 function buildConclusion(stats) {
   if (!stats.total) {
-    return "本次巡查未发现问题。";
+    return "本次未记录问题，不代表工程验收合格。";
   }
-  const parts = [`本次共发现问题 ${stats.total} 项`];
+  const parts = [`本次已确认 ${stats.total} 项问题`];
   if (stats.critical) {
     parts.push(`其中严重 ${stats.critical} 项，建议优先处理`);
   } else if (stats.major) {
@@ -62,7 +63,7 @@ function buildConclusion(stats) {
  * 用生成日期 + 文档 ID 尾段，稳定且可读。
  */
 function buildReportNo(report = {}) {
-  const raw = report.generatedAt || report.createdAt || report.inspectionDate;
+  const raw = report.publishedAt || report.createdAt || report.generatedAt || report.inspectionDate;
   const date = new Date(Number(raw) || raw);
   const valid = !Number.isNaN(date.getTime());
   const ymd = valid
@@ -75,19 +76,20 @@ function buildReportNo(report = {}) {
 /**
  * 按照片分组并编号。
  *
- * 同一张照片的多个问题只出现一次照片，编号 1-A / 1-B；
- * 这样现场说「问题 1-A」所有人都知道指哪一条。
+ * 新报告按稳定照片 ID 分组，保留「问题 一 / 1. / 2.」。
+ * 旧报告无法确定来源关系时保留原来的图片分组与顺序。
  */
-function buildIssueGroups(items = []) {
+function buildIssueGroups(items = [], photos = []) {
   const groups = [];
   const map = new Map();
+  photos.forEach((p,i)=>{const g={key:p.id,sourceIndex:p.sourceIndex??i,image:"",originalImage:p.imagePath||"",annotatedImage:p.annotatedImagePath||"",caption:p.caption||"",issues:[]};groups.push(g);map.set(p.id,g);});
 
   items.forEach((item, index) => {
     const primaryImage = (item.annotatedImages && item.annotatedImages[0])
       || (item.images && item.images[0])
       || "";
     const sourceIndex = Number.isInteger(item.sourceIndex) ? item.sourceIndex : index;
-    const key = primaryImage || `source-${sourceIndex}`;
+    const key = item.sourcePhotoId || primaryImage || `source-${sourceIndex}`;
 
     if (!map.has(key)) {
       const group = {
@@ -110,16 +112,21 @@ function buildIssueGroups(items = []) {
     }));
   });
 
-  groups.sort((a, b) => a.sourceIndex - b.sourceIndex);
+  if(photos.length)groups.sort((a, b) => a.sourceIndex - b.sourceIndex);
 
   groups.forEach((group, groupIndex) => {
-    // 与巡查结果确认页、PDF 模板保持同一套编号：
-    // 分组用中文数字「问题 一」，组内子条目用 1. 2.
-    // 此前这里用了「问题 1」+「1-A」，导致同一份巡查出现两套编号。
-    group.groupTitle = `问题 ${toChineseSectionNumber(groupIndex + 1)}`;
-    group.issues.sort((a, b) => (a.subIssueIndex || 1) - (b.subIssueIndex || 1));
+    // 编号标注必须有对应问题文字才有意义。零问题照片保留原图，
+    // 避免出现“0 项问题”但图上孤零零一个编号、读者无从对应。
+    // 可编辑标注和渲染图仍保留在报告快照中，没有删除历史数据。
+    group.image = group.issues.length
+      ? (group.annotatedImage || group.image || group.originalImage)
+      : (group.originalImage || group.image || group.annotatedImage);
+    // 有问题的照片保留「问题 一 / 1. / 2.」；纯现场照片不伪装成问题。
+    // 两者沿用同一照片顺序，在线报告与 PDF 必须一致。
+    group.groupTitle = `${group.issues.length ? "问题" : "现场照片"} ${toChineseSectionNumber(groupIndex + 1)}`;
+
     group.issues.forEach((issue, issueIndex) => {
-      issue.displayNo = `${issueIndex + 1}.`;
+      issue.displayNo = `${issue.subIssueIndex || issueIndex + 1}.`;
     });
   });
 
@@ -147,37 +154,6 @@ function getErrorMessage(error, fallback = "未知错误") {
   }
 }
 
-function cleanupLocalReportPdfFiles() {
-  return new Promise((resolve) => {
-    const fs = wx.getFileSystemManager();
-    fs.readdir({
-      dirPath: wx.env.USER_DATA_PATH,
-      success: (result) => {
-        const fileList = (result.files || []).filter((name) => /\.pdf$/i.test(name));
-        if (!fileList.length) {
-          resolve();
-          return;
-        }
-        let pending = fileList.length;
-        const done = () => {
-          pending -= 1;
-          if (pending <= 0) {
-            resolve();
-          }
-        };
-        fileList.forEach((name) => {
-          fs.unlink({
-            filePath: `${wx.env.USER_DATA_PATH}/${name}`,
-            success: done,
-            fail: done
-          });
-        });
-      },
-      fail: () => resolve()
-    });
-  });
-}
-
 function isCloudFileId(value = "") {
   return typeof value === "string" && value.startsWith("cloud://");
 }
@@ -202,55 +178,15 @@ async function resolvePublicFileUrl(filePath = "") {
   return (first && first.tempFileURL) || "";
 }
 
-function writePdfBufferToFile(arrayBuffer, fileName = "report.pdf") {
-  return new Promise((resolve, reject) => {
-    const fs = wx.getFileSystemManager();
-    const normalizedFileName = /\.pdf$/i.test(`${fileName || ""}`) ? `${fileName}` : `${fileName || "report"}.pdf`;
-    const safeName = `${normalizedFileName}`.replace(/[\\/:*?"<>|]/g, "-");
-    const filePath = `${wx.env.USER_DATA_PATH}/${safeName}`;
-    cleanupLocalReportPdfFiles()
-      .then(() => {
-        fs.writeFile({
-          filePath,
-          data: arrayBuffer,
-          success: () => resolve(filePath),
-          fail: reject
-        });
-      })
-      .catch(() => {
-        fs.writeFile({
-          filePath,
-          data: arrayBuffer,
-          success: () => resolve(filePath),
-          fail: reject
-        });
-      });
-  });
-}
-
+// Keep other downloaded reports. Storage pressure must never silently delete them.
 function persistDownloadedPdfFile(tempFilePath, fileName = "report.pdf") {
   return new Promise((resolve, reject) => {
     const fs = wx.getFileSystemManager();
-    const normalizedFileName = /\.pdf$/i.test(`${fileName || ""}`) ? `${fileName}` : `${fileName || "report"}.pdf`;
-    const safeName = `${normalizedFileName}`.replace(/[\\/:*?"<>|]/g, "-");
+    const safeName = fileName.replace(/[\\\\/:*?"<>|]/g, "-");
     const targetFilePath = `${wx.env.USER_DATA_PATH}/${safeName}`;
-    cleanupLocalReportPdfFiles()
-      .then(() => {
-        fs.copyFile({
-          srcPath: tempFilePath,
-          destPath: targetFilePath,
-          success: () => resolve(targetFilePath),
-          fail: reject
-        });
-      })
-      .catch(() => {
-        fs.copyFile({
-          srcPath: tempFilePath,
-          destPath: targetFilePath,
-          success: () => resolve(targetFilePath),
-          fail: reject
-        });
-      });
+    if (tempFilePath === targetFilePath) { resolve(targetFilePath); return; }
+    fs.copyFile({srcPath:tempFilePath,destPath:targetFilePath,
+      success:()=>resolve(targetFilePath),fail:reject});
   });
 }
 
@@ -274,7 +210,7 @@ function formatPdfDate(value) {
 function buildPdfFileName(report = {}) {
   const projectName = `${report.projectName || report.title || "report"}`.trim();
   const datePart = formatPdfDate(report.inspectionDate);
-  return `${projectName}${datePart || ""}.pdf`;
+  return `${projectName}${datePart || ""}-${buildReportNo(report)}.pdf`;
 }
 
 function isPersistentLocalPath(filePath = "") {
@@ -292,7 +228,7 @@ function buildReportDisplayState(report = {}) {
   // 重新发起 —— 用户就彻底出不来了（实测踩到过）。
   // 超过阈值即视为失败，允许重新发起。
   const generatingSince = Number(report.updatedAt || report.createdAt || 0);
-  const generatingStale = report.status === "pdf_generating"
+  const generatingStale = !report.snapshotVersion && report.status === "pdf_generating"
     && generatingSince > 0
     && (Date.now() - generatingSince) > STALE_PDF_GENERATING_MS;
 
@@ -312,12 +248,12 @@ function buildReportDisplayState(report = {}) {
   return {
     ...report,
     inspectionDateDisplay: report.inspectionDateText || report.inspectionDate,
-    generatedAtDisplay: formatDateTime(report.generatedAt || report.createdAt) || "",
+    generatedAtDisplay: formatDateTime(report.publishedAt || report.createdAt || report.generatedAt) || "",
     // 首屏需要的摘要信息：读者先看到「几个问题、几个严重」再决定要不要往下看
     reportNo: buildReportNo(report),
     severityStats: buildSeverityStats(report.items || []),
     conclusion: buildConclusion(buildSeverityStats(report.items || [])),
-    issueGroups: buildIssueGroups(report.items || []),
+    issueGroups: buildIssueGroups(report.items || [], report.photos || []),
     statusText,
     // 转发只要求报告存在 —— 报告页本身就是交付物，
     // 不该等到生成 PDF 才能发给业主和施工方
@@ -341,8 +277,11 @@ Page({
     returnContext: null,
     report: null,
     pdfFilePath: "",
+    pdfStatusError: "",
+    pdfSubmitting: false,
     loading: true,
-    loadError: ""
+    loadError: "",
+    reportTitleClass: "report-cover__title--ui"
   },
   async onLoad(query) {
     this.setData({
@@ -351,16 +290,18 @@ Page({
       shareToken: query.shareToken || "",
       returnContext: decodeReturnContext(query.returnContext) || null
     });
-    wx.showShareMenu({
-      withShareTicket: true,
-      menus: ["shareAppMessage", "shareTimeline"]
-    });
+    wx.hideShareMenu();
   },
   async onShow() {
+    this.pdfPageHidden = false;
+    this.pdfPollFailures = 0;
+    this.setData({pdfStatusError:""});
     await this.loadReport();
     this.resumePdfTaskPolling();
   },
+  onHide(){this.pdfPageHidden=true;this.clearPdfTaskPolling();},
   onUnload() {
+    this.pdfPageHidden = true;
     this.clearPdfTaskPolling();
   },
   handleBackTap() {
@@ -421,15 +362,20 @@ Page({
         if (report.pdfFileId) {
           markGuideStep("reportGenerated", true);
         }
+        const displayTitle = report.projectName || report.title || "";
         this.setData({
           report: buildReportDisplayState(report),
-          isOwner: report.accessMode !== "shared"
+          isOwner: report.accessMode !== "shared",
+          reportTitleClass: usesEditorialTypeface(displayTitle) ? "" : "report-cover__title--ui"
         });
         if (report._id) {
           this.setData({
             reportId: report._id
           });
         }
+        if (report._id && report.shareState !== "revoked" && (report.shareToken || this.data.shareToken)) {
+          wx.showShareMenu({menus:["shareAppMessage"]});
+        } else wx.hideShareMenu();
         this.prepareShareImage(report);
       } else {
         this.setData({
@@ -484,7 +430,9 @@ Page({
       summary: this.data.report.summary,
       contextNote: this.data.report.contextNote,
       companyName: this.data.report.companyName || "",
-      companyPhone: "",
+      companyPhone: this.data.report.companyPhone || "",
+      publisherName: this.data.report.publisherName || "",
+      publisherPhone: this.data.report.publisherPhone || "",
       companyAddress: this.data.report.companyAddress || "",
       logoUrl,
       logoFileId,
@@ -492,6 +440,7 @@ Page({
     };
   },
   async ensureReportForPdf(logoFileId) {
+    if(this.data.report.snapshotVersion)return this.data.report;
     const saved = await saveReport({
       reportId: this.data.reportId,
       inspectionId: this.data.report.inspectionId,
@@ -530,12 +479,23 @@ Page({
   },
   schedulePdfTaskPolling(autoOpen = false) {
     this.clearPdfTaskPolling();
+    if (this.pdfPageHidden) return;
     this.pdfTaskAutoOpen = Boolean(autoOpen || this.pdfTaskAutoOpen);
     this.pdfTaskPollTimer = setTimeout(() => {
       this.pollPdfTaskStatus().catch((error) => {
-        console.error("[report-detail] pollPdfTaskStatus failed", error);
+        if (this.pdfPageHidden) return;
+        this.pdfPollFailures = (this.pdfPollFailures || 0) + 1;
+        if (this.pdfPollFailures < 3) { this.schedulePdfTaskPolling(false); return; }
+        this.pdfTaskAutoOpen = false;
+        this.setData({pdfStatusError:"暂时无法查询 PDF 状态。报告内容不受影响，恢复网络后可继续查询。"});
       });
     }, PDF_TASK_POLL_INTERVAL);
+  },
+  async retryPdfStatus() {
+    this.pdfPollFailures = 0;
+    this.setData({pdfStatusError:""});
+    await this.loadReport();
+    if (!this.data.loadError) this.resumePdfTaskPolling();
   },
   resumePdfTaskPolling() {
     if (this.data.report && this.data.report.pdfTaskId && this.data.report.status === "pdf_generating") {
@@ -565,6 +525,9 @@ Page({
       taskId: this.data.report.pdfTaskId,
       pdfTemplateVersion: CURRENT_PDF_TEMPLATE_VERSION
     });
+    if (this.pdfPageHidden) return;
+    this.pdfPollFailures = 0;
+    this.setData({pdfStatusError:""});
     const nextReport = buildReportDisplayState({
       ...this.data.report,
       ...(response.report || {})
@@ -616,7 +579,7 @@ Page({
     });
   },
   async generatePdf() {
-    if (!this.data.report) {
+    if (!this.data.report || this.data.pdfSubmitting) {
       return;
     }
     if (this.data.report.isPdfGenerating) {
@@ -627,6 +590,8 @@ Page({
       return;
     }
 
+    this.setData({pdfSubmitting:true,pdfStatusError:""});
+    this.pdfPollFailures = 0;
     let currentStage = "准备生成 PDF";
     wx.showLoading({
       title: "提交中"
@@ -634,15 +599,14 @@ Page({
 
     try {
       currentStage = "读取 PDF 配置";
-      const settings = await getSettings();
+      const settings = this.data.report.snapshotVersion ? {} : await getSettings();
       const logoFileId = this.data.report.logoFileId || (settings && settings.logoFileId ? settings.logoFileId : "");
       currentStage = "保存报告";
       await this.ensureReportForPdf(logoFileId);
       currentStage = "提交 PDF 任务";
-      const payload = await this.buildPuppeteerPayload(logoFileId);
       const response = await createReportPdfTask({
         reportId: this.data.reportId,
-        reportPayload: payload
+        // The server resolves the frozen publication; client data is not authoritative.
       });
       const nextReport = buildReportDisplayState({
         ...this.data.report,
@@ -675,7 +639,7 @@ Page({
         pdfErrorMessage: `${currentStage}：${errorMessage}`.slice(0, 200)
       });
 
-      if (this.data.reportId) {
+      if (this.data.reportId && !this.data.report.snapshotVersion) {
         try {
           const saved = await saveReport({
             reportId: this.data.reportId,
@@ -692,7 +656,9 @@ Page({
         }
       }
 
-      this.setData({ report: failedReport });
+      this.setData(this.data.report?.snapshotVersion
+        ? {pdfStatusError:"PDF 提交结果未确认。请恢复网络后查询原任务，不会重复创建报告。"}
+        : {report:failedReport});
 
       wx.showModal({
         title: "PDF 生成失败",
@@ -701,6 +667,7 @@ Page({
         confirmText: "知道了"
       });
     } finally {
+      this.setData({pdfSubmitting:false});
       wx.hideLoading();
     }
   },
@@ -779,15 +746,7 @@ Page({
         try {
           filePath = await persistDownloadedPdfFile(filePath, buildPdfFileName(this.data.report));
         } catch (error) {
-          const message = getErrorMessage(error, "");
-          if (message && message.includes("storage limit is exceeded")) {
-            try {
-              await cleanupLocalReportPdfFiles();
-            } catch (_cleanupError) {}
-            filePath = await persistDownloadedPdfFile(filePath, buildPdfFileName(this.data.report));
-          } else {
-            throw error;
-          }
+          throw new Error("PDF 未能保存到本地，请检查存储空间后重试。已有文件不会被自动删除。");
         }
       }
 
@@ -833,25 +792,41 @@ Page({
     }
   },
 
+  async manageShare(){
+    if(!this.data.isOwner || !this.data.reportId)return;
+    const revoked=this.data.report.shareState==="revoked";
+    const hasToken=Boolean(this.data.report && this.data.report.shareToken);
+    const choice=await new Promise(resolve=>wx.showActionSheet({itemList:revoked?["生成新分享链接"]:(hasToken?["撤销当前链接","重新生成链接"]:["生成可转发链接"]),success:resolve,fail:()=>resolve(null)}));
+    if(!choice)return;
+    const revoke=!revoked&&hasToken&&choice.tapIndex===0;
+    const confirmed=await new Promise(resolve=>wx.showModal({title:revoke?"撤销在线分享？":(hasToken||revoked?"生成新链接？":"生成可转发链接？"),content:revoke||hasToken||revoked?"旧链接将失效。已下载的 PDF、截图或照片无法远程收回。":"将只为当前这份报告生成只读链接。",success:resolve}));
+    if(!confirmed.confirm)return;
+    try{
+      if(revoke)await revokeReportShareToken(this.data.reportId);
+      else await createReportShareToken(this.data.reportId,hasToken || revoked);
+      this.setData({shareToken:""});await this.loadReport();
+      wx.showToast({title:revoke?"已撤销":"新链接已就绪",icon:"success"});
+    }catch(e){wx.showModal({title:"分享设置未完成",content:e.message||"请重试",showCancel:false});}
+  },
   /** 收件人从分享链接进入时的只读视图说明 */
   buildSharePath() {
     const token = (this.data.report && this.data.report.shareToken) || this.data.shareToken || "";
-    const base = `/pages/report/detail/index?reportId=${this.data.reportId}`;
-    return token ? `${base}&shareToken=${token}` : base;
+    const base = `/pages/report/detail/index?reportId=${encodeURIComponent(this.data.reportId || "")}`;
+    return token ? `${base}&shareToken=${encodeURIComponent(token)}` : base;
   },
 
   onShareAppMessage() {
     // 分享的是只读报告页，不需要先生成 PDF。
     // 原实现要求 canShare（依赖 pdfFileId），等于「没出 PDF 就不能转发」；
     // 而报告页本身就是交付物，线上阅读才是主要形态。
-    if (!this.data.reportId) {
+    if (!this.data.reportId || this.data.report?.shareState==="revoked") {
       return {
         title: "巡查报告",
-        path: "/pages/report/list/index"
+        path: this.buildSharePath()
       };
     }
     return {
-      title: `${(this.data.report && this.data.report.projectName) || "项目"}巡查报告`,
+      title: `${this.data.report.companyName ? this.data.report.companyName + ' · ' : ''}${this.data.report.projectName || "项目"}巡查报告`,
       path: this.buildSharePath(),
       imageUrl: this.data.shareImageUrl || ""
     };

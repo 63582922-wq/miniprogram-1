@@ -1,0 +1,10 @@
+<view class="page welcome-page">
+  <page-nav-bar title="" />
+  <view class="welcome-brand"><image class="welcome-brand__mark" src="/images/brand/haoli-symbol-v8.png" mode="aspectFit" /><view><view class="welcome-wordmark">毫厘智管</view><view class="welcome-brand__desc">现场记录 · 精准标注 · 清楚交付</view></view></view>
+  <view class="welcome-title">记录现场，<br/>清楚交付。</view>
+  <view class="welcome-copy">按项目拍照、标注与说明，核对后生成清晰可转发的现场报告。</view>
+  <view class="welcome-copy">使用微信身份保存个人记录，无需手机号。公司与巡查人资料可随后完善。</view>
+  <checkbox-group class="welcome-consent" bindchange="handleAgreeChange"><label class="welcome-consent__choice"><checkbox value="agreed" checked="{{agreed}}" color="#DE6E3F" /><text>我已阅读并同意</text></label><button class="welcome-link" catchtap="openLegal">隐私与服务说明</button></checkbox-group>
+  <view wx:if="{{error}}" class="precision-state">{{error}}</view>
+  <button class="primary-button" loading="{{loading}}" disabled="{{loading}}" bindtap="start">{{loading ? '正在确认身份' : error ? '重试开始使用' : '开始使用'}}</button>
+</view>

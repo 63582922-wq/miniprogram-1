@@ -11,10 +11,10 @@ function getReportDetail(reportId, inspectionId, shareToken) {
  * 取报告的分享 token（首次调用会生成）。
  * 转发时把它带在路径上，收件人无需账号权限即可只读查看。
  */
-function createReportShareToken(reportId) {
+function createReportShareToken(reportId, rotate = false) {
   return callCloud("report", {
     action: "createShareToken",
-    payload: { reportId }
+    payload: { reportId, rotate }
   });
 }
 
@@ -68,6 +68,7 @@ function deleteReport(reportId) {
 }
 
 module.exports = {
+  revokeReportShareToken: (reportId) => callCloud("report", {action:"revokeShareToken",payload:{reportId}}),
   getReportDetail,
   createReportShareToken,
   buildReportData,

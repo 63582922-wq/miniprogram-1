@@ -1,10 +1,11 @@
 const { listInspections, deleteInspection } = require("../../../services/inspection");
 const { formatDateTime } = require("../../../utils/format");
 const { encodeReturnContext } = require("../../../utils/router");
+const { openRecord } = require("../../../utils/record-entry");
 
 Page({
   data: {
-    inspectionList: [],
+    inspectionList: [],loading:false,loadError:"",page:0,hasMore:false,
     projectId: "",
     projectName: "",
     pageTitle: "巡查"
@@ -21,40 +22,29 @@ Page({
   onShow() {
     this.loadInspections();
   },
-  async loadInspections() {
+  onReachBottom(){if(this.data.hasMore)this.loadInspections(true);},
+  async loadInspections(append=false) {
+    append = append === true;
+    if(this.data.loading)return;
+    this.setData({loading:true,loadError:""});
     try {
       const result = await listInspections({
-        projectId: this.data.projectId
+        projectId: this.data.projectId,
+        page: append ? this.data.page + 1 : 1,
+        pageSize: 20
       });
-      this.setData({
-        inspectionList: (result.list || []).map((item) => ({
+      const rows=(result.list || []).map((item) => ({
           ...item,
           createdAtText: formatDateTime(item.createdAt),
           projectNameText: item.projectName || "未关联项目"
-        }))
-      });
+        }));
+      this.setData({inspectionList:append?this.data.inspectionList.concat(rows):rows,page:result.page||1,hasMore:!!result.hasMore});
     } catch (error) {
-      wx.showToast({
-        title: error.message || "加载失败",
-        icon: "none"
-      });
-    }
+      this.setData({loadError:error.message||"巡查记录加载失败，请重试"});
+    } finally {this.setData({loading:false});}
   },
   goCreate() {
-    let returnContext = "";
-    if (this.data.projectId) {
-      const context = {
-        projectId: this.data.projectId,
-        projectName: this.data.projectName || "",
-        returnTarget: "inspectionList"
-      };
-      wx.setStorageSync("pendingInspectionProject", context);
-      returnContext = encodeReturnContext(context);
-    }
-
-    wx.navigateTo({
-      url: `/pages/inspection/create/index${returnContext ? `?returnContext=${returnContext}` : ""}`
-    });
+    openRecord(this.data.projectId, this.data.projectName, "inspectionList").catch(e=>wx.showToast({title:e.message,icon:"none"}));
   },
   openDetail(event) {
     const inspectionId = event.currentTarget.dataset.inspectionId;

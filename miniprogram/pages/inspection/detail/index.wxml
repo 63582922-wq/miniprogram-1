@@ -1,10 +1,10 @@
 <view class="page inspection-detail-page">
   <page-nav-bar title="巡查详情" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-  <view class="card">
+  <view class="inspection-detail__head">
     <view class="section-title">{{inspection.title}}</view>
     <view class="section-subtitle">{{inspection.projectNameText}}</view>
     <view class="section-subtitle">{{inspection.createdAtText}}</view>
-    <view class="section-subtitle">问题数量：{{items.length}}</view>
+    <view class="section-subtitle">{{items.length}} 条问题</view>
   </view>
 
   <view class="list">

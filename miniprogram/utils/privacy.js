@@ -1,10 +1,13 @@
-const PRIVACY_AUTHORIZE_TIMEOUT_MS = 12000;
+const PRIVACY_AUTHORIZE_TIMEOUT_MS = 120000;
 const GET_PRIVACY_SETTING_TIMEOUT_MS = 6000;
+const privacyHosts = [];
+let listenerInstalled = false;
+function registerPrivacyHost(host) {privacyHosts.push(host);return ()=>{const i=privacyHosts.indexOf(host);if(i>=0)privacyHosts.splice(i,1);};}
 
 function requirePrivacyAuthorizeWithTimeout() {
   return new Promise((resolve, reject) => {
     if (typeof wx.requirePrivacyAuthorize !== "function") {
-      resolve();
+      reject(new Error("当前微信版本不支持隐私授权，请更新微信或使用文字记录"));
       return;
     }
 
@@ -50,7 +53,7 @@ function requirePrivacy() {
         return;
       }
       settled = true;
-      resolve();
+      reject(new Error("隐私状态查询超时，请重试"));
     }, GET_PRIVACY_SETTING_TIMEOUT_MS);
 
     wx.getPrivacySetting({
@@ -79,32 +82,20 @@ function requirePrivacy() {
 }
 
 function handlePrivacyAuthorization(resolve) {
-  wx.showModal({
-    title: "隐私保护提示",
-    content: "在使用相机、相册、麦克风等功能前，需要你同意《隐私保护指引》。你可以点击「查看」了解详情。",
-    confirmText: "同意并继续",
-    cancelText: "查看指引",
-    success(res) {
-      if (res.confirm) {
-        resolve({ event: "agree" });
-      } else {
-        wx.navigateTo({
-          url: "/pages/legal/index"
-        });
-        resolve({ event: "disagree" });
-      }
-    }
-  });
+  const host = [...privacyHosts].reverse().find(h=>h.privacyActive);
+  if(host)host.requestPrivacy(resolve);
+  else resolve({event:"disagree"});
 }
 
 function setupPrivacyListener() {
-  if (typeof wx.onNeedPrivacyAuthorization !== "function") {
+  if (listenerInstalled || typeof wx.onNeedPrivacyAuthorization !== "function") {
     return;
   }
   wx.onNeedPrivacyAuthorization(handlePrivacyAuthorization);
+  listenerInstalled=true;
 }
 
 module.exports = {
   requirePrivacy,
-  setupPrivacyListener
+  setupPrivacyListener, registerPrivacyHost
 };

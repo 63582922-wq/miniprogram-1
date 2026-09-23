@@ -1,92 +1,82 @@
 <view class="page inspection-result-page">
-  <page-nav-bar title="巡查结果" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-  <view class="card result-hero">
-    <view class="result-hero__eyebrow">项目</view>
-    <view class="result-hero__title">{{summary.projectName}}</view>
-    <view class="result-hero__meta">{{summary.title}}</view>
-    <view class="result-hero__stats">
-      <view class="result-hero__stat">
-        <view class="result-hero__stat-value">{{summary.issueCount}}</view>
-        <view class="result-hero__stat-label">问题</view>
-      </view>
-      <view class="result-hero__stat">
-        <view class="result-hero__stat-value">{{summary.contextNote ? '已补充' : '未补充'}}</view>
-        <view class="result-hero__stat-label">现场补充</view>
-      </view>
-    </view>
+  <page-nav-bar title="人工核对" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view class="page-heading"><view><view class="page-heading__title">确认内容</view><view class="section-subtitle">{{summary.projectName}} · {{summary.issueCount}} 条问题</view></view></view>
+  <view wx:if="{{submissionLocked}}" class="precision-state">内容已锁定，重试将继续同一份报告，不会重复创建。</view>
+  <view class="review-identity">
+    <image wx:if="{{reportIdentity.logoFileId}}" class="review-identity__logo" src="{{reportIdentity.logoFileId}}" mode="aspectFit" />
+    <view class="review-identity__copy"><view class="field-label">本次报告出具信息</view><view class="review-identity__company">{{reportIdentity.companyName || '公司名称未填写'}}</view><view class="section-subtitle">{{reportIdentity.inspectorName || '巡查人未填写'}}{{reportIdentity.inspectorPhone ? ' · ' + reportIdentity.inspectorPhone : ' · 联系电话未填写'}}</view><view wx:if="{{identityError}}" class="section-subtitle">{{identityError}}</view><view class="review-identity__freeze">确认后随当前报告固定，不会被后续资料修改覆盖</view></view>
+    <button class="review-identity__edit" bindtap="editReportIdentity">完善资料</button>
   </view>
-
-  <view class="card result-guide">
+  <view class="result-guide">
     <view class="result-guide__head">
-      <image class="result-guide__icon" src="/images/icons/icon-project.svg" mode="aspectFit" />
-      <view class="section-title">AI 巡查小结</view>
+      <view class="section-title">本次小结</view>
+      <button wx:if="{{!submissionLocked}}" class="result-edit-link" bindtap="toggleSummaryEditing">{{summaryEditing ? '完成' : '修改'}}</button>
     </view>
-    <view class="detail-text">{{summary.aiSummary || 'AI 正在根据问题生成本次巡查小结。'}}</view>
+    <textarea wx:if="{{summaryEditing}}" class="field-textarea" auto-height focus maxlength="5000" value="{{summary.aiSummary}}" disabled="{{submissionLocked}}" bindinput="handleSummaryInput" />
+    <view wx:else class="result-guide__content">{{summary.aiSummary}}</view>
   </view>
 
-  <view wx:if="{{summary.memoryHint}}" class="card result-memory">
-    <view class="result-memory__label">AI 记忆</view>
+  <view wx:if="{{summary.memoryHint}}" class="result-memory">
+    <view class="result-memory__label">历史提示</view>
     <view class="result-memory__text">{{summary.memoryHint}}</view>
     <view wx:if="{{summary.memoryAlerts && summary.memoryAlerts.length}}" class="result-memory__list">
       <view wx:for="{{summary.memoryAlerts}}" wx:key="*this" class="result-memory__item">{{item}}</view>
     </view>
   </view>
 
-  <view wx:if="{{summary.contextNote}}" class="card result-guide">
+  <view wx:if="{{summary.contextNote}}" class="result-guide">
     <view class="result-guide__head">
-      <image class="result-guide__icon" src="/images/icons/icon-note.svg" mode="aspectFit" />
       <view class="section-title">现场补充</view>
     </view>
     <view class="detail-text">{{summary.contextNote}}</view>
   </view>
 
-  <view class="card result-guide">
-    <view class="result-guide__head">
-      <image class="result-guide__icon" src="/images/icons/icon-issue.svg" mode="aspectFit" />
-      <view class="section-title">问题清单</view>
-    </view>
-  </view>
-
+  <view class="result-list-heading"><view class="section-title">照片与问题</view><view class="section-subtitle">按照片核对，允许修改、删除或手动新增问题。</view></view>
   <view class="list">
-    <view wx:for="{{issueGroups}}" wx:for-item="group" wx:for-index="groupIndex" wx:key="key" class="result-group card">
+    <view wx:for="{{issueGroups}}" wx:for-item="group" wx:for-index="groupIndex" wx:key="key" class="result-group">
       <view class="result-group__head">
         <view class="result-group__title">{{group.displayTitle}}</view>
-        <view class="result-group__count">{{group.issues.length}} 条</view>
+      <view class="result-group__count">{{group.issues.length}} 条</view>
       </view>
       <view wx:if="{{group.image}}" class="result-group__media">
-        <image class="result-group__image" src="{{group.image}}" mode="aspectFill" />
+        <image class="result-group__image" src="{{group.image}}" mode="aspectFit" />
+      </view>
+      <view class="field result-caption">
+        <view class="result-caption__head"><view class="field-label">现场说明</view><button wx:if="{{!submissionLocked}}" class="result-edit-link" data-index="{{group.sourceIndex}}" bindtap="toggleCaptionEditing">{{captionEditingIndex === group.sourceIndex ? '完成' : (group.caption ? '修改' : '添加说明')}}</button></view>
+        <textarea wx:if="{{captionEditingIndex === group.sourceIndex}}" class="field-textarea" auto-height focus maxlength="5000" disabled="{{submissionLocked}}" placeholder="补充照片说明，不会自动创建问题" value="{{group.caption}}" data-index="{{group.sourceIndex}}" bindinput="handleCaptionInput" />
+        <view wx:elif="{{group.caption}}" class="detail-text">{{group.caption}}</view>
+        <view wx:else class="section-subtitle">未添加现场说明</view>
       </view>
       <view class="result-group__issues">
+        <button class="result-add-issue" disabled="{{submissionLocked}}" data-index="{{group.sourceIndex}}" bindtap="handleAddIssue">新增问题</button>
+        <view wx:if="{{!group.issues.length}}" class="section-subtitle">本组未记录问题，照片仍保留。未记录问题不代表验收合格。</view>
         <view
           wx:for="{{group.issues}}"
           wx:for-item="subIssue"
           wx:for-index="subIndex"
-          wx:key="originalIndex"
+          wx:key="id"
           class="issue-entry"
         >
           <inspection-item-card
             item="{{subIssue}}"
             index="{{subIssue.originalIndex}}"
-            displayIndex="{{subIssue.subIssueIndex || (subIndex + 1)}}"
+            displayIndex="{{subIndex + 1}}"
             hideTitle="{{true}}"
             showImages="{{false}}"
-            editable="{{true}}"
+            editable="{{!submissionLocked}}"
             bindchange="handleItemChange"
           />
-          <view
-            class="issue-entry__delete"
+          <button
+            wx:if="{{!submissionLocked}}" class="issue-entry__delete"
             data-index="{{subIssue.originalIndex}}"
             bindtap="handleDeleteIssue"
-          >删除这条</view>
+          >删除这条</button>
         </view>
       </view>
     </view>
   </view>
 
   <view class="footer-actions footer-actions--fixed">
-    <!-- 快速路径：AI 整理结果多数是对的，不必逐条点选。
-         逐条核对仍然可用 —— 上面的清单就是为需要修正的情况准备的。 -->
-    <button class="primary-button" bindtap="handleAcceptAllAndSubmit">全部通过并提交（{{summary.issueCount}} 条）</button>
-    <view class="result-hint">若有识别不准的条目，可在上方删除或直接修改后再提交。</view>
+    <button class="primary-button" loading="{{submitting}}" disabled="{{submitting}}" bindtap="handleAcceptAllAndSubmit">确认内容并生成报告</button>
   </view>
 </view>

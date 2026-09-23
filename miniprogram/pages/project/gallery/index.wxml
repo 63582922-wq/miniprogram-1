@@ -1,5 +1,5 @@
 <view class="page project-gallery-page">
-  <page-nav-bar title="巡查相册" showBack="{{true}}" />
+  <page-nav-bar title="照片与标注" showBack="{{true}}" />
   <view class="card gallery-summary">
     <view class="section-title">{{project.nameText}}</view>
     <view class="section-subtitle">累计巡查 {{stats.inspectionsTotal}} 次 · 累计照片 {{stats.total}} 张</view>
@@ -7,13 +7,13 @@
 
   <view wx:if="{{photos.length}}" class="gallery-grid">
     <view wx:for="{{photos}}" wx:key="id" class="gallery-card">
-      <image class="gallery-card__image" src="{{item.imageUrl}}" mode="aspectFill" data-current="{{item.imageUrl}}" bindtap="previewPhoto" />
+      <button class="gallery-card__preview" aria-label="预览 {{item.inspectionTitle}} 的现场照片" data-current="{{item.imageUrl}}" bindtap="previewPhoto"><image class="gallery-card__image" src="{{item.imageUrl}}" mode="aspectFill" /></button>
       <view class="gallery-card__meta">
         <view class="gallery-card__title">{{item.inspectionTitle}}</view>
         <view class="gallery-card__desc">{{item.areaText}}</view>
         <view class="gallery-card__desc">{{item.createdAtText}}</view>
         <view wx:if="{{item.voiceText}}" class="gallery-card__desc">{{item.voiceText}}</view>
-        <view class="gallery-card__link" data-inspection-id="{{item.inspectionId}}" bindtap="openInspection">查看对应巡查</view>
+        <button class="gallery-card__link" data-inspection-id="{{item.inspectionId}}" bindtap="openInspection">查看对应巡查</button>
       </view>
     </view>
   </view>

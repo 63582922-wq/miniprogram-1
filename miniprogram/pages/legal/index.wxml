@@ -4,8 +4,8 @@
   <view class="card legal-card">
     <view class="legal-title">隐私保护指引</view>
     <view class="legal-text">1. 我们重视你的隐私保护和个人信息保护。在使用本小程序服务之前，请你仔细阅读并充分理解本指引。</view>
-    <view class="legal-text">2. 本小程序会使用微信提供的登录能力获取你的微信唯一标识（OpenID），用于创建和识别你的账号，不收集你的微信昵称、头像等个人信息。</view>
-    <view class="legal-text">3. 你主动填写的信息：包括巡查人姓名、联系电话、公司名称、公司电话、公司地址等，仅用于报告生成和业务展示，不会共享给第三方。</view>
+    <view class="legal-text">2. 开始使用后，本小程序使用微信提供的唯一标识（OpenID）识别账号。姓名、头像及联系方式由你按需提供，不要求手机号登录。</view>
+    <view class="legal-text">3. 你主动填写的巡查人姓名、联系电话、公司名称、LOGO、公司电话及地址用于报告抬头和联系信息。发布报告后，这些资料会随报告展示给持有有效分享链接的接收者，请仅填写愿意对接收者展示的信息。</view>
     <view class="legal-text">4. 你主动上传的素材：包括巡查照片、语音录音、标注信息等，仅用于巡查记录、AI 分析和报告生成，存储于微信云开发云端，不会用于其他用途。</view>
     <view class="legal-text">5. 本小程序会申请以下设备权限，仅在对应功能使用时调用：</view>
     <view class="legal-text sub">- 相机/相册权限：用于拍摄或选取巡查照片</view>
@@ -16,25 +16,25 @@
 
   <view class="card legal-card">
     <view class="legal-title">信息存储与安全</view>
-    <view class="legal-text">1. 你的业务数据存储于微信云开发服务端，具备数据加密、访问控制等安全机制。</view>
-    <view class="legal-text">2. 云开发数据库的安全规则已配置为仅允许云函数读写，客户端无法直接访问数据库。</view>
-    <view class="legal-text">3. 上传的图片和语音文件存储于微信云存储，通过文件 ID 访问，不对外公开。</view>
-    <view class="legal-text">4. 生成的 PDF 报告存储于微信云存储，仅你可查看和下载。</view>
+    <view class="legal-text">1. 业务数据保存于微信云开发，未完成草稿同时保存在当前设备；本机草稿不承诺跨设备同步。</view>
+    <view class="legal-text">2. 业务接口校验账号及项目归属。请勿公开原始文件地址、分享凭据或设备存储内容。</view>
+    <view class="legal-text">3. 有效报告链接允许接收者只读查看该份报告及其照片；录音不默认包含在分享内容中。</view>
+    <view class="legal-text">4. 作者可撤销在线分享链接。已下载的 PDF、照片或截图无法远程收回；后续修改个人或公司资料不会改写已发布报告。</view>
   </view>
 
   <view class="card legal-card">
     <view class="legal-title">第三方服务说明</view>
     <view class="legal-text">1. 微信云开发：用于账号会话管理、数据存储与云函数处理。</view>
-    <view class="legal-text">2. AI 分析服务：用于巡查照片问题识别、语音转文本与智能分析，由第三方大模型服务商提供。你上传的照片和语音会在分析过程中发送至服务商，分析完成后不会由服务商留存。</view>
+    <view class="legal-text">2. 选择 AI 整理或语音转写时，相关照片、说明或录音将发送至对应服务处理；你也可以选择手动填写和核对。服务商及处理规则以当前后台隐私保护指引披露内容为准，本说明不承诺第三方零留存。</view>
     <view class="legal-text">3. PDF 生成服务：用于巡查报告的 PDF 导出与下载，由独立部署的服务端处理，不对外公开接口。</view>
   </view>
 
   <view class="card legal-card">
     <view class="legal-title">用户服务协议</view>
-    <view class="legal-text">1. 使用本小程序即表示你同意本协议和隐私保护指引的全部内容。</view>
+    <view class="legal-text">1. 请在欢迎页阅读说明并明确同意后开始使用。相机、相册与麦克风在使用对应功能时按需申请授权，拒绝不影响文字填写。</view>
     <view class="legal-text">2. 本小程序提供的巡查记录、AI 分析和报告生成均为辅助工具，分析结果和建议仅供参考，不构成专业监理意见。</view>
     <view class="legal-text">3. 你应当对上传内容的真实性和合法性负责，不得上传违法违规或侵犯他人权益的内容。</view>
-    <view class="legal-text">4. 我们有权在必要时修改本协议内容，修改后的协议将在本页面更新，继续使用即视为接受修改。</view>
+    <view class="legal-text">4. 处理目的、范围等发生重要变化时，应更新说明并按平台要求重新征求同意。</view>
     <view class="legal-text">5. 如你有合规审计要求或需要删除个人数据，可联系管理员获取完整数据流与存储说明。</view>
   </view>
 </view>

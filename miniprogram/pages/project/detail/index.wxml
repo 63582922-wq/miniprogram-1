@@ -1,83 +1,63 @@
 <view class="page project-detail-page">
-  <page-nav-bar title="项目详情" showBack="{{true}}" />
-  <view class="card detail-card">
-    <view class="detail-card__head">
-      <view>
-        <view class="section-title">{{project.name}}</view>
-        <view class="section-subtitle">{{project.address}}</view>
-      </view>
-      <view class="detail-card__status">{{project.statusText || '进行中'}}</view>
+  <page-nav-bar title="毫厘智管" showBack="{{true}}" brandTitle="{{true}}" />
+  <view wx:if="{{loading}}" class="precision-state">正在加载项目…</view>
+  <view wx:elif="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="loadDetail">重试</button></view>
+  <block wx:else>
+    <view class="project-hero">
+      <view class="project-hero__head"><view class="project-hero__eyebrow">当前项目</view><button class="project-hero__edit" bindtap="goEdit">编辑资料</button></view>
+      <view class="project-hero__title {{projectTitleClass}}">{{project.name}}</view>
+      <view class="project-hero__address">{{project.address}}</view>
+      <view wx:if="{{project.clientName}}" class="project-hero__meta">甲方：{{project.clientNameText}}{{project.clientPhoneText ? ' · ' + project.clientPhoneText : ''}}</view>
+      <view wx:if="{{project.description}}" class="project-hero__meta">{{project.description}}</view>
     </view>
-    <view class="detail-card__meta">甲方：{{project.clientNameText}}{{project.clientPhoneText ? ' · ' + project.clientPhoneText : ''}}</view>
-    <view wx:if="{{project.description}}" class="detail-card__meta">{{project.description}}</view>
-    <view class="workspace-stats">
-      <view class="workspace-stats__item">
-        <view class="workspace-stats__value">{{workspaceStats.inspections}}</view>
-        <view class="workspace-stats__label">巡查</view>
-      </view>
-      <view class="workspace-stats__item">
-        <view class="workspace-stats__value">{{workspaceStats.reports}}</view>
-        <view class="workspace-stats__label">报告</view>
-      </view>
-    </view>
-    <view class="project-detail__action-button" bindtap="goInspectionCreate">快速巡查</view>
-  </view>
 
-  <view class="card shortcut-card">
-    <view class="workspace-card__header workspace-card__header--compact">
-      <view class="section-title">工作台</view>
-    </view>
-    <view class="shortcut-grid">
-      <view class="shortcut-item" bindtap="goInspectionList">
-        <image class="shortcut-item__icon" src="/images/icons/icon-inspection.svg" mode="aspectFit" />
-        <view class="shortcut-item__title">全部巡查</view>
-        <view class="shortcut-item__meta">{{workspaceStats.inspections}} 条记录</view>
-        <image class="shortcut-item__arrow" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" />
-      </view>
-      <view class="shortcut-item" bindtap="goGallery">
-        <image class="shortcut-item__icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" />
-        <view class="shortcut-item__title">项目相册</view>
-        <view class="shortcut-item__meta">图片与标注资料</view>
-        <image class="shortcut-item__arrow" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" />
+    <view wx:if="{{featurePhoto}}" class="project-feature">
+      <button class="project-feature__media" bindtap="previewFeaturePhoto" aria-label="查看最近现场照片">
+        <image class="project-feature__image" src="{{featurePhoto.imageUrl}}" mode="aspectFill" />
+        <view class="project-feature__count">1 / {{featurePhotoCount}}</view>
+      </button>
+      <view class="project-feature__caption">
+        <view class="project-feature__copy"><view class="project-feature__title">{{featurePhoto.titleText}}</view><view class="project-feature__desc">{{featurePhoto.descriptionText}}</view></view>
+        <view class="project-feature__meta"><text>{{featurePhoto.createdAtText}}</text><text wx:if="{{featurePhoto.locationText}}">{{featurePhoto.locationText}}</text></view>
       </view>
     </view>
-    <view class="project-detail__action-button shortcut-card__edit" bindtap="goEdit">编辑项目</view>
-  </view>
 
-  <view class="card workspace-card">
-    <view class="workspace-card__header workspace-card__header--compact">
-      <view class="section-title">最近巡查</view>
-      <view class="workspace-card__actions">
-        <view class="workspace-card__link" bindtap="toggleRecentInspection">{{recentInspectionExpanded ? '收起' : '展开'}}</view>
-        <view class="workspace-card__link" bindtap="goInspectionList">查看全部</view>
-      </view>
+    <view class="project-progress">
+      <view class="project-progress__main"><view class="project-section__label">记录进度</view><view class="project-progress__title">{{progressTitle}}</view><view class="project-progress__desc">{{progressText}}</view></view>
+      <view class="project-progress__aside"><view class="project-section__label">已出报告</view><view class="project-progress__number">{{workspaceStats.reports}}</view><view class="project-progress__unit">份</view></view>
     </view>
-    <view wx:if="{{recentInspectionExpanded && latestInspection}}" class="list">
-      <view class="detail-row" data-inspection-id="{{latestInspection._id}}" bindtap="openInspection">
-        <view class="detail-row__title">{{latestInspection.title}}</view>
-        <view class="detail-row__desc">{{latestInspection.createdAtText}}</view>
-      </view>
-    </view>
-    <view wx:elif="{{inspections.length}}" class="empty-hint">已折叠，仅显示最近 1 条</view>
-    <view wx:else class="empty-hint">还没有巡查记录</view>
-  </view>
 
-  <view class="card workspace-card">
-    <view class="workspace-card__header workspace-card__header--compact">
-      <view class="section-title">最近报告</view>
-      <view class="workspace-card__actions">
-        <view class="workspace-card__link" bindtap="toggleRecentReport">{{recentReportExpanded ? '收起' : '展开'}}</view>
-        <view class="workspace-card__link" bindtap="goReportList">查看全部</view>
-      </view>
-    </view>
-    <view wx:if="{{recentReportExpanded && latestReport}}" class="list">
-      <view class="detail-row" data-report-id="{{latestReport._id}}" bindtap="openReport">
-        <view class="detail-row__title">{{latestReport.title}}</view>
-        <view class="detail-row__desc">{{latestReport.generatedAtDisplay}}</view>
-      </view>
-    </view>
-    <view wx:elif="{{reports.length}}" class="empty-hint">已折叠，仅显示最近 1 条</view>
-    <view wx:else class="empty-hint">暂无报告</view>
-  </view>
+    <button class="primary-button project-hero__action" bindtap="goInspectionCreate"><image src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />{{drafts.length ? '继续这次记录' : '拍摄现场照片'}}</button>
 
+    <view wx:if="{{drafts.length}}" class="project-section">
+      <view class="project-section__head">
+        <view class="project-section__label">未完成记录</view>
+        <button bindtap="goNewInspection">新建记录</button>
+      </view>
+      <button wx:for="{{drafts}}" wx:key="sessionKey" class="project-plain-row" data-session="{{item.sessionKey}}" bindtap="continueDraft">
+        <view><view class="project-plain-row__title">{{item.title || project.name}}</view><view class="project-plain-row__desc">{{item.issueCount}} 张照片 · {{item.timeText}}</view></view><image src="/images/icons/icon-arrow-right.svg" mode="aspectFit" />
+      </button>
+    </view>
+
+    <view class="project-section project-content-links">
+      <view class="project-section__label">项目内容</view>
+      <view class="project-shortcuts">
+        <button bindtap="goInspectionList"><text>记录</text><text>{{workspaceStats.inspections}}</text></button>
+        <button bindtap="goGallery"><text>照片</text><text>{{featurePhotoCount}}</text></button>
+        <button bindtap="goReportList"><text>报告</text><text>{{workspaceStats.reports}}</text></button>
+      </view>
+    </view>
+
+    <view class="project-section project-section--compact">
+      <view class="project-section__head"><view class="project-section__label">最近记录</view><button bindtap="goInspectionList">查看全部</button></view>
+      <button wx:if="{{latestInspection}}" class="project-plain-row" data-inspection-id="{{latestInspection._id}}" bindtap="openInspection"><view><view class="project-plain-row__title">{{latestInspection.title}}</view><view class="project-plain-row__desc">{{latestInspection.createdAtText}}</view></view><image src="/images/icons/icon-arrow-right.svg" mode="aspectFit" /></button>
+      <view wx:else class="project-empty">还没有现场记录</view>
+    </view>
+
+    <view class="project-section project-section--compact">
+      <view class="project-section__head"><view class="project-section__label">最近报告</view><button bindtap="goReportList">查看全部</button></view>
+      <button wx:if="{{latestReport}}" class="project-plain-row" data-report-id="{{latestReport._id}}" bindtap="openReport"><view><view class="project-plain-row__title">{{latestReport.title}}</view><view class="project-plain-row__desc">{{latestReport.generatedAtDisplay}}</view></view><image src="/images/icons/icon-arrow-right.svg" mode="aspectFit" /></button>
+      <view wx:else class="project-empty">暂无报告</view>
+    </view>
+  </block>
 </view>

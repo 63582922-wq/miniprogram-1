@@ -4,6 +4,9 @@ const { uploadUserFile } = require("../../../services/cloud");
 const { transcribeVoiceFile, mergeSpeechText, formatSpeechError } = require("../../../services/speech");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { runWithConcurrency } = require("../../../utils/async");
+const { keepLocalFile, uploadDraftMedia } = require("../../../services/inspection-media");
+const { readDraft, writeDraft, patchDraft } = require("../../../utils/inspection-draft");
+const { identity } = require("../../../utils/inspection-model");
 
 const recorderManager = wx.getRecorderManager();
 const MAX_ISSUE_DRAFTS = 20;
@@ -31,6 +34,7 @@ function createIssueDraft(filePath) {
     id: `${Date.now()}-${Math.random()}`,
     imagePath: filePath,
     annotations: [],
+    annotationCount: 0,
     voiceText: "",
     voiceFilePath: "",
     voiceFileId: ""
@@ -53,6 +57,17 @@ function buildExpandedStatesAfterAppend(previousCount, appendCount) {
   }
 
   return Array.from({ length: total }, (_, index) => index === total - 1);
+}
+
+// The canvas returns to this page with a freshly written draft. Keep the
+// compact counts used by the view as explicit presentation state instead of
+// repeatedly asking the renderer to evaluate nested array lengths while a
+// wx:for subtree is being patched. The source of truth remains issueDrafts.
+function normalizeIssueDrafts(issueDrafts = []) {
+  return issueDrafts.map((item) => ({
+    ...item,
+    annotationCount: (item.annotations || []).length
+  }));
 }
 
 function createInitialForm() {
@@ -107,7 +122,12 @@ function isPrivacyScopeUndeclared(error) {
 
 function isUserCancelledPrivacyOrPicker(error) {
   const text = `${(error && error.errMsg) || (error && error.message) || ""}`.toLowerCase();
-  return text.includes("cancel") || text.includes("denied") || text.includes("reject");
+  return text.includes("cancel");
+}
+
+function isPickerPermissionDenied(error) {
+  const text = `${(error && error.errMsg) || (error && error.message) || ""}`.toLowerCase();
+  return /auth deny|authorize|permission|denied|reject|拒绝|未授权/.test(text);
 }
 
 Page({
@@ -122,6 +142,7 @@ Page({
     transcribingIssueId: "",
     transcribeStartedAt: 0,
     issueExpandedStates: [],
+    issueDraftCount: 0,
     showSupplementFields: false,
     analyzing: false,
     analyzeStageText: "",
@@ -131,11 +152,16 @@ Page({
     issueSectionTitles: ISSUE_SECTION_TITLES,
     form: createInitialForm(),
   },
-  onLoad(query) {
+  async onLoad(query) {
+    this.initializing=true;
+    try {if(typeof getApp === "function" && getApp().ensureReady) await getApp().ensureReady();}
+    catch(e){this.setData({projectLoadError:e.message});return;}
+    this.initializing=false;
     // recorderManager 是全局单例，必须成对注册/解绑（见 onUnload），
     // 否则页面每次进入都会再挂一个 onStop，同一段录音被重复转写。
-    this.boundRecorderStop = (result) => {
+    this.boundRecorderStop = async (result) => {
       const transcribingIssueId = this.data.transcribingIssueId;
+      if(this.recordCancelled){this.setData({transcribingIssueId:"",recordCancelArmed:false});wx.showToast({title:"录音已取消",icon:"none"});return;}
 
       if (!transcribingIssueId) {
         return;
@@ -151,20 +177,24 @@ Page({
       }
 
       const duration = Math.max(0, Date.now() - (this.data.transcribeStartedAt || 0));
+      try { result.tempFilePath = await keepLocalFile(result.tempFilePath); }
+      catch(e){wx.showModal({title:"录音未保存",content:e.message,showCancel:false});this.setData({transcribingIssueId:""});return;}
 
       const issueDrafts = this.data.form.issueDrafts.map(item => {
         if (item.id === transcribingIssueId) {
-          return { ...item, isTranscribing: true, voiceFilePath: result.tempFilePath };
+          return { ...item, isTranscribing: true, voiceFilePath: result.tempFilePath, voiceFileId:"",voiceStorageFileId:"",speechError:"" };
         }
         return item;
       });
 
       this.setData({
         transcribingIssueId: "",
-        "form.issueDrafts": issueDrafts
+        "form.issueDrafts": issueDrafts,
+        issueDraftCount: issueDrafts.length
       });
 
       this.triggerRecordVibration();
+      this.persistDraft();
       this.handleIssueTranscription(transcribingIssueId, result.tempFilePath, duration);
     };
 
@@ -178,7 +208,7 @@ Page({
       if (/auth deny|authorize|permission|拒绝|未授权/i.test(text)) {
         wx.showModal({
           title: "需要麦克风权限",
-          content: "请在设置中允许使用麦克风，然后再录音。",
+          content: "可以直接输入文字；也可在设置中允许麦克风后重试录音。",
           confirmText: "去设置",
           cancelText: "知道了",
           success: (res) => {
@@ -200,6 +230,8 @@ Page({
     recorderManager.onError(this.boundRecorderError);
 
     const initialReturnContext = decodeReturnContext(query.returnContext) || null;
+    this.explicitProjectId = query.projectId || (initialReturnContext && initialReturnContext.projectId) || "";
+    this.setData({"form.projectId":this.explicitProjectId});
     if (query.sessionKey) {
       this.setData({
         sessionKey: query.sessionKey,
@@ -207,47 +239,8 @@ Page({
       });
       this.restoreDraft();
       setTimeout(() => {
-        this.loadProjects(query.projectId);
+        this.loadProjects(this.explicitProjectId);
       }, 0);
-      return;
-    }
-
-    const latestDraftMeta = this.getLatestDraftMeta();
-    if (latestDraftMeta && latestDraftMeta.sessionKey && (latestDraftMeta.issueCount || 0) > 0) {
-      this.setData({
-        sessionKey: latestDraftMeta.sessionKey,
-        returnContext: initialReturnContext
-      });
-      this.restoreDraft();
-      wx.showModal({
-        title: "继续上次编辑",
-        content: `发现一份未完成的快速巡查草稿${latestDraftMeta.projectName ? `（${latestDraftMeta.projectName}）` : ""}，已添加 ${latestDraftMeta.issueCount || 0} 个问题，是否继续编辑？`,
-        confirmText: "继续上次",
-        cancelText: "新建本次",
-        success: (result) => {
-          if (!result.confirm) {
-            this.clearDraft();
-            this.setData({
-              sessionKey: this.createSessionKey(),
-              returnContext: initialReturnContext,
-              issueExpandedStates: [],
-              showSupplementFields: false,
-              recordingIssueId: "",
-              transcribingIssueId: "",
-              transcribeStartedAt: 0,
-              analyzing: false,
-              analyzeStageText: "",
-              analyzeStageIndex: 0,
-              analyzeTaskId: "",
-              form: createInitialForm()
-            });
-          }
-          this.loadProjects(result.confirm ? (this.data.form.projectId || query.projectId) : query.projectId);
-        },
-        fail: () => {
-          this.loadProjects(this.data.form.projectId || query.projectId);
-        }
-      });
       return;
     }
 
@@ -256,60 +249,42 @@ Page({
       returnContext: initialReturnContext
     });
     setTimeout(() => {
-      this.loadProjects(query.projectId);
+      this.loadProjects(this.explicitProjectId);
     }, 0);
   },
-  onShow() {
-    const restored = this.restoreDraft();
-    this.applyPendingProjectSelection();
-    
-    const pendingPhotos = wx.getStorageSync("pendingPhotos");
-    const pendingProject = wx.getStorageSync(PENDING_PROJECT_KEY);
-
-    if (!restored && !pendingPhotos && !pendingProject && this.hasUnsavedDraft()) {
-      this.resetForNewInspection();
+  async onShow() {
+    if(this.initializing)return;
+    this.ownsDraft = true;
+    this.restoreDraft();
+    if(readDraft(this.data.sessionKey).submission?.requestId){
+      wx.redirectTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});return;
     }
-
-    if (pendingPhotos && pendingPhotos.length > 0) {
-      wx.removeStorageSync("pendingPhotos");
-      const currentCount = (this.data.form.issueDrafts || []).length;
-      const remaining = MAX_ISSUE_DRAFTS - currentCount;
-      if (remaining > 0) {
-        const toAdd = pendingPhotos.slice(0, remaining);
-        const issueDrafts = (this.data.form.issueDrafts || []).concat(
-          toAdd.map((item) => createIssueDraft(item))
-        );
-        const issueExpandedStates = buildExpandedStatesAfterAppend(
-          this.data.form.issueDrafts.length,
-          toAdd.length
-        );
-        this.setData({
-          "form.issueDrafts": issueDrafts,
-          issueExpandedStates
-        });
-        this.persistDraft();
-        if (pendingPhotos.length > remaining) {
-          wx.showToast({
-            title: "最多添加20张照片",
-            icon: "none"
-          });
-        }
-      } else {
-        wx.showToast({
-          title: "已达到20张上限",
-          icon: "none"
-        });
-      }
-    }
-    this.updateUnloadAlert();
+    // Every edit is already persisted. Do not install a native Back guard:
+    // some clients keep it alive after this page is hidden, so it can block
+    // the next page's Back action with an unrelated confirmation.
     if (this.data.analyzing && this.data.analyzeTaskId) {
+      this.waitingForAnalysis=true;
+      this.pendingInputVersion=readDraft(this.data.sessionKey).inputVersion;
       this.scheduleAnalyzeTaskPolling();
     }
   },
   onHide() {
+    this.waitingForAnalysis = false;
+    if(this.data.transcribingIssueId)this.handleRecordCancel();
+    this.persistDraft();
+    this.ownsDraft = false;
     this.clearAnalyzeTaskPolling();
+    // The native unload guard survives navigation in Developer Tools. Do not
+    // let the hidden capture page intercept annotation/review navigation.
+    if (typeof wx.disableAlertBeforeUnload === "function") {
+      wx.disableAlertBeforeUnload();
+    }
   },
   onUnload() {
+    this.pickerEpoch = (this.pickerEpoch || 0) + 1;
+    clearTimeout(this.pickerTimer);
+    this.waitingForAnalysis = false;
+    this.persistDraft();
     this.clearAnalyzeTaskPolling();
 
     // 与 onLoad 成对解绑：recorderManager 是全局单例，
@@ -322,22 +297,30 @@ Page({
     }
     this.boundRecorderStop = null;
     this.boundRecorderError = null;
+    if (typeof wx.disableAlertBeforeUnload === "function") {
+      wx.disableAlertBeforeUnload();
+    }
   },
   persistDraft() {
+    if(this.initializing)return false;
+    // Annotation/review owns the stored session while capture is hidden.
+    // A later unload/recompile must not overwrite it with this page's stale form.
+    if (this.ownsDraft === false) return true;
+    if(wx.getStorageSync(this.data.sessionKey + ":complete")) return true;
     if (!this.data.sessionKey) {
       return;
     }
 
-    wx.setStorageSync(this.data.sessionKey, createDraftSnapshot(this.data.form, this.data.returnContext));
-    if (hasMeaningfulDraftContent(this.data.form)) {
-      wx.setStorageSync(LATEST_INSPECTION_DRAFT_META_KEY, buildLatestDraftMeta(this.data.sessionKey, this.data.form));
-    } else {
+    try {
+      writeDraft(this.data.sessionKey, this.data.form, this.data.returnContext);
+    } catch(e) { wx.showModal({title:"草稿保存失败",content:e.message || "请释放本机空间后重试，请勿关闭",showCancel:false}); return false; }
+    if (!hasMeaningfulDraftContent(this.data.form)) {
       const latestDraftMeta = this.getLatestDraftMeta();
       if (latestDraftMeta && latestDraftMeta.sessionKey === this.data.sessionKey) {
         wx.removeStorageSync(LATEST_INSPECTION_DRAFT_META_KEY);
       }
     }
-    this.updateUnloadAlert();
+    return true;
   },
   clearDraft() {
     if (!this.data.sessionKey) {
@@ -348,10 +331,9 @@ Page({
     if (latestDraftMeta && latestDraftMeta.sessionKey === this.data.sessionKey) {
       wx.removeStorageSync(LATEST_INSPECTION_DRAFT_META_KEY);
     }
-    this.updateUnloadAlert();
   },
   createSessionKey() {
-    return `inspection-create-${Date.now()}`;
+    return identity("inspection-create");
   },
   getLatestDraftMeta() {
     return wx.getStorageSync(LATEST_INSPECTION_DRAFT_META_KEY) || null;
@@ -364,6 +346,7 @@ Page({
     this.setData({
       sessionKey: nextSessionKey,
       issueExpandedStates: [],
+      issueDraftCount: 0,
       showSupplementFields: false,
       recordingIssueId: "",
       transcribingIssueId: "",
@@ -378,24 +361,31 @@ Page({
         projectName: preservedProjectName
       }
     });
-    this.updateUnloadAlert();
   },
   restoreDraft() {
     if (!this.data.sessionKey) {
       return false;
     }
 
-    const cached = wx.getStorageSync(this.data.sessionKey);
+    const cached = readDraft(this.data.sessionKey);
     const cachedForm = extractDraftForm(cached);
     const cachedReturnContext = extractDraftReturnContext(cached);
+    if (cachedForm && this.explicitProjectId && cachedForm.projectId !== this.explicitProjectId) {
+      this.setData({projectLoadError:"草稿与当前项目不一致，请返回重新选择",sessionKey:""});
+      return false;
+    }
     if (cachedForm && cachedForm.issueDrafts) {
+      const issueDrafts = normalizeIssueDrafts(cachedForm.issueDrafts);
       this.setData({
         form: {
           ...this.data.form,
-          ...cachedForm
+          ...cachedForm,
+          issueDrafts
         },
         returnContext: cachedReturnContext || this.data.returnContext || null,
-        issueExpandedStates: buildIssueExpandedStates(cachedForm.issueDrafts || [], this.data.issueExpandedStates),
+        analyzeTaskId: cached.taskId || "",
+        issueDraftCount: issueDrafts.length,
+        issueExpandedStates: buildIssueExpandedStates(issueDrafts, this.data.issueExpandedStates),
         showSupplementFields: Boolean((cachedForm.title || "").trim() || (cachedForm.note || "").trim())
       });
       return true;
@@ -404,20 +394,6 @@ Page({
   },
   hasUnsavedDraft() {
     return hasMeaningfulDraftContent(this.data.form || {});
-  },
-  updateUnloadAlert() {
-    if (!this.hasUnsavedDraft()) {
-      if (typeof wx.disableAlertBeforeUnload === "function") {
-        wx.disableAlertBeforeUnload();
-      }
-      return;
-    }
-    if (typeof wx.enableAlertBeforeUnload !== "function") {
-      return;
-    }
-    wx.enableAlertBeforeUnload({
-      message: "当前巡查有未保存内容，确定返回？返回后草稿仍保留，可在「快速巡查」继续编辑。"
-    });
   },
   async loadProjects(defaultProjectId) {
     this.setData({
@@ -428,16 +404,9 @@ Page({
     try {
       const result = await listProjects({ pageSize: 100 });
       const projects = result.list || [];
-      let projectIndex = 0;
-      let projectId = defaultProjectId || "";
-
-      if (!projectId && projects[0]) {
-        projectId = projects[0]._id;
-      }
-
-      if (projectId) {
-        projectIndex = Math.max(projects.findIndex((item) => item._id === projectId), 0);
-      }
+      const projectId = this.data.form.projectId || defaultProjectId || this.explicitProjectId || "";
+      const projectIndex = projects.findIndex((item) => item._id === projectId);
+      if (projectId && projectIndex < 0) throw new Error("该项目已删除或无权限访问，请返回；原草稿已保留");
 
       this.setData({
         projects,
@@ -446,15 +415,13 @@ Page({
         "form.projectId": projectId,
         "form.projectName": (projects[projectIndex] && projects[projectIndex].name) || ""
       });
-      this.applyPendingProjectSelection();
       this.persistDraft();
     } catch (error) {
       this.setData({
         projects: [],
         projectIndex: 0,
         currentProjectNameText: "项目加载失败",
-        projectLoadError: error.message || "项目加载失败",
-        "form.projectId": ""
+        projectLoadError: error.message || "项目加载失败"
       });
       wx.showToast({
         title: "项目加载超时，请重试",
@@ -470,7 +437,7 @@ Page({
     this.loadProjects(this.data.form.projectId);
   },
   leaveCurrentPage(options = {}) {
-    const { preserveDraft = false, goHome = false } = options;
+    const { preserveDraft = true, goHome = false } = options;
     const context = this.data.returnContext;
     if (typeof wx.disableAlertBeforeUnload === "function") {
       wx.disableAlertBeforeUnload();
@@ -486,85 +453,19 @@ Page({
     }
     returnToContext(context);
   },
-  applyPendingProjectSelection() {
-    const pending = wx.getStorageSync(PENDING_PROJECT_KEY);
-    if (!pending || !pending.projectId || !(this.data.projects || []).length) {
-      return;
-    }
-
-    const projectIndex = this.data.projects.findIndex((item) => item._id === pending.projectId);
-    if (projectIndex < 0) {
-      wx.removeStorageSync(PENDING_PROJECT_KEY);
-      return;
-    }
-
-    const project = this.data.projects[projectIndex];
-    this.setData({
-      projectIndex,
-      currentProjectNameText: project.name || "请选择项目",
-      "form.projectId": project._id || "",
-      "form.projectName": project.name || "",
-      returnContext: {
-        projectId: project._id || "",
-        projectName: project.name || "",
-        returnTarget: pending.returnTarget || ""
-      }
-    });
-    this.persistDraft();
-    wx.removeStorageSync(PENDING_PROJECT_KEY);
-  },
-  handleReturn() {
-    if (!this.hasUnsavedDraft()) {
-      this.leaveCurrentPage();
-      return;
-    }
-
-    wx.showActionSheet({
-      itemList: ["保存草稿并离开", "直接离开"],
-      success: (result) => {
-        if (result.tapIndex === 0) {
-          this.persistDraft();
-          this.leaveCurrentPage({
-            preserveDraft: true
-          });
-          return;
-        }
-        if (result.tapIndex === 1) {
-          this.leaveCurrentPage();
-        }
-      }
-    });
-  },
-  handleHomeTap() {
-    if (!this.hasUnsavedDraft()) {
-      this.leaveCurrentPage({
-        goHome: true
-      });
-      return;
-    }
-
-    wx.showActionSheet({
-      itemList: ["保存草稿并回首页", "直接回首页"],
-      success: (result) => {
-        if (result.tapIndex === 0) {
-          this.persistDraft();
-          this.leaveCurrentPage({
-            preserveDraft: true,
-            goHome: true
-          });
-          return;
-        }
-        if (result.tapIndex === 1) {
-          this.leaveCurrentPage({
-            goHome: true
-          });
-        }
-      }
-    });
-  },
-  handleProjectChange(event) {
+  handleReturn(){if(this.persistDraft())this.leaveCurrentPage({preserveDraft:true});},
+  handleHomeTap(){if(this.persistDraft())this.leaveCurrentPage({preserveDraft:true,goHome:true});},
+  async handleProjectChange(event) {
+    if (this.data.pickingImages) { wx.showToast({title:"请先完成或取消选图",icon:"none"}); return; }
     const projectIndex = Number(event.detail.value);
     const project = this.data.projects[projectIndex] || {};
+    if (!project._id || project._id === this.data.form.projectId) return;
+    if (readDraft(this.data.sessionKey).submission?.requestId) return;
+    if (this.hasUnsavedDraft()) {
+      const choice = await new Promise(resolve=>wx.showModal({title:"更换记录所属项目？",content:`已添加的照片和说明将移至“${project.name}”。请确认项目归属。`,success:resolve,fail:()=>resolve({confirm:false})}));
+      if (!choice.confirm) return;
+    }
+    this.explicitProjectId = project._id;
     this.setData({
       projectIndex,
       currentProjectNameText: project.name || "请选择项目",
@@ -586,6 +487,8 @@ Page({
     });
   },
   chooseImages() {
+    if (this.data.pickingImages) return;
+    if(!this.data.sessionKey || !this.data.form.projectId || this.data.loadingProjects || this.data.projectLoadError){wx.showToast({title:"请先确认记录所属项目",icon:"none"});return;}
     const currentCount = (this.data.form.issueDrafts || []).length;
     const remaining = MAX_ISSUE_DRAFTS - currentCount;
 
@@ -599,20 +502,41 @@ Page({
 
     const page = this;
     const count = Math.min(remaining, SINGLE_PICK_LIMIT);
+    const projectId = this.data.form.projectId;
+    const sessionKey = this.data.sessionKey;
+    const epoch = this.pickerEpoch = (this.pickerEpoch || 0) + 1;
+    const isCurrent = () => page.pickerEpoch === epoch && page.data.sessionKey === sessionKey && page.data.form.projectId === projectId;
+    const finish = (error = "") => {
+      if (!isCurrent()) return;
+      clearTimeout(page.pickerTimer);
+      page.setData({pickingImages:false,pickerError:error});
+    };
+    this.setData({pickingImages:true,pickerError:""});
+    this.pickerTimer = setTimeout(() => {
+      finish("选图未返回。可重新打开相册，或先保留草稿返回。");
+      if (isCurrent()) page.pickerEpoch += 1;
+    }, 120000);
 
-    const commitPickedPaths = (paths) => {
+    const commitPickedPaths = async (paths) => {
+      if (!isCurrent()) return;
       const list = (paths || []).filter(Boolean);
       if (!list.length) {
+        finish();
         return;
       }
-      const issueDrafts = (page.data.form.issueDrafts || []).concat(list.map((p) => createIssueDraft(p)));
+      try { for(let i=0;i<list.length;i++)list[i]=await keepLocalFile(list[i]); }
+      catch(e){finish(e.message || "照片未保存，请重试");return;}
+      if (!isCurrent()) return;
+      const issueDrafts = normalizeIssueDrafts((page.data.form.issueDrafts || []).concat(list.map((p) => createIssueDraft(p))));
       const issueExpandedStates = buildExpandedStatesAfterAppend(page.data.form.issueDrafts.length, list.length);
 
       page.setData({
         "form.issueDrafts": issueDrafts,
+        issueDraftCount: issueDrafts.length,
         issueExpandedStates
       });
       page.persistDraft();
+      finish();
 
       if (issueDrafts.length >= MAX_ISSUE_DRAFTS) {
         wx.showToast({
@@ -622,7 +546,9 @@ Page({
       }
     };
 
-    const handlePickerFail = (error) => {
+    const handlePickerFail = (error, sourceType) => {
+      if (!isCurrent()) return;
+      finish(isUserCancelledPrivacyOrPicker(error) ? "" : "无法打开相册或相机，请重试或检查授权。");
       if (isPrivacyScopeUndeclared(error)) {
         wx.showModal({
           title: "需完善隐私声明",
@@ -634,6 +560,25 @@ Page({
       if (isUserCancelledPrivacyOrPicker(error)) {
         return;
       }
+      if (isPickerPermissionDenied(error)) {
+        wx.showModal({
+          title: sourceType === "camera" ? "无法使用相机" : "无法访问相册",
+          content: sourceType === "camera"
+            ? "可以先从相册选择照片，或稍后在微信设置中开启相机权限。"
+            : "请在微信设置中允许访问相册后重试；已填写的文字不会丢失。",
+          confirmText: sourceType === "camera" ? "从相册选择" : "去设置",
+          cancelText: "稍后处理",
+          success: (result) => {
+            if (!result.confirm) return;
+            if (sourceType === "camera") {
+              openIssueImagePicker("album");
+            } else if (typeof wx.openSetting === "function") {
+              wx.openSetting({});
+            }
+          }
+        });
+        return;
+      }
       wx.showToast({
         title: "无法打开相册或相机",
         icon: "none"
@@ -641,7 +586,26 @@ Page({
     };
 
     const openIssueImagePicker = (sourceType) => {
+      // 这里最终只接收照片。优先使用 chooseImage：它在真机和开发者工具
+      // 的系统相册/文件选择回调都更稳定，并能明确请求原图，避免标注基准在
+      // 选择时被压缩后的临时图悄悄改变。保留 chooseMedia 仅作旧基础库兜底。
+      if (typeof wx.chooseImage === "function") {
+        wx.chooseImage({
+          count,
+          sizeType: ["original"],
+          sourceType: [sourceType],
+          success(res) {
+            commitPickedPaths(res.tempFilePaths || []);
+          },
+          fail(error) {
+            handlePickerFail(error, sourceType);
+          }
+        });
+        return;
+      }
+
       if (typeof wx.chooseMedia !== "function") {
+        finish("当前微信版本不支持选图，请升级后重试。");
         wx.showToast({
           title: "当前基础库不支持选图",
           icon: "none"
@@ -657,7 +621,7 @@ Page({
           commitPickedPaths(paths);
         },
         fail(error) {
-          handlePickerFail(error);
+          handlePickerFail(error, sourceType);
         }
       });
     };
@@ -671,8 +635,11 @@ Page({
         }
         if (tapIndex === 1) {
           openIssueImagePicker("album");
+          return;
         }
-      }
+        finish();
+      },
+      fail: () => finish()
     });
   },
   async replaceIssueImage(event) {
@@ -697,11 +664,19 @@ Page({
 
     let result;
     try {
-      result = await wx.chooseMedia({
-        count: 1,
-        mediaType: ["image"],
-        sourceType: ["album", "camera"]
-      });
+      result = typeof wx.chooseImage === "function"
+        ? await new Promise((resolve, reject) => wx.chooseImage({
+          count: 1,
+          sizeType: ["original"],
+          sourceType: ["album", "camera"],
+          success: (value) => resolve({tempFiles:(value.tempFilePaths || []).map(tempFilePath=>({tempFilePath}))}),
+          fail: reject
+        }))
+        : await wx.chooseMedia({
+          count: 1,
+          mediaType: ["image"],
+          sourceType: ["album", "camera"]
+        });
     } catch (error) {
       if (isPrivacyScopeUndeclared(error)) {
         wx.showModal({
@@ -714,6 +689,19 @@ Page({
       if (`${(error && error.errMsg) || ""}`.toLowerCase().includes("cancel")) {
         return;
       }
+      if (isPickerPermissionDenied(error)) {
+        wx.showModal({
+          title: "无法更换照片",
+          content: "请在微信设置中允许使用相机或相册后重试；当前照片、标注和文字仍会保留。",
+          confirmText: "去设置",
+          cancelText: "保留当前照片",
+          success: (value) => {
+            if (value.confirm && typeof wx.openSetting === "function") wx.openSetting({});
+          }
+        });
+        return;
+      }
+      wx.showToast({title:"无法更换照片",icon:"none"});
       return;
     }
 
@@ -722,10 +710,21 @@ Page({
       return;
     }
 
+    let savedPath;
+    try { savedPath=await keepLocalFile(tempFile.tempFilePath); }
+    catch(e){wx.showModal({title:"照片未保存",content:e.message,showCancel:false});return;}
     this.setData({
-      [`form.issueDrafts[${index}].imagePath`]: tempFile.tempFilePath,
+      [`form.issueDrafts[${index}].imagePath`]: savedPath,
+      [`form.issueDrafts[${index}].localImagePath`]: savedPath,
+      [`form.issueDrafts[${index}].localAnnotatedImagePath`]: "",
+      [`form.issueDrafts[${index}].sourceOriginalImagePath`]: "",
+      [`form.issueDrafts[${index}].localOriginalImagePath`]: "",
+      [`form.issueDrafts[${index}].annotationStage`]: null,
+      [`form.issueDrafts[${index}].annotationDirty`]: false,
+      [`form.issueDrafts[${index}].mediaRevision`]: (this.data.form.issueDrafts[index].mediaRevision || 1)+1,
       [`form.issueDrafts[${index}].annotatedImagePath`]: "",
-      [`form.issueDrafts[${index}].annotations`]: []
+      [`form.issueDrafts[${index}].annotations`]: [],
+      [`form.issueDrafts[${index}].annotationCount`]: 0
     });
     this.persistDraft();
     wx.showToast({
@@ -760,11 +759,14 @@ Page({
     const index = Number(event.currentTarget.dataset.index);
     const issue = this.data.form.issueDrafts[index];
 
-    if (!issue || this.data.transcribingIssueId) {
+    if (!issue || issue.isTranscribing || this.data.transcribingIssueId) {
       return;
     }
 
+    this.recordCancelled=false;
+    this.recordStartY=event.touches && event.touches[0] ? event.touches[0].clientY : 0;
     this.setData({
+      recordCancelArmed:false,
       transcribingIssueId: issue.id,
       transcribeStartedAt: Date.now()
     });
@@ -780,9 +782,15 @@ Page({
       return;
     }
 
+    this.recordCancelled=!!this.data.recordCancelArmed;
     this.triggerRecordVibration();
     recorderManager.stop();
   },
+  handleRecordMove(event){
+    if(!this.data.transcribingIssueId || !event.touches?.[0])return;
+    this.setData({recordCancelArmed:this.recordStartY-event.touches[0].clientY>60});
+  },
+  handleRecordCancel(){this.recordCancelled=true;recorderManager.stop();},
   async handleIssueTranscription(issueId, tempFilePath, duration) {
     try {
       const result = await transcribeVoiceFile(tempFilePath, {
@@ -803,7 +811,8 @@ Page({
       });
 
       this.setData({
-        "form.issueDrafts": issueDrafts
+        "form.issueDrafts": issueDrafts,
+        issueDraftCount: issueDrafts.length
       });
       this.persistDraft();
       wx.showToast({
@@ -819,11 +828,13 @@ Page({
         return {
           ...item,
           isTranscribing: false,
-          voiceFilePath: tempFilePath
+          voiceFilePath: tempFilePath,
+          speechError:"转写失败：可以直接输入文字，录音已保留。"
         };
       });
       this.setData({
-        "form.issueDrafts": issueDrafts
+        "form.issueDrafts": issueDrafts,
+        issueDraftCount: issueDrafts.length
       });
       this.persistDraft();
       const speechError = formatSpeechError(error);
@@ -835,6 +846,9 @@ Page({
     }
   },
   removeIssue(event) {
+    wx.showModal({title:"删除这张照片？",content:"对应标注和问题也会从本次记录移除。",confirmText:"删除",success:r=>{if(r.confirm)this.removeIssueConfirmed(event);}});
+  },
+  removeIssueConfirmed(event) {
     const index = Number(event.currentTarget.dataset.index);
     const issueDrafts = (this.data.form.issueDrafts || []).slice();
     const issueExpandedStates = (this.data.issueExpandedStates || []).slice();
@@ -842,9 +856,16 @@ Page({
     issueExpandedStates.splice(index, 1);
     this.setData({
       "form.issueDrafts": issueDrafts,
+      issueDraftCount: issueDrafts.length,
       issueExpandedStates
     });
     this.persistDraft();
+  },
+  moveIssue(event){
+    const index=Number(event.currentTarget.dataset.index),step=Number(event.currentTarget.dataset.step),target=index+step;
+    const rows=this.data.form.issueDrafts.slice();if(target<0||target>=rows.length)return;
+    [rows[index],rows[target]]=[rows[target],rows[index]];
+    this.setData({"form.issueDrafts":rows,issueDraftCount:rows.length,issueExpandedStates:rows.map((_,i)=>i===target)});this.persistDraft();
   },
   openAnnotate(event) {
     const index = Number(event.currentTarget.dataset.index);
@@ -891,73 +912,26 @@ Page({
   },
 
   async uploadAssets() {
-    const drafts = this.data.form.issueDrafts || [];
-
-    // 并发上传，但限制同时进行的数量：
-    // 弱网下 20 张图一次性并发很容易整体超时。
-    const tasks = drafts.map((item, index) => async () => {
-      try {
-        return await this.uploadOneDraft(item, index);
-      } catch (error) {
-        // 单张失败不能拖垮整批：先标记，稍后统一重试一次
-        console.warn("[inspection-create] 附件上传失败，稍后重试", { index, error });
-        return { ...item, __uploadFailed: true };
-      }
+    const form = await uploadDraftMedia(this.data.form, async form => {
+      this.setData({form});
+      if (!this.persistDraft()) throw new Error("草稿保存失败");
     });
-
-    let issueDrafts = await runWithConcurrency(tasks, UPLOAD_CONCURRENCY);
-
-    // 对失败的做一次串行重试 —— 工地弱网多为瞬时抖动，重试一次通常就好，
-    // 不必为此打断用户。
-    const failedIndexes = issueDrafts
-      .map((item, index) => (item && item.__uploadFailed ? index : -1))
-      .filter((index) => index >= 0);
-
-    if (failedIndexes.length) {
-      for (const index of failedIndexes) {
-        try {
-          issueDrafts[index] = await this.uploadOneDraft(drafts[index], index);
-        } catch (error) {
-          console.warn("[inspection-create] 重试仍失败", { index, error });
-        }
-      }
-    }
-
-    const stillFailed = issueDrafts.filter((item) => item && item.__uploadFailed).length;
-
-    issueDrafts = issueDrafts.map((item) => {
-      if (!item || !item.__uploadFailed) {
-        return item;
-      }
-      const cleaned = { ...item };
-      delete cleaned.__uploadFailed;
-      return cleaned;
-    });
-
-    if (stillFailed) {
-      // 说清楚影响面，然后继续 —— 不带图片识别的分析仍比直接失败有用
-      wx.showModal({
-        title: "部分照片未上传成功",
-        content: `有 ${stillFailed} 张照片没能上传，这些照片本次不会参与图片识别。可以先继续，稍后在草稿里重试。`,
-        showCancel: false,
-        confirmText: "继续"
-      });
-    }
-
-    const form = {
-      ...this.data.form,
-      issueDrafts,
-      images: issueDrafts
-        .filter((item) => !hasMeaningfulVoiceText(item.voiceText))
-        .map((item) => item.imagePath)
-    };
-
-    this.setData({
-      form
-    });
-    this.persistDraft();
-
+    this.setData({form});
+    if (!this.persistDraft()) throw new Error("草稿保存失败");
     return form;
+  },
+  async handleManualReview() {
+    if (!this.data.form.projectId || !this.data.form.issueDrafts.length) {
+      wx.showToast({title:"请先选择项目并添加照片",icon:"none"}); return;
+    }
+    const cached=readDraft(this.data.sessionKey);
+    if(cached.review) {
+      wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});return;
+    }
+    const items=this.data.form.issueDrafts.flatMap((p,i)=>p.voiceText && p.voiceText.trim() ? [{
+      id:identity("issue"),sourcePhotoId:p.id,sourceIndex:i,description:p.voiceText,suggestion:"",severity:"normal",responsibleParty:"pending"
+    }]:[]);
+    await this.completeAnalyzeSuccess(this.data.form,{items,summary:"人工记录，请核对照片与说明；未记录问题不代表验收合格。",aiMode:"manual"});
   },
   clearAnalyzeTaskPolling() {
     if (this.analyzeTaskPollTimer) {
@@ -993,7 +967,7 @@ Page({
         analyzing: false,
         analyzeStageIndex: 0,
         analyzeStageText: "",
-        analyzeTaskId: ""
+        analyzeTaskId: this.data.analyzeTaskId || ""
       });
       wx.showModal({
         title: "AI 整理中断",
@@ -1019,12 +993,13 @@ Page({
 
   /** 手动中止等待。草稿已持久化，用户可以改用手动补充或重新分析 */
   handleCancelAnalyze() {
+    this.waitingForAnalysis=false;
     this.clearAnalyzeTaskPolling();
     this.setData({
       analyzing: false,
       analyzeStageIndex: 0,
       analyzeStageText: "",
-      analyzeTaskId: ""
+      analyzeTaskId: this.data.analyzeTaskId || ""
     });
     wx.showToast({
       title: "已停止等待，草稿已保留",
@@ -1033,31 +1008,21 @@ Page({
   },
 
   async completeAnalyzeSuccess(form, analysis) {
-    const draftKey = `inspection-draft-${Date.now()}`;
-    wx.setStorageSync(draftKey, {
-      form,
-      analysis,
-      sessionKey: this.data.sessionKey,
-      returnContext: this.data.returnContext || null
-    });
-    this.clearDraft();
+    this.setData({form});
+    if (!this.persistDraft()) throw new Error("草稿保存失败");
+    patchDraft(this.data.sessionKey,{phase:"review",analysis});
     this.clearAnalyzeTaskPolling();
-    this.setData({
-      analyzing: false,
-      analyzeStageIndex: 0,
-      analyzeStageText: "",
-      analyzeTaskId: ""
-    });
-    wx.navigateTo({
-      url: `/pages/inspection/result/index?draftKey=${draftKey}`
-    });
+    this.setData({analyzing:false,analyzeStageIndex:0,analyzeStageText:""});
+    wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});
   },
   async pollAnalyzeTaskStatus() {
     if (!this.data.analyzeTaskId) {
       this.clearAnalyzeTaskPolling();
       return "idle";
     }
-    const result = await getInspectionTaskStatus(this.data.analyzeTaskId);
+    const result = await getInspectionTaskStatus(this.data.analyzeTaskId, true);
+    if(!this.waitingForAnalysis)return "paused";
+    if(this.pendingInputVersion!==readDraft(this.data.sessionKey).inputVersion){this.setData({analyzing:false});return "stale";}
     // 成功拿到一次状态就清零失败计数，避免历史上抖动的次数累积
     this.analyzePollFailureCount = 0;
     const totalBatches = result.totalBatches || 0;
@@ -1076,7 +1041,7 @@ Page({
         analyzing: false,
         analyzeStageIndex: 0,
         analyzeStageText: "",
-        analyzeTaskId: ""
+        analyzeTaskId: this.data.analyzeTaskId || ""
       });
       wx.showToast({
         title: result.errorMessage || "AI 分析失败",
@@ -1094,6 +1059,9 @@ Page({
     return result.status || "running";
   },
   async handleAnalyze() {
+    if(this.data.analyzing)return;
+    const stored=readDraft(this.data.sessionKey);
+    if(stored.review){this.handleManualReview();return;}
     // 分开校验，并给出对得上的提示。
     //
     // 原实现是 if (!projectId || !issueDrafts.length) 后统一提示
@@ -1145,6 +1113,8 @@ Page({
       return;
     }
 
+    this.waitingForAnalysis=true;
+    this.pendingInputVersion=stored.inputVersion;
     this.setData({
       analyzing: true,
       analyzeStageIndex: 1,
@@ -1154,15 +1124,20 @@ Page({
 
     try {
       const form = await this.uploadAssets();
+      const saved = readDraft(this.data.sessionKey);
+      if(saved.taskId){ this.setData({analyzeTaskId:saved.taskId}); this.pendingAnalyzeForm=form; const status=await this.pollAnalyzeTaskStatus(); keepAnalyzing=status!=="success" && status!=="failed"; return; }
       const imageRecognitionDraftCount = countImageRecognitionDrafts(form.issueDrafts || []);
       const analyzeStageLabel = imageRecognitionDraftCount > 0 ? "正在分析图片和语音内容" : "正在分析语音转写内容";
-      if (imageRecognitionDraftCount > ASYNC_ANALYZE_THRESHOLD) {
+      if (form.issueDrafts.length > 0) {
         this.pendingAnalyzeForm = form;
         this.setData({
           analyzeStageIndex: 2,
           analyzeStageText: "正在提交 AI 分析任务"
         });
-        const task = await createInspectionTask(form);
+        const requestId = saved.analysisRequestId || identity("analysis");
+        patchDraft(this.data.sessionKey,{analysisRequestId:requestId,phase:"analyzing"});
+        const task = await createInspectionTask({...form,requestId,inputVersion:saved.inputVersion || 1});
+        patchDraft(this.data.sessionKey,{taskId:task.taskId,phase:"analyzing"});
         this.setData({
           analyzeTaskId: task.taskId || "",
           analyzeStageText: task.totalBatches
@@ -1200,7 +1175,7 @@ Page({
           analyzing: false,
           analyzeStageIndex: 0,
           analyzeStageText: "",
-          analyzeTaskId: ""
+          analyzeTaskId: this.data.analyzeTaskId || ""
         });
       }
     }

@@ -1,4 +1,5 @@
 const { getWindowInfo } = require("../../utils/system");
+const { registerPrivacyHost } = require("../../utils/privacy");
 
 Component({
   properties: {
@@ -7,6 +8,10 @@ Component({
       value: ""
     },
     showBack: {
+      type: Boolean,
+      value: false
+    },
+    brandTitle: {
       type: Boolean,
       value: false
     },
@@ -35,9 +40,17 @@ Component({
   lifetimes: {
     attached() {
       this.computeMetrics();
-    }
+      this.privacyActive=true;
+      this.unregisterPrivacy=registerPrivacyHost(this);
+    },
+    detached(){this.rejectPrivacy();if(this.unregisterPrivacy)this.unregisterPrivacy();}
   },
+  pageLifetimes:{show(){this.privacyActive=true;},hide(){this.privacyActive=false;this.rejectPrivacy();}},
   methods: {
+    requestPrivacy(resolve){this.privacyResolvers=this.privacyResolvers||[];this.privacyResolvers.push(resolve);this.setData({privacyVisible:true});},
+    agreePrivacy(){const callbacks=this.privacyResolvers||[];this.privacyResolvers=[];this.setData({privacyVisible:false});callbacks.forEach(resolve=>resolve({event:"agree",buttonId:"haoli-privacy-agree"}));},
+    rejectPrivacy(){const callbacks=this.privacyResolvers||[];this.privacyResolvers=[];this.setData({privacyVisible:false});callbacks.forEach(resolve=>resolve({event:"disagree"}));},
+    openPrivacy(){if(wx.openPrivacyContract)wx.openPrivacyContract({fail:()=>wx.navigateTo({url:"/pages/legal/index"})});else wx.navigateTo({url:"/pages/legal/index"});},
     computeMetrics() {
       try {
         const systemInfo = getWindowInfo();
@@ -79,7 +92,7 @@ Component({
         wx.navigateBack({
           delta: 1
         });
-      }
+      } else wx.switchTab({url:"/pages/project/list/index"});
     }
   }
 });

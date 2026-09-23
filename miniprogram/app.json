@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/project/list/index",
+    "pages/welcome/index",
     "pages/onboarding/index",
     "pages/legal/index",
     "pages/inspection/create/index",
@@ -17,36 +18,36 @@
     "pages/settings/index"
   ],
   "window": {
-    "backgroundColor": "#F5F5F5",
+    "backgroundColor": "#E9E4DD",
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarBackgroundColor": "#E9E4DD",
     "navigationBarTitleText": "毫厘智管",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
     "custom": true,
-    "color": "#999999",
-    "selectedColor": "#2563EB",
-    "backgroundColor": "#FFFFFF",
-    "borderStyle": "white",
+    "color": "#706D67",
+    "selectedColor": "#191816",
+    "backgroundColor": "#E9E4DD",
+    "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/project/list/index",
         "text": "项目",
-        "iconPath": "images/icons/business.png",
-        "selectedIconPath": "images/icons/business-active.png"
+        "iconPath": "images/icons/icon-tab-project.png",
+        "selectedIconPath": "images/icons/icon-tab-project-active.png"
       },
       {
         "pagePath": "pages/report/list/index",
         "text": "报告",
-        "iconPath": "images/icons/examples.png",
-        "selectedIconPath": "images/icons/examples-active.png"
+        "iconPath": "images/icons/icon-tab-report.png",
+        "selectedIconPath": "images/icons/icon-tab-report-active.png"
       },
       {
         "pagePath": "pages/profile/index",
         "text": "我的",
-        "iconPath": "images/icons/usercenter.png",
-        "selectedIconPath": "images/icons/usercenter-active.png"
+        "iconPath": "images/icons/icon-tab-profile.png",
+        "selectedIconPath": "images/icons/icon-tab-profile-active.png"
       }
     ]
   },

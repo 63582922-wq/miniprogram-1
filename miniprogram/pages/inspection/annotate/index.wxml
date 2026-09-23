@@ -1,11 +1,7 @@
 <view class="page annotate-page">
-  <page-nav-bar title="照片标注" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-  <view class="annotate-hint">框选和箭头请按住拖动，文字直接点一下图片即可。</view>
-
-  <annotation-canvas image-url="{{imagePath}}" value="{{annotations}}" bindchange="handleAnnotationChange" bindstagechange="handleStageChange" />
-  <canvas type="2d" id="exportCanvas" canvas-id="exportCanvas" class="export-canvas"></canvas>
-
-  <view class="footer-actions">
-    <button class="primary-button" bindtap="handleSave">保存标注并返回</button>
-  </view>
+ <page-nav-bar title="精准标注" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap"/>
+ <view wx:if="{{storageError}}" class="precision-state">{{storageError}}</view>
+ <annotation-canvas id="annotationEditor" image-url="{{imagePath}}" value="{{annotations}}" legacy-stage="{{annotationStage}}" bindchange="handleAnnotationChange" bindstagechange="handleStageChange" bindnormalized="handleNormalized" bindready="handleEditorReady" binderror="handleEditorError"/>
+ <view wx:if="{{editorError}}" class="precision-state">{{editorError}}</view>
+ <view class="footer-actions"><button class="primary-button" loading="{{saving}}" disabled="{{saving || !editorReady}}" bindtap="handleSave">{{editorReady ? '保存标注并返回' : '照片加载中…'}}</button></view>
 </view>

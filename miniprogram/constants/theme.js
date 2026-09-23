@@ -1,62 +1,60 @@
 /**
- * Design Tokens - Hybrid Theme
- * Light background + Industrial data layout + numbering system
- *
- * Inspired by: Teenage Engineering (precision), Things 3 (calm),
- *              Hasselblad (industrial trust)
+ * Legacy JavaScript token aliases.
+ * Keep these aligned with styles/precision-a.wxss so older code cannot
+ * reintroduce the retired dark-green / blue-gray theme.
  */
 
 module.exports = {
   // === COLORS ===
   color: {
     // Brand
-    primary: '#1A1A2E',      // Deep ink - main text, primary buttons
-    accent: '#E85D04',       // Safety orange - CTAs, urgent states
-    accentSoft: '#FFF0E6',   // Orange tint background
+    primary: '#191816',
+    accent: '#DE6E3F',
+    accentSoft: '#F4DED2',
 
     // Neutrals (warm gray scale)
     text: {
-      primary: '#1A1A2E',
-      secondary: '#5C5C6F',
-      tertiary: '#9494A3',
-      inverse: '#FAFAFA',
+      primary: '#191816',
+      secondary: '#706D67',
+      tertiary: '#9A958C',
+      inverse: '#E9E4DD',
     },
 
     bg: {
-      page: '#F5F4F1',        // Warm off-white
-      card: '#FFFFFF',
-      elevated: '#FFFFFF',
-      sunken: '#ECEAE6',      // Slightly darker for insets
-      dark: '#1A1A2E',        // For contrast sections
+      page: '#E9E4DD',
+      card: '#E9E4DD',
+      elevated: '#F2EEE8',
+      sunken: '#E2DCD3',
+      dark: '#171717',
     },
 
     border: {
-      default: '#E4E2DE',
-      light: '#F0EEEA',
-      strong: '#D1CEC8',
+      default: '#C9C1B7',
+      light: '#DDD6CC',
+      strong: '#BBB1A4',
     },
 
     // Status
     status: {
-      urgent: '#E85D04',
-      urgentBg: '#FFF4EC',
-      active: '#1A8754',
-      activeBg: '#EEFBF3',
-      warning: '#D4940A',
-      warningBg: '#FFFBEB',
-      idle: '#9494A3',
-      idleBg: '#F5F4F1',
-      complete: '#5C5C6F',
-      completeBg: '#F0EEEA',
+      urgent: '#A93E2E',
+      urgentBg: '#F2DDD8',
+      active: '#191816',
+      activeBg: '#E2DCD3',
+      warning: '#946022',
+      warningBg: '#F1E5D4',
+      idle: '#9A958C',
+      idleBg: '#E2DCD3',
+      complete: '#706D67',
+      completeBg: '#DDD6CC',
     },
   },
 
   // === TYPOGRAPHY ===
   font: {
     family: {
-      sans: '-apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif',
+      sans: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif',
       mono: '"SF Mono", "JetBrains Mono", "Menlo", monospace',
-      display: '-apple-system, "SF Pro Display", "PingFang SC", sans-serif',
+      display: '"STSongti-SC-Regular", "Songti SC", "STSong", "Source Han Serif SC", "Noto Serif CJK SC", "SimSun", serif',
     },
     size: {
       '2xs': '20rpx',    // 10px - micro labels
@@ -109,10 +107,10 @@ module.exports = {
 
   // === SHADOWS ===
   shadow: {
-    sm: '0 1rpx 4rpx rgba(26,26,46,.04)',
-    base: '0 2rpx 12rpx rgba(26,26,46,.06)',
-    md: '0 4rpx 20rpx rgba(26,26,46,.08)',
-    lg: '0 8rpx 32rpx rgba(26,26,46,.12)',
-    fab: '0 6rpx 20rpx rgba(232,93,4,.25)',
+    sm: '0 1rpx 4rpx rgba(25,24,22,.04)',
+    base: '0 2rpx 12rpx rgba(25,24,22,.06)',
+    md: '0 4rpx 20rpx rgba(25,24,22,.08)',
+    lg: '0 8rpx 32rpx rgba(25,24,22,.12)',
+    fab: '0 6rpx 20rpx rgba(225,93,58,.25)',
   },
 };

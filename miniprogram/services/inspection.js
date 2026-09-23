@@ -46,9 +46,9 @@ function createInspectionTask(payload) {
   }, AI_CALL_OPTIONS);
 }
 
-function getInspectionTaskStatus(taskId) {
+function getInspectionTaskStatus(taskId, advance = false) {
   return callCloud("ai", {
-    action: "getInspectionTaskStatus",
+    action: advance ? "advanceInspectionTask" : "readInspectionTaskStatus",
     payload: { taskId }
   }, AI_CALL_OPTIONS);
 }

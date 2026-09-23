@@ -1,16 +1,30 @@
 <view class="page profile-page">
-  <page-nav-bar title="我的" />
-  <view class="card profile-card">
-    <image class="profile-avatar" src="{{displayUserInfo.avatarUrl}}" mode="aspectFill" />
-    <view class="profile-name">{{displayUserInfo.nickname}}</view>
-    <view class="section-subtitle">{{profileSubtitle}}</view>
+  <page-nav-bar title="" />
+  <product-identity />
+  <view class="root-section-label">账户与报告资料</view>
+  <view wx:if="{{loading}}" class="profile-loading" aria-label="正在确认身份与报告资料">
+    <view class="profile-loading__identity"><view class="profile-loading__avatar"></view><view class="profile-loading__copy"><view class="profile-loading__line profile-loading__line--short"></view><view class="profile-loading__line"></view><view class="profile-loading__line profile-loading__line--medium"></view></view></view>
+    <view class="profile-loading__label">正在确认身份与报告资料…</view>
+    <view class="profile-loading__row"></view><view class="profile-loading__row"></view><view class="profile-loading__row"></view>
   </view>
-
-  <view class="card settings-entry" bindtap="goSettings">
-    <view>
-      <view class="section-title">我的设置</view>
-    </view>
-    <view class="settings-entry__arrow">›</view>
-  </view>
-  <app-tab-bar />
+  <view wx:elif="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="loadUser">重试加载</button></view>
+  <block wx:else>
+    <button class="identity-card" bindtap="goSettings" data-section="inspector" hover-class="is-pressed">
+      <image wx:if="{{displayUserInfo.avatarUrl}}" class="profile-avatar" src="{{displayUserInfo.avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="profile-avatar profile-avatar--empty">我</view>
+      <view class="identity-card__copy"><view class="identity-status">微信身份已就绪</view><view class="profile-name">{{displayUserInfo.nickname || '填写巡查人姓名'}}</view><view class="section-subtitle">{{displayUserInfo.phone || '添加巡查联系电话'}}</view></view>
+      <image class="profile-chevron" src="/images/icons/icon-arrow-right.svg" />
+    </button>
+    <view class="profile-section-label">报告抬头</view>
+    <button class="company-card" bindtap="goSettings" data-section="company" hover-class="is-pressed">
+      <image wx:if="{{company.logoFileId}}" class="company-logo" src="{{company.logoFileId}}" mode="aspectFit" />
+      <view wx:else class="company-logo company-logo--empty">LOGO</view>
+      <view class="company-card__copy"><view class="section-title">{{company.companyName || '填写公司名称'}}</view><view class="section-subtitle">{{company.companyPhone || '添加公司联系电话'}}</view><view wx:if="{{company.companyAddress}}" class="section-subtitle">{{company.companyAddress}}</view><view class="company-card__status">{{identity.completeCount}} / 4 已完善 · {{company.logoFileId ? 'LOGO 已上传' : '添加公司 LOGO'}}</view></view>
+      <image class="profile-chevron" src="/images/icons/icon-arrow-right.svg" />
+    </button>
+    <view class="profile-note">{{completionText}}。资料会写入新报告；已发布报告不会被改写。</view>
+    <view class="profile-section-label">使用与设置</view>
+    <button class="profile-row" bindtap="openGuide"><text>使用说明</text><image class="profile-row__chevron" src="/images/icons/icon-arrow-right.svg" /></button>
+    <button class="profile-row" bindtap="openLegal"><text>隐私与服务说明</text><image class="profile-row__chevron" src="/images/icons/icon-arrow-right.svg" /></button>
+  </block>
 </view>

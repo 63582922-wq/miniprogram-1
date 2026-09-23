@@ -1,6 +1,1 @@
-.inspection-detail-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18rpx;
-  padding-bottom: 180rpx;
-}
+.inspection-detail-page{display:flex;flex-direction:column;gap:0;padding-bottom:180rpx}.inspection-detail__head{padding:28rpx 0 24rpx;border-bottom:1px solid var(--a-line)}

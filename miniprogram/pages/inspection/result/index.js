@@ -1,265 +1,113 @@
 const { confirmInspection } = require("../../../services/inspection");
-const { uploadUserFile } = require("../../../services/cloud");
+const { buildReportData, saveReport } = require("../../../services/report");
+const { readDraft, patchDraft, writeDraft, finishDraft } = require("../../../utils/inspection-draft");
+const { identity, bindIssues, resolveIssueMedia } = require("../../../utils/inspection-model");
+const { uploadDraftMedia } = require("../../../services/inspection-media");
 const { encodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
-// 「问题 一 / 二 / 三」编号与报告页、PDF 模板共用同一实现，不再各写一份
 const { toChineseSectionNumber } = require("../../../utils/format");
+const { getSettings } = require("../../../services/settings");
+const { getCurrentUser } = require("../../../services/user");
 
-function getPrimaryIssueImage(item = {}) {
-  return (item.annotatedImages && item.annotatedImages[0]) || (item.images && item.images[0]) || "";
-}
-
-function buildIssueGroups(issues = []) {
-  const groups = [];
+function buildIssueGroups(issues = [], photos = []) {
   const map = new Map();
-
-  issues.forEach((item, index) => {
-    const primaryImage = getPrimaryIssueImage(item);
-    const key = primaryImage || `source-${item.sourceIndex ?? index}`;
-    if (!map.has(key)) {
-      const group = {
-        key,
-        sourceIndex: item.sourceIndex ?? index,
-        image: primaryImage,
-        issues: []
-      };
-      map.set(key, group);
-      groups.push(group);
-    }
-    map.get(key).issues.push(Object.assign({}, item, {
-      originalIndex: index
-    }));
+  photos.forEach((p,i)=>map.set(p.id,{key:p.id,sourceIndex:i,image:p.annotatedImagePath||p.imagePath,caption:p.voiceText||"",issues:[]}));
+  issues.forEach((item,index)=>{
+    const image=(item.annotatedImages||[])[0] || (item.images||[])[0] || "";
+    const key=item.sourcePhotoId || image || "legacy-"+(item.sourceIndex ?? index);
+    if(!map.has(key))map.set(key,{key,sourceIndex:item.sourceIndex??index,image,issues:[]});
+    map.get(key).issues.push({...item,originalIndex:index});
   });
-
-  groups.sort((left, right) => (left.sourceIndex ?? 0) - (right.sourceIndex ?? 0));
-  groups.forEach((group, index) => {
-    group.issues.sort((left, right) => (left.subIssueIndex || 1) - (right.subIssueIndex || 1));
-    group.displayTitle = `问题 ${toChineseSectionNumber(index + 1)}`;
-  });
-  return groups;
-}
-
-function cloneIssues(issues = []) {
-  return JSON.parse(JSON.stringify(issues || []));
-}
-
-async function uploadPendingIssueAssets(form = {}) {
-  const issueDrafts = await Promise.all(((form.issueDrafts) || []).map(async (item, index) => {
-    const imagePath = item.imagePath && !item.imagePath.startsWith("cloud://")
-      ? await uploadUserFile(item.imagePath, "inspection-images", `${index}.png`)
-      : (item.imagePath || "");
-    const annotatedImagePath = item.annotatedImagePath && !item.annotatedImagePath.startsWith("cloud://")
-      ? await uploadUserFile(item.annotatedImagePath, "inspection-annotated-images", `${index}.png`)
-      : (item.annotatedImagePath || "");
-    let voiceStorageFileId = item.voiceStorageFileId || item.voiceFileId || "";
-    if (item.voiceFilePath && !item.voiceFilePath.startsWith("cloud://") && !voiceStorageFileId) {
-      voiceStorageFileId = await uploadUserFile(item.voiceFilePath, "inspection-audio", `${index}.mp3`);
-    }
-    return {
-      ...item,
-      imagePath,
-      annotatedImagePath,
-      voiceStorageFileId,
-      voiceFileId: voiceStorageFileId
-    };
+  return [...map.values()].sort((a,b)=>a.sourceIndex-b.sourceIndex).map((g,i)=>({
+    ...g,
+    displayTitle:(g.issues.length ? "问题 " : "现场照片 ")+toChineseSectionNumber(i+1)
   }));
-
-  return {
-    ...form,
-    issueDrafts,
-    images: issueDrafts.map((item) => item.imagePath).filter(Boolean)
-  };
 }
-
 Page({
-  data: {
-    draftKey: "",
-    sessionKey: "",
-    returnContext: null,
-    form: null,
-    originalIssues: [],
-    issues: [],
-    issueGroups: [],
-    summary: {
-      projectName: "",
-      title: "",
-      contextNote: "",
-      aiSummary: "",
-      issueCount: 0,
-      aiMode: "",
-      memoryHint: "",
-      memoryAlerts: []
-    },
-    submitting: false
+  async onShow(){
+    try{const [company,user]=await Promise.all([getSettings(),getCurrentUser()]);this.setData({reportIdentity:{companyName:company&&company.companyName||"",logoFileId:company&&company.logoFileId||"",inspectorName:user&&user.nickname||"",inspectorPhone:user&&user.phone||""},identityError:""});}
+    catch(e){this.setData({identityError:"报告资料暂未加载，可重试或前往我的资料查看"});}
   },
+  editReportIdentity(){wx.navigateTo({url:"/pages/settings/index"});},
+  data:{summaryEdited:false,summaryEditing:false,captionEditingIndex:-1,draftKey:"",sessionKey:"",returnContext:null,form:null,originalIssues:[],issues:[],issueGroups:[],summary:{},submitting:false,submissionLocked:false},
   onLoad(query) {
-    const draft = wx.getStorageSync(query.draftKey) || {};
-    const form = draft.form || {};
-    const issues = cloneIssues(draft.analysis.items || []);
-    const aiSummary = draft.analysis.summary || "";
-    this.setData({
-      draftKey: query.draftKey,
-      sessionKey: draft.sessionKey || "",
-      returnContext: draft.returnContext || null,
-      form,
-      originalIssues: cloneIssues(issues),
-      issues,
-      issueGroups: buildIssueGroups(issues),
-      summary: {
-        projectName: form.projectName || "未命名项目",
-        title: form.title || "本次巡查",
-        contextNote: form.note || "",
-        aiSummary,
-        issueCount: issues.length,
-        aiMode: draft.analysis.aiMode || "",
-        memoryHint: draft.analysis.memoryHint || "",
-        memoryAlerts: draft.analysis.memoryAlerts || []
-      }
-    });
+    const key=query.sessionKey || query.draftKey, draft=readDraft(key);
+    if(!draft.form){wx.showModal({title:"记录不存在",content:"请返回现场记录恢复草稿",showCancel:false});return;}
+    const form=draft.form, analysis=draft.analysis || {};
+    const issues=bindIssues(draft.review ? draft.review.items : (analysis.items || []),form.issueDrafts || []);
+    this.setData({summaryEdited:!!draft.review?.summaryEdited,submissionLocked:!!draft.submission?.requestId,draftKey:key,sessionKey:draft.sessionId || draft.sessionKey || key,returnContext:draft.returnContext || null,form,
+      originalIssues:draft.review ? draft.review.originalItems : JSON.parse(JSON.stringify(issues)),issues,
+      issueGroups:buildIssueGroups(issues,form.issueDrafts),
+      summary:{projectName:form.projectName||"未命名项目",title:form.title||"本次巡查",contextNote:form.note||"",aiSummary:draft.review?.summary || `本次记录 ${(form.issueDrafts||[]).length} 张照片，确认 ${issues.length} 条问题。`,issueCount:issues.length,aiMode:analysis.aiMode||"",memoryHint:analysis.memoryHint||"",memoryAlerts:analysis.memoryAlerts||[]}});
+    this.persistReview();
   },
-  handleBackTap() {
-    if (this.data.sessionKey) {
-      wx.navigateBack({
-        delta: 1
-      });
-      return;
-    }
-    returnToContext(this.data.returnContext);
-  },
-  handleHomeTap() {
-    wx.showModal({
-      title: "返回首页",
-      content: "当前结果页的未提交修改不会保存，确认回首页吗？",
-      success: (result) => {
-        if (!result.confirm) {
-          return;
-        }
-        wx.switchTab({
-          url: "/pages/project/list/index"
-        });
-      }
-    });
-  },
-  handleItemChange(event) {
-    const { index, field, value } = event.detail;
-    const issues = (this.data.issues || []).slice();
-    issues[index][field] = value;
-    this.setData({
-      issues,
-      issueGroups: buildIssueGroups(issues)
-    });
-  },
-
-  /**
-   * 删除误报。
-   *
-   * AI 难免有识别不准的条目（比如把反光当裂缝），必须有办法去掉，
-   * 否则用户只能带着错的问题去提交巡查。
-   *
-   * 注意 issues 与 originalIssues 是平行数组（后者是 AI 原始输出，
-   * 提交时按索引回填 aiRawResult 供后续学习修正习惯）。只删前者会让
-   * 两者错位、把别人的 AI 结果挂到这条问题上，所以必须同步删。
-   */
-  handleDeleteIssue(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    const issues = (this.data.issues || []).slice();
-
-    if (!Number.isInteger(index) || index < 0 || index >= issues.length) {
-      return;
-    }
-
-    const target = issues[index] || {};
-    const preview = `${target.description || ""}`.trim().slice(0, 30);
-
-    wx.showModal({
-      title: "删除这条问题？",
-      content: preview || "该问题将从本次巡查中移除。",
-      confirmText: "删除",
-      confirmColor: "#B3402E",
-      cancelText: "取消",
-      success: (res) => {
-        if (!res.confirm) {
-          return;
-        }
-
-        const nextIssues = issues.filter((_, i) => i !== index);
-        const nextOriginals = (this.data.originalIssues || []).filter((_, i) => i !== index);
-
-        this.setData({
-          issues: nextIssues,
-          originalIssues: nextOriginals,
-          issueGroups: buildIssueGroups(nextIssues),
-          "summary.issueCount": nextIssues.length
-        });
-
-        wx.showToast({
-          title: "已删除",
-          icon: "none"
-        });
-      }
-    });
-  },
-
-  /**
-   * 一键全部通过并提交。
-   *
-   * AI 整理出的问题多数是准确的，逐条确认要点几十次；而现场是单手操作、
-   * 人还在走动。这里给一条快速路径 —— 只有发现误报时才需要动手
-   * （上方清单可以删除或直接修改）。
-   */
-  handleAcceptAllAndSubmit() {
-    if (!(this.data.issues || []).length) {
-      wx.showModal({
-        title: "没有可提交的问题",
-        content: "本次没有识别出问题项。可以返回上一步补充照片或语音说明。",
-        showCancel: false,
-        confirmText: "知道了"
-      });
-      return;
-    }
-    this.handleSubmit();
-  },
-
-  async handleSubmit() {
-    // 防重复提交：连点两次会创建两条巡查
-    if (this.data.submitting) {
-      return;
-    }
-    this.setData({ submitting: true });
-
-    wx.showLoading({
-      title: "提交中",
-      mask: true
-    });
-
+  onHide(){if(!this.published)this.persistReview();},
+  onUnload(){if(!this.published)this.persistReview();},
+  persistReview(){
+    if(!this.data.form || !this.data.sessionKey)return false;
     try {
-      const uploadedForm = await uploadPendingIssueAssets(this.data.form || {});
-      const result = await confirmInspection({
-        form: Object.assign({}, uploadedForm, {
-          aiSummary: this.data.summary.aiSummary
-        }),
-        items: this.data.issues,
-        originalItems: this.data.originalIssues
-      });
-      markGuideStep("inspectionSubmitted", true);
-
-      wx.removeStorageSync(this.data.draftKey);
-      const returnContextQuery = encodeReturnContext(this.data.returnContext);
-      wx.redirectTo({
-        url: `/pages/inspection/detail/index?inspectionId=${result.inspectionId}${returnContextQuery ? `&returnContext=${returnContextQuery}` : ""}`
-      });
-    } catch (error) {
-      wx.hideLoading();
-      console.error("[inspection-result] submit failed", error);
-      wx.showModal({
-        title: "提交失败",
-        content: (error && error.message) || "请检查网络后重试，草稿已保留。",
-        showCancel: false,
-        confirmText: "知道了"
-      });
-    } finally {
-      wx.hideLoading();
-      this.setData({ submitting: false });
-    }
+      writeDraft(this.data.sessionKey,this.data.form,this.data.returnContext);
+      patchDraft(this.data.sessionKey,{phase:this.data.submitting?"submitting":"review",review:{items:this.data.issues,originalItems:this.data.originalIssues,summary:this.data.summary.aiSummary,summaryEdited:this.data.summaryEdited}});
+      return true;
+    }catch(e){wx.showModal({title:"草稿保存失败",content:e.message||"请勿关闭，释放存储后重试",showCancel:false});return false;}
+  },
+  handleBackTap(){if(!this.persistReview())return;wx.navigateBack({delta:1,fail:()=>returnToContext(this.data.returnContext)});},
+  handleHomeTap(){if(this.persistReview())wx.switchTab({url:"/pages/project/list/index"});},
+  toggleSummaryEditing(){
+    if(this.data.submissionLocked)return;
+    const closing=this.data.summaryEditing;
+    this.setData({summaryEditing:!closing});
+    if(closing)this.persistReview();
+  },
+  toggleCaptionEditing(e){
+    if(this.data.submissionLocked)return;
+    const index=Number(e.currentTarget.dataset.index), closing=this.data.captionEditingIndex===index;
+    this.setData({captionEditingIndex:closing?-1:index});
+    if(closing)this.persistReview();
+  },
+  handleCaptionInput(e){if(this.data.submissionLocked)return;const index=Number(e.currentTarget.dataset.index);if(!this.data.form.issueDrafts[index])return;this.setData({[`form.issueDrafts.${index}.voiceText`]:e.detail.value});this.setData({issueGroups:buildIssueGroups(this.data.issues,this.data.form.issueDrafts)});this.persistReview();},
+  handleSummaryInput(e){if(this.data.submissionLocked)return;this.setData({"summary.aiSummary":e.detail.value,summaryEdited:true});this.persistReview();},
+  updateIssues(issues){if(!this.data.summaryEdited)this.setData({"summary.aiSummary":`本次记录 ${this.data.form.issueDrafts.length} 张照片，确认 ${issues.length} 条问题。`});this.setData({issues,issueGroups:buildIssueGroups(issues,this.data.form.issueDrafts),"summary.issueCount":issues.length});this.persistReview();},
+  handleItemChange(event){
+    if(this.data.submissionLocked){wx.showToast({title:"请继续完成同一次提交",icon:"none"});return;}
+    const {index,field,value}=event.detail;
+    if(!["description","suggestion","severity","responsibleParty","category","area"].includes(field)||!this.data.issues[index])return;
+    this.updateIssues(this.data.issues.map((p,i)=>i===index?{...p,[field]:value}:p));
+  },
+  handleAddIssue(event){
+    if(this.data.submissionLocked)return;
+    const photos=this.data.form.issueDrafts || [], index=Number(event.currentTarget.dataset.index || 0),p=photos[index];
+    if(p)this.updateIssues(this.data.issues.concat({id:identity("issue"),sourcePhotoId:p.id,sourceIndex:index,description:"",suggestion:"",severity:"normal",responsibleParty:"pending"}));
+  },
+  handleDeleteIssue(event){
+    if(this.data.submissionLocked)return;
+    const index=Number(event.currentTarget.dataset.index),target=this.data.issues[index];if(!target)return;
+    wx.showModal({title:"删除这条问题？",content:"照片仍保留为现场记录。",confirmText:"删除",confirmColor:"#C13D2A",success:r=>{
+      if(r.confirm)this.updateIssues(this.data.issues.filter((_,i)=>i!==index));
+    }});
+  },
+  handleAcceptAllAndSubmit(){return this.handleSubmit();},
+  async handleSubmit(){
+    if(this.data.submitting || !this.data.form)return;
+    if(this.data.issues.some(i=>!(i.description||"").trim())){wx.showToast({title:"请填写问题描述，或删除空白问题",icon:"none"});return;}
+    if(!this.persistReview())return;
+    this.setData({submitting:true});wx.showLoading({title:"保存记录",mask:true});
+    try{
+      const form=await uploadDraftMedia(this.data.form,async form=>{this.setData({form});if(!this.persistReview())throw new Error("草稿保存失败");});
+      this.setData({form});if(!this.persistReview())throw new Error("草稿保存失败");
+      const draft=readDraft(this.data.sessionKey),requestId=draft.submission?.requestId || identity("submit");
+      patchDraft(this.data.sessionKey,{submission:{...draft.submission,requestId},phase:"submitting"});
+      this.setData({submissionLocked:true});
+      const result=draft.submission?.inspectionId?{inspectionId:draft.submission.inspectionId}:await confirmInspection({requestId,form:{...form,aiSummary:this.data.summary.aiSummary},items:resolveIssueMedia(this.data.issues,form.issueDrafts),originalItems:this.data.originalIssues});
+      patchDraft(this.data.sessionKey,{submission:{requestId,inspectionId:result.inspectionId},phase:"submitting"});
+      const reportData=await buildReportData({inspectionId:result.inspectionId});
+      const report=await saveReport({...reportData,requestId:"report-"+result.inspectionId,status:"published"});
+      if(!report || !report._id)throw new Error("报告保存未确认，请重试；巡查不会重复创建");
+      markGuideStep("inspectionSubmitted",true);this.published=true;finishDraft(this.data.sessionKey);
+      if(this.data.draftKey!==this.data.sessionKey)wx.removeStorageSync(this.data.draftKey);
+      const context=encodeReturnContext(this.data.returnContext);
+      wx.redirectTo({url:"/pages/report/detail/index?reportId="+report._id+(context?"&returnContext="+context:"")});
+    }catch(e){wx.showModal({title:"尚未完成交付",content:(e.message||"请检查网络")+"\n输入已保留，重试继续同一份记录。",showCancel:false});}
+    finally{wx.hideLoading();this.setData({submitting:false});}
   }
 });

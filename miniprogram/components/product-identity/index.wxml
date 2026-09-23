@@ -1,0 +1,7 @@
+<view class="product-identity">
+  <image class="product-identity__mark" src="/images/brand/haoli-symbol-v8.png" mode="aspectFit" />
+  <view class="product-identity__copy">
+    <view class="product-identity__name">毫厘智管</view>
+    <view class="product-identity__desc">现场记录 · 精准标注 · 清楚交付</view>
+  </view>
+</view>

@@ -1,0 +1,30 @@
+{
+  "checks": [
+    {
+      "name": "logo-upload-persisted-immediately",
+      "passed": true,
+      "logoFileId": "cloud://cloud1-d4ge4gu1le8fe61d3.636c-cloud1-d4ge4gu1le8fe61d3-1418260520/logos/user/olWBT3W0g6NRhnB-nfQXmy0_lDUE/1790114846657-logo.png"
+    },
+    {
+      "name": "settings-reopen-restores-company-logo-and-inspector",
+      "passed": true
+    },
+    {
+      "name": "new-report-freezes-company-logo-inspector-and-phone",
+      "passed": true,
+      "reportId": "report-d2586eff1a1bfc9bfb2ed448c42f7c216794bc1d",
+      "inspectionId": "inspection-2c227588bcf318a21eb54ee060ef8f0a8029d229",
+      "photoId": "qa-company-photo-1790114858628"
+    },
+    {
+      "name": "formal-report-page-reopens-frozen-identity",
+      "passed": true
+    }
+  ],
+  "cleanup": {
+    "inspection": true,
+    "logo": true,
+    "settings": true,
+    "profile": true
+  }
+}

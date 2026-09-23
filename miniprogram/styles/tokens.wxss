@@ -1,43 +1,44 @@
 /**
  * tokens.wxss
- * Global CSS custom properties - single source of truth for all styles
- * Hybrid theme: Light + Industrial data layout
+ * Legacy aliases retained for older components.
+ * New work must use precision-a.wxss. Values mirror the approved warm-paper
+ * system so an old component cannot reintroduce a second visual theme.
  */
 
 page {
   /* === Colors === */
-  --color-primary: #1A1A2E;
-  --color-accent: #E85D04;
-  --color-accent-soft: #FFF0E6;
+  --color-primary: #191816;
+  --color-accent: #DE6E3F;
+  --color-accent-soft: #F4DED2;
 
-  --color-text: #1A1A2E;
-  --color-text-secondary: #5C5C6F;
-  --color-text-tertiary: #9494A3;
-  --color-text-inverse: #FAFAFA;
+  --color-text: #191816;
+  --color-text-secondary: #706D67;
+  --color-text-tertiary: #9A958C;
+  --color-text-inverse: #E9E4DD;
 
-  --color-bg: #F5F4F1;
-  --color-bg-card: #FFFFFF;
-  --color-bg-elevated: #FFFFFF;
-  --color-bg-sunken: #ECEAE6;
-  --color-bg-dark: #1A1A2E;
+  --color-bg: #E9E4DD;
+  --color-bg-card: #E9E4DD;
+  --color-bg-elevated: #F2EEE8;
+  --color-bg-sunken: #E2DCD3;
+  --color-bg-dark: #171717;
 
-  --color-border: #E4E2DE;
-  --color-border-light: #F0EEEA;
-  --color-border-strong: #D1CEC8;
+  --color-border: #C9C1B7;
+  --color-border-light: #DDD6CC;
+  --color-border-strong: #BBB1A4;
 
-  --color-urgent: #E85D04;
-  --color-urgent-bg: #FFF4EC;
-  --color-active: #1A8754;
-  --color-active-bg: #EEFBF3;
-  --color-warning: #D4940A;
-  --color-warning-bg: #FFFBEB;
-  --color-idle: #9494A3;
-  --color-idle-bg: #F5F4F1;
+  --color-urgent: #A93E2E;
+  --color-urgent-bg: #F2DDD8;
+  --color-active: #191816;
+  --color-active-bg: #E2DCD3;
+  --color-warning: #946022;
+  --color-warning-bg: #F1E5D4;
+  --color-idle: #9A958C;
+  --color-idle-bg: #E2DCD3;
 
   /* === Typography === */
-  --font-sans: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+  --font-sans: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
   --font-mono: "SF Mono", "Menlo", monospace;
-  --font-display: -apple-system, "SF Pro Display", "PingFang SC", sans-serif;
+  --font-display: "Songti SC", "STSongti-SC-Regular", "STSong", "Source Han Serif SC", "Noto Serif CJK SC", "SimSun", serif;
 
   --text-2xs: 20rpx;
   --text-xs: 22rpx;
@@ -79,11 +80,11 @@ page {
   --radius-full: 9999rpx;
 
   /* === Shadows === */
-  --shadow-sm: 0 1rpx 4rpx rgba(26, 26, 46, .04);
-  --shadow-base: 0 2rpx 12rpx rgba(26, 26, 46, .06);
-  --shadow-md: 0 4rpx 20rpx rgba(26, 26, 46, .08);
-  --shadow-lg: 0 8rpx 32rpx rgba(26, 26, 46, .12);
-  --shadow-fab: 0 6rpx 20rpx rgba(232, 93, 4, .25);
+  --shadow-sm: 0 1rpx 4rpx rgba(25, 24, 22, .04);
+  --shadow-base: 0 2rpx 12rpx rgba(25, 24, 22, .06);
+  --shadow-md: 0 4rpx 20rpx rgba(25, 24, 22, .08);
+  --shadow-lg: 0 8rpx 32rpx rgba(25, 24, 22, .12);
+  --shadow-fab: 0 6rpx 20rpx rgba(222, 110, 63, .25);
 
   /* === Layout === */
   --page-padding: 24rpx;
