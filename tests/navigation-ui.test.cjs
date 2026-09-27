@@ -109,6 +109,7 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   const productIdentity = fs.readFileSync(path.resolve(__dirname, "../miniprogram/components/product-identity/index.wxml"), "utf8");
   const welcomeMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/welcome/index.wxml"), "utf8");
   const captureMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/inspection/create/index.wxml"), "utf8");
+  const projectListMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/project/list/index.wxml"), "utf8");
   const onboardingMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/onboarding/index.wxml"), "utf8");
   const galleryMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/project/gallery/index.wxml"), "utf8");
   const reportListMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/report/list/index.wxml"), "utf8");
@@ -237,7 +238,10 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.match(captureMarkup, /issue-draft-card__title">照片/);
   assert.doesNotMatch(captureMarkup, /issue-draft-card__title">问题/);
   assert.match(captureMarkup, /<button class="voice-hold-button[^>]+aria-label=/);
-  assert.match(captureMarkup, /wx:if="\{\{issueDraftCount && issueDraftCount < 20\}\}" class="capture-section__add"/);
+  assert.match(captureMarkup, /data-source-type="camera"/);
+  assert.match(captureMarkup, /data-source-type="album"/);
+  assert.doesNotMatch(captureMarkup, /继续添加|拍照或添加照片/);
+  assert.doesNotMatch(projectListMarkup, /开始现场记录|project-record-action|selectingProject/);
   assert.match(captureMarkup, /wx:if="\{\{issueDraftCount > 1\}\}" class="issue-order"/);
   assert.ok(captureMarkup.indexOf('class="create-ai-row"') < captureMarkup.indexOf('class="footer-actions create-footer-actions"'));
   assert.match(capture, /\.inspection-create-page\{padding-bottom:calc\(128rpx \+ env\(safe-area-inset-bottom\)\)\}/);

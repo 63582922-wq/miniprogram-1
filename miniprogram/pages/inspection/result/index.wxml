@@ -2,6 +2,7 @@
   <page-nav-bar title="人工核对" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
   <view class="page-heading"><view><view class="page-heading__title">确认内容</view><view class="section-subtitle">{{summary.projectName}} · {{summary.issueCount}} 条问题</view></view></view>
   <view wx:if="{{submissionLocked}}" class="precision-state">内容已锁定，重试将继续同一份报告，不会重复创建。</view>
+  <view wx:if="{{reviewNeedsAttention && !submissionLocked}}" class="review-change-notice">照片或说明已变化，请逐张核对后再生成报告。</view>
   <view class="review-identity">
     <image wx:if="{{reportIdentity.logoFileId}}" class="review-identity__logo" src="{{reportIdentity.logoFileId}}" mode="aspectFit" />
     <view class="review-identity__copy"><view class="field-label">本次报告出具信息</view><view class="review-identity__company">{{reportIdentity.companyName || '公司名称未填写'}}</view><view class="section-subtitle">{{reportIdentity.inspectorName || '巡查人未填写'}}{{reportIdentity.inspectorPhone ? ' · ' + reportIdentity.inspectorPhone : ' · 联系电话未填写'}}</view><view wx:if="{{identityError}}" class="section-subtitle">{{identityError}}</view><view class="review-identity__freeze">确认后随当前报告固定，不会被后续资料修改覆盖</view></view>

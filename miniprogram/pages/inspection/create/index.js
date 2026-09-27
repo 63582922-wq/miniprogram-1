@@ -1,6 +1,10 @@
 const { listProjects } = require("../../../services/project");
-const { analyzeInspection, createInspectionTask, getInspectionTaskStatus } = require("../../../services/inspection");
-const { uploadUserFile } = require("../../../services/cloud");
+const {
+  analyzeInspection,
+  createInspectionTask,
+  readInspectionTaskStatus,
+  advanceInspectionTask
+} = require("../../../services/inspection");
 const { transcribeVoiceFile, mergeSpeechText, formatSpeechError } = require("../../../services/speech");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { runWithConcurrency } = require("../../../utils/async");
@@ -112,7 +116,42 @@ function hasMeaningfulVoiceText(text = "") {
 }
 
 function countImageRecognitionDrafts(issueDrafts = []) {
-  return (issueDrafts || []).filter((item) => !hasMeaningfulVoiceText(item.voiceText)).length;
+  // A voice note supplements visual evidence; it must never make the client
+  // skip a photo that the model is expected to inspect.
+  return (issueDrafts || []).filter((item) => Boolean(item.imagePath)).length;
+}
+
+function bindAnalysisItemsToPhotos(items = [], photos = []) {
+  return (items || []).map((item) => ({
+    ...item,
+    sourcePhotoId: item.sourcePhotoId || (photos[item.sourceIndex] && photos[item.sourceIndex].id) || ""
+  }));
+}
+
+function mergeReanalyzedReview(draft = {}, analysis = {}, form = {}) {
+  const review = draft.review;
+  if (!review || !review.stale) return null;
+  const photos = form.issueDrafts || [];
+  const photoIds = new Set(photos.map(photo => photo.id));
+  const staleIds = new Set((review.stalePhotoIds && review.stalePhotoIds.length)
+    ? review.stalePhotoIds
+    : photos.map(photo => photo.id));
+  const keepUnchanged = item => item.sourcePhotoId && photoIds.has(item.sourcePhotoId) && !staleIds.has(item.sourcePhotoId);
+  const nextAiItems = bindAnalysisItemsToPhotos(analysis.items || [], photos)
+    .filter(item => item.sourcePhotoId && staleIds.has(item.sourcePhotoId));
+  const items = (review.items || []).filter(keepUnchanged).concat(nextAiItems);
+  const originalItems = (review.originalItems || []).filter(keepUnchanged).concat(nextAiItems);
+  const summaryEdited = review.summaryEdited === true;
+  return {
+    items,
+    originalItems,
+    summary: summaryEdited
+      ? review.summary
+      : `本次记录 ${photos.length} 张照片，确认 ${items.length} 条问题。`,
+    summaryEdited,
+    stale: false,
+    stalePhotoIds: []
+  };
 }
 
 function isPrivacyScopeUndeclared(error) {
@@ -137,6 +176,10 @@ Page({
     currentProjectNameText: "请选择项目",
     projectLoadError: "",
     loadingProjects: false,
+    pickingImages: false,
+    pickerSourceType: "",
+    pickerStatusText: "",
+    pickerError: "",
     sessionKey: "",
     recordingIssueId: "",
     transcribingIssueId: "",
@@ -148,6 +191,10 @@ Page({
     analyzeStageText: "",
     analyzeStageIndex: 0,
     analyzeTaskId: "",
+    analyzeCompletedPhotos: 0,
+    analyzeTotalPhotos: 0,
+    analyzeProgressPercent: 0,
+    analyzeError: "",
     returnContext: null,
     issueSectionTitles: ISSUE_SECTION_TITLES,
     form: createInitialForm(),
@@ -255,7 +302,11 @@ Page({
   async onShow() {
     if(this.initializing)return;
     this.ownsDraft = true;
-    this.restoreDraft();
+    this.suspendDraftOnHide = false;
+    // Camera and album temporarily hide the page. On some phones onShow fires
+    // before the picker success callback. Restoring the old snapshot here used
+    // to erase the freshly selected photo as soon as the user returned.
+    if (!this.pickerInFlight) this.restoreDraft();
     if(readDraft(this.data.sessionKey).submission?.requestId){
       wx.redirectTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});return;
     }
@@ -265,6 +316,7 @@ Page({
     if (this.data.analyzing && this.data.analyzeTaskId) {
       this.waitingForAnalysis=true;
       this.pendingInputVersion=readDraft(this.data.sessionKey).inputVersion;
+      this.startAnalyzeTaskAdvancement();
       this.scheduleAnalyzeTaskPolling();
     }
   },
@@ -272,7 +324,9 @@ Page({
     this.waitingForAnalysis = false;
     if(this.data.transcribingIssueId)this.handleRecordCancel();
     this.persistDraft();
-    this.ownsDraft = false;
+    // Only an internal editor/review page is allowed to take over this draft.
+    // System camera/album and app backgrounding must keep capture ownership.
+    if (this.suspendDraftOnHide) this.ownsDraft = false;
     this.clearAnalyzeTaskPolling();
     // The native unload guard survives navigation in Developer Tools. Do not
     // let the hidden capture page intercept annotation/review navigation.
@@ -354,6 +408,10 @@ Page({
       analyzing: false,
       analyzeStageText: "",
       analyzeStageIndex: 0,
+      analyzeCompletedPhotos: 0,
+      analyzeTotalPhotos: 0,
+      analyzeProgressPercent: 0,
+      analyzeError: "",
       returnContext: null,
       form: {
         ...createInitialForm(),
@@ -376,6 +434,7 @@ Page({
     }
     if (cachedForm && cachedForm.issueDrafts) {
       const issueDrafts = normalizeIssueDrafts(cachedForm.issueDrafts);
+      const shouldResumeAnalysis = cached.phase === "analyzing" && Boolean(cached.taskId);
       this.setData({
         form: {
           ...this.data.form,
@@ -384,6 +443,9 @@ Page({
         },
         returnContext: cachedReturnContext || this.data.returnContext || null,
         analyzeTaskId: cached.taskId || "",
+        analyzing: shouldResumeAnalysis,
+        analyzeStageText: shouldResumeAnalysis ? "正在恢复照片分析" : this.data.analyzeStageText,
+        analyzeError: "",
         issueDraftCount: issueDrafts.length,
         issueExpandedStates: buildIssueExpandedStates(issueDrafts, this.data.issueExpandedStates),
         showSupplementFields: Boolean((cachedForm.title || "").trim() || (cachedForm.note || "").trim())
@@ -486,7 +548,7 @@ Page({
       showSupplementFields: !this.data.showSupplementFields
     });
   },
-  chooseImages() {
+  chooseImages(event = {}) {
     if (this.data.pickingImages) return;
     if(!this.data.sessionKey || !this.data.form.projectId || this.data.loadingProjects || this.data.projectLoadError){wx.showToast({title:"请先确认记录所属项目",icon:"none"});return;}
     const currentCount = (this.data.form.issueDrafts || []).length;
@@ -504,14 +566,19 @@ Page({
     const count = Math.min(remaining, SINGLE_PICK_LIMIT);
     const projectId = this.data.form.projectId;
     const sessionKey = this.data.sessionKey;
+    const requestedSourceType = event.currentTarget && event.currentTarget.dataset
+      ? event.currentTarget.dataset.sourceType || ""
+      : "";
     const epoch = this.pickerEpoch = (this.pickerEpoch || 0) + 1;
     const isCurrent = () => page.pickerEpoch === epoch && page.data.sessionKey === sessionKey && page.data.form.projectId === projectId;
     const finish = (error = "") => {
       if (!isCurrent()) return;
       clearTimeout(page.pickerTimer);
-      page.setData({pickingImages:false,pickerError:error});
+      page.pickerInFlight = false;
+      page.setData({pickingImages:false,pickerSourceType:"",pickerStatusText:"",pickerError:error});
     };
-    this.setData({pickingImages:true,pickerError:""});
+    this.pickerInFlight = true;
+    this.setData({pickingImages:true,pickerSourceType:requestedSourceType,pickerStatusText:"正在打开…",pickerError:""});
     this.pickerTimer = setTimeout(() => {
       finish("选图未返回。可重新打开相册，或先保留草稿返回。");
       if (isCurrent()) page.pickerEpoch += 1;
@@ -524,6 +591,7 @@ Page({
         finish();
         return;
       }
+      page.setData({pickerStatusText:"正在保存…"});
       try { for(let i=0;i<list.length;i++)list[i]=await keepLocalFile(list[i]); }
       catch(e){finish(e.message || "照片未保存，请重试");return;}
       if (!isCurrent()) return;
@@ -543,6 +611,8 @@ Page({
           title: "已达到20张上限",
           icon: "none"
         });
+      } else {
+        wx.showToast({title:`已添加${list.length}张照片`,icon:"success"});
       }
     };
 
@@ -586,6 +656,7 @@ Page({
     };
 
     const openIssueImagePicker = (sourceType) => {
+      page.setData({pickerSourceType:sourceType,pickerStatusText:sourceType === "camera" ? "正在拍照…" : "正在选择…"});
       // 这里最终只接收照片。优先使用 chooseImage：它在真机和开发者工具
       // 的系统相册/文件选择回调都更稳定，并能明确请求原图，避免标注基准在
       // 选择时被压缩后的临时图悄悄改变。保留 chooseMedia 仅作旧基础库兜底。
@@ -626,6 +697,11 @@ Page({
       });
     };
 
+    if (requestedSourceType === "camera" || requestedSourceType === "album") {
+      openIssueImagePicker(requestedSourceType);
+      return;
+    }
+
     wx.showActionSheet({
       itemList: ["拍照", "从相册选择"],
       success: ({ tapIndex }) => {
@@ -663,6 +739,7 @@ Page({
     }
 
     let result;
+    this.pickerInFlight = true;
     try {
       result = typeof wx.chooseImage === "function"
         ? await new Promise((resolve, reject) => wx.chooseImage({
@@ -678,6 +755,7 @@ Page({
           sourceType: ["album", "camera"]
         });
     } catch (error) {
+      this.pickerInFlight = false;
       if (isPrivacyScopeUndeclared(error)) {
         wx.showModal({
           title: "需完善隐私声明",
@@ -705,6 +783,7 @@ Page({
       return;
     }
 
+    this.pickerInFlight = false;
     const tempFile = result.tempFiles && result.tempFiles[0];
     if (!tempFile) {
       return;
@@ -875,42 +954,11 @@ Page({
     }
 
     this.persistDraft();
+    this.suspendDraftOnHide = true;
     wx.navigateTo({
       url: `/pages/inspection/annotate/index?sessionKey=${this.data.sessionKey}&issueId=${encodeURIComponent(issue.id)}`
     });
   },
-  /** 上传单条草稿的附件，返回补全后的草稿 */
-  async uploadOneDraft(item, index) {
-    const shouldUploadImageForAnalyze = !hasMeaningfulVoiceText(item.voiceText);
-
-    const imagePath = shouldUploadImageForAnalyze
-      ? (item.imagePath.startsWith("cloud://")
-        ? item.imagePath
-        : await uploadUserFile(item.imagePath, "inspection-images", `${index}.png`))
-      : item.imagePath;
-
-    const annotatedImagePath = shouldUploadImageForAnalyze
-      ? (item.annotatedImagePath
-        ? (item.annotatedImagePath.startsWith("cloud://")
-          ? item.annotatedImagePath
-          : await uploadUserFile(item.annotatedImagePath, "inspection-annotated-images", `${index}.png`))
-        : "")
-      : (item.annotatedImagePath || "");
-
-    let voiceStorageFileId = item.voiceStorageFileId || item.voiceFileId || "";
-    if (item.voiceFilePath && !item.voiceFilePath.startsWith("cloud://") && !voiceStorageFileId) {
-      voiceStorageFileId = await uploadUserFile(item.voiceFilePath, "inspection-audio", `${index}.mp3`);
-    }
-
-    return {
-      ...item,
-      imagePath,
-      annotatedImagePath,
-      voiceStorageFileId,
-      voiceFileId: voiceStorageFileId
-    };
-  },
-
   async uploadAssets() {
     const form = await uploadDraftMedia(this.data.form, async form => {
       this.setData({form});
@@ -926,6 +974,7 @@ Page({
     }
     const cached=readDraft(this.data.sessionKey);
     if(cached.review) {
+      this.suspendDraftOnHide = true;
       wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});return;
     }
     const items=this.data.form.issueDrafts.flatMap((p,i)=>p.voiceText && p.voiceText.trim() ? [{
@@ -999,6 +1048,7 @@ Page({
       analyzing: false,
       analyzeStageIndex: 0,
       analyzeStageText: "",
+      analyzeError: "",
       analyzeTaskId: this.data.analyzeTaskId || ""
     });
     wx.showToast({
@@ -1010,9 +1060,22 @@ Page({
   async completeAnalyzeSuccess(form, analysis) {
     this.setData({form});
     if (!this.persistDraft()) throw new Error("草稿保存失败");
-    patchDraft(this.data.sessionKey,{phase:"review",analysis});
+    const draft = readDraft(this.data.sessionKey);
+    const refreshedReview = mergeReanalyzedReview(draft, analysis, form);
+    patchDraft(this.data.sessionKey,{
+      phase:"review",
+      analysis,
+      ...(refreshedReview ? {review:refreshedReview} : {})
+    });
     this.clearAnalyzeTaskPolling();
-    this.setData({analyzing:false,analyzeStageIndex:0,analyzeStageText:""});
+    this.setData({
+      analyzing:false,
+      analyzeStageIndex:0,
+      analyzeStageText:"",
+      analyzeError:"",
+      analyzeProgressPercent:100
+    });
+    this.suspendDraftOnHide = true;
     wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});
   },
   async pollAnalyzeTaskStatus() {
@@ -1020,13 +1083,16 @@ Page({
       this.clearAnalyzeTaskPolling();
       return "idle";
     }
-    const result = await getInspectionTaskStatus(this.data.analyzeTaskId, true);
+    const result = await readInspectionTaskStatus(this.data.analyzeTaskId);
     if(!this.waitingForAnalysis)return "paused";
     if(this.pendingInputVersion!==readDraft(this.data.sessionKey).inputVersion){this.setData({analyzing:false});return "stale";}
     // 成功拿到一次状态就清零失败计数，避免历史上抖动的次数累积
     this.analyzePollFailureCount = 0;
-    const totalBatches = result.totalBatches || 0;
-    const completedBatches = result.completedBatches || 0;
+    const totalPhotos = result.totalPhotos || result.totalBatches || 0;
+    const completedPhotos = result.completedPhotos || result.completedBatches || 0;
+    const progressPercent = totalPhotos
+      ? Math.min(100, Math.round((completedPhotos / totalPhotos) * 100))
+      : 0;
     if (result.status === "success" && result.analysis) {
       this.setData({
         analyzeStageIndex: 3,
@@ -1036,32 +1102,85 @@ Page({
       return "success";
     }
     if (result.status === "failed") {
+      // A retry call changes failed -> running. A read arriving in that small
+      // window must not immediately close the progress panel again.
+      if (this.analyzeAdvanceInFlight) {
+        this.setData({
+          analyzing: true,
+          analyzeStageText: `正在重试未完成照片（${completedPhotos}/${totalPhotos}）`,
+          analyzeCompletedPhotos: completedPhotos,
+          analyzeTotalPhotos: totalPhotos,
+          analyzeProgressPercent: progressPercent
+        });
+        this.scheduleAnalyzeTaskPolling();
+        return "running";
+      }
       this.clearAnalyzeTaskPolling();
       this.setData({
         analyzing: false,
         analyzeStageIndex: 0,
-        analyzeStageText: "",
+        analyzeStageText: `已完成 ${completedPhotos}/${totalPhotos} 张`,
+        analyzeCompletedPhotos: completedPhotos,
+        analyzeTotalPhotos: totalPhotos,
+        analyzeProgressPercent: progressPercent,
+        analyzeError: result.errorMessage || "有照片尚未完成分析",
         analyzeTaskId: this.data.analyzeTaskId || ""
-      });
-      wx.showToast({
-        title: result.errorMessage || "AI 分析失败",
-        icon: "none"
       });
       return "failed";
     }
     this.setData({
       analyzeStageIndex: 2,
-      analyzeStageText: totalBatches
-        ? `AI 正在整理（${Math.min(completedBatches, totalBatches)}/${totalBatches} 批）`
-        : "AI 正在整理"
+      analyzeStageText: totalPhotos
+        ? `正在逐张分析（${Math.min(completedPhotos, totalPhotos)}/${totalPhotos} 张）`
+        : "正在准备照片分析",
+      analyzeCompletedPhotos: completedPhotos,
+      analyzeTotalPhotos: totalPhotos,
+      analyzeProgressPercent: progressPercent,
+      analyzeError: ""
     });
+    this.startAnalyzeTaskAdvancement();
     this.scheduleAnalyzeTaskPolling();
     return result.status || "running";
+  },
+  startAnalyzeTaskAdvancement() {
+    if (!this.data.analyzeTaskId || this.analyzeAdvanceInFlight) return;
+    this.analyzeAdvanceInFlight = true;
+    advanceInspectionTask(this.data.analyzeTaskId)
+      .catch((error) => {
+        console.error("[inspection-create] advanceAnalyzeTask failed", error);
+      })
+      .finally(() => {
+        this.analyzeAdvanceInFlight = false;
+        if (!this.waitingForAnalysis) return;
+        // Keep a fixed read cadence. If another client still holds the lease,
+        // an immediate advance can return quickly; recursively polling here
+        // would otherwise create a hot loop.
+        this.scheduleAnalyzeTaskPolling();
+      });
+  },
+  handleRetryAnalyze() {
+    if (!this.data.analyzeTaskId || this.data.analyzing) return;
+    this.waitingForAnalysis = true;
+    this.pendingInputVersion = readDraft(this.data.sessionKey).inputVersion;
+    this.setData({
+      analyzing: true,
+      analyzeError: "",
+      analyzeStageIndex: 2,
+      analyzeStageText: `正在重试未完成照片（${this.data.analyzeCompletedPhotos}/${this.data.analyzeTotalPhotos}）`
+    });
+    this.startAnalyzeTaskAdvancement();
+    this.scheduleAnalyzeTaskPolling();
+  },
+  handleAnalyzeManualFallback() {
+    this.waitingForAnalysis = false;
+    this.clearAnalyzeTaskPolling();
+    this.setData({analyzing:false, analyzeError:""});
+    this.handleManualReview();
   },
   async handleAnalyze() {
     if(this.data.analyzing)return;
     const stored=readDraft(this.data.sessionKey);
-    if(stored.review){this.handleManualReview();return;}
+    if(stored.review && !stored.review.stale){this.handleManualReview();return;}
     // 分开校验，并给出对得上的提示。
     //
     // 原实现是 if (!projectId || !issueDrafts.length) 后统一提示
@@ -1118,14 +1237,25 @@ Page({
     this.setData({
       analyzing: true,
       analyzeStageIndex: 1,
-      analyzeStageText: "正在准备分析内容"
+      analyzeStageText: "正在上传并校验照片",
+      analyzeCompletedPhotos: 0,
+      analyzeTotalPhotos: ((stored.form && stored.form.issueDrafts) || this.data.form.issueDrafts || []).length,
+      analyzeProgressPercent: 0,
+      analyzeError: ""
     });
     let keepAnalyzing = false;
 
     try {
       const form = await this.uploadAssets();
       const saved = readDraft(this.data.sessionKey);
-      if(saved.taskId){ this.setData({analyzeTaskId:saved.taskId}); this.pendingAnalyzeForm=form; const status=await this.pollAnalyzeTaskStatus(); keepAnalyzing=status!=="success" && status!=="failed"; return; }
+      if(saved.taskId){
+        this.setData({analyzeTaskId:saved.taskId});
+        this.pendingAnalyzeForm=form;
+        this.startAnalyzeTaskAdvancement();
+        this.scheduleAnalyzeTaskPolling();
+        keepAnalyzing=true;
+        return;
+      }
       const imageRecognitionDraftCount = countImageRecognitionDrafts(form.issueDrafts || []);
       const analyzeStageLabel = imageRecognitionDraftCount > 0 ? "正在分析图片和语音内容" : "正在分析语音转写内容";
       if (form.issueDrafts.length > 0) {
@@ -1140,12 +1270,14 @@ Page({
         patchDraft(this.data.sessionKey,{taskId:task.taskId,phase:"analyzing"});
         this.setData({
           analyzeTaskId: task.taskId || "",
-          analyzeStageText: task.totalBatches
-            ? `AI 正在整理（0/${task.totalBatches} 批）`
-            : "AI 正在整理"
+          analyzeTotalPhotos: task.totalPhotos || task.totalBatches || form.issueDrafts.length,
+          analyzeCompletedPhotos: task.completedPhotos || task.completedBatches || 0,
+          analyzeProgressPercent: 0,
+          analyzeStageText: `正在逐张分析（0/${task.totalPhotos || task.totalBatches || form.issueDrafts.length} 张）`
         });
-        const taskStatus = await this.pollAnalyzeTaskStatus();
-        keepAnalyzing = taskStatus !== "success" && taskStatus !== "failed";
+        this.startAnalyzeTaskAdvancement();
+        this.scheduleAnalyzeTaskPolling();
+        keepAnalyzing = true;
         return;
       }
 

@@ -156,3 +156,4 @@
 .item-card__edit{min-height:44px;display:flex;align-items:center;margin:0 0 16rpx auto;padding:0 20rpx;border:1px solid #C9C1B7;color:#191816;font-size:28rpx;background:transparent}
 .item-card__description{font-size:32rpx;line-height:1.75;white-space:pre-wrap;word-break:break-word}.item-card__suggestion{font-size:30rpx;line-height:1.7;margin-top:16rpx;white-space:pre-wrap;word-break:break-word}.item-card__summary-meta{font-size:26rpx;color:#706D67;margin-top:16rpx}
 .item-card__input,.item-card__textarea{font-size:32rpx;line-height:1.7;background:var(--a-field);padding:16rpx;min-height:48px;border:1px solid var(--a-line)}.item-card__picker{min-height:44px;display:flex;align-items:center}
+.item-card__review-flag{margin:10rpx 0 14rpx;padding:12rpx 0;border-top:1px solid var(--a-line);border-bottom:1px solid var(--a-line);color:var(--a-active);font-size:26rpx;line-height:1.5}

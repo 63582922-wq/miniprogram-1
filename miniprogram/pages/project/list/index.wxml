@@ -5,8 +5,6 @@
   <view class="project-search">
     <input class="field-input project-search__input" placeholder="搜索项目名称或地址" value="{{keyword}}" bindinput="handleKeywordInput" confirm-type="search" bindconfirm="handleSearch" />
   </view>
-  <view wx:if="{{selectingProject}}" class="selection-hint">选择记录所属项目<button bindtap="cancelSelection">取消</button></view>
-
   <view wx:if="{{projectList.length}}" class="list">
     <view wx:for="{{projectList}}" wx:key="_id" class="project-row">
       <project-card project="{{item}}" bindopen="openDetail" bindlongpress="handleProjectLongPress" />
@@ -24,5 +22,4 @@
     bindaction="goCreate"
   />
   <button wx:if="{{hasMore && !loading && !loadError}}" class="secondary-button" bindtap="onReachBottom">加载更多</button>
-  <view class="project-record-action"><button class="primary-button" bindtap="startRecord" hover-class="is-pressed"><image src="/images/icons/icon-tab-camera.svg" />开始现场记录</button></view>
 </view>

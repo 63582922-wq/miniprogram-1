@@ -12,10 +12,12 @@
       <view><view class="capture-section__title">现场照片</view><view class="section-subtitle">一张照片可标注多处问题，也可以只留存现场</view></view>
       <view class="capture-section__tools">
         <view class="capture-section__count">{{issueDraftCount}} / 20</view>
-        <button wx:if="{{issueDraftCount && issueDraftCount < 20}}" class="capture-section__add" disabled="{{pickingImages}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages">{{pickingImages ? '正在添加' : '继续添加'}}</button>
       </view>
     </view>
-    <button wx:if="{{!issueDraftCount}}" class="capture-section__action" disabled="{{pickingImages}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />{{pickingImages ? '正在选图' : '拍照或添加照片'}}</button>
+    <view wx:if="{{issueDraftCount < 20}}" class="capture-section__picker-actions">
+      <button class="capture-section__action" data-source-type="camera" disabled="{{pickingImages}}" loading="{{pickingImages && pickerSourceType === 'camera'}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />{{pickingImages && pickerSourceType === 'camera' ? pickerStatusText : '拍照'}}</button>
+      <button class="capture-section__action capture-section__action--album" data-source-type="album" disabled="{{pickingImages}}" loading="{{pickingImages && pickerSourceType === 'album'}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" />{{pickingImages && pickerSourceType === 'album' ? pickerStatusText : '从相册选择'}}</button>
+    </view>
   </view>
 
   <view wx:if="{{pickerError}}" class="precision-state">{{pickerError}}<button class="secondary-button" bindtap="chooseImages">重新选图</button></view>
@@ -42,7 +44,7 @@
           </button>
           <button class="issue-draft-card__media-action" data-index="{{index}}" bindtap="replaceIssueImage">更换照片</button>
         </view>
-        <view wx:if="{{issueDraftCount > 1}}" class="issue-order"><text class="issue-order__label">调整顺序</text><button class="issue-order__button" disabled="{{index === 0}}" data-index="{{index}}" data-step="-1" bindtap="moveIssue">上移</button><button class="issue-order__button" disabled="{{index === issueDraftCount - 1}}" data-index="{{index}}" data-step="1" bindtap="moveIssue">下移</button></view>
+        <view wx:if="{{issueDraftCount > 1}}" class="issue-order"><text class="issue-order__label">调整顺序</text><button class="issue-order__button {{index === 0 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === 0}}" data-index="{{index}}" data-step="-1" bindtap="moveIssue">上移</button><button class="issue-order__button {{index === issueDraftCount - 1 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === issueDraftCount - 1}}" data-index="{{index}}" data-step="1" bindtap="moveIssue">下移</button></view>
         <view class="issue-draft-card__editor">
           <view wx:if="{{item.annotationCount || item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badges">
             <view wx:if="{{item.annotationCount}}" class="issue-draft-card__badge">已标注 {{item.annotationCount}} 处</view>
@@ -89,12 +91,20 @@
     <button class="primary-button" disabled="{{analyzing || !issueDraftCount}}" bindtap="handleManualReview">进入人工核对</button>
   </view>
 
-  <view wx:if="{{analyzing}}" class="analyze-mask">
+  <view wx:if="{{analyzing || analyzeError}}" class="analyze-mask">
     <view class="analyze-panel">
-      <view class="analyze-panel__spinner"></view>
-      <view class="analyze-panel__title">AI 整理中</view>
+      <view class="analyze-panel__eyebrow">照片分析</view>
+      <view wx:if="{{analyzing}}" class="analyze-panel__spinner"></view>
+      <view class="analyze-panel__title">{{analyzeError ? '有照片尚未完成' : 'AI 正在逐张整理'}}</view>
       <view class="analyze-panel__desc">{{analyzeStageText}}</view>
-      <button class="analyze-panel__cancel" bindtap="handleCancelAnalyze">返回记录 · 保留任务</button>
+      <view wx:if="{{analyzeTotalPhotos}}" class="analyze-panel__progress" aria-label="已分析 {{analyzeCompletedPhotos}} / {{analyzeTotalPhotos}} 张照片">
+        <view class="analyze-panel__progress-head"><text>已完成 {{analyzeCompletedPhotos}} / {{analyzeTotalPhotos}} 张</text><text>{{analyzeProgressPercent}}%</text></view>
+        <view class="analyze-panel__progress-track"><view class="analyze-panel__progress-value" style="width: {{analyzeProgressPercent}}%"></view></view>
+      </view>
+      <view wx:if="{{analyzeError}}" class="analyze-panel__error">{{analyzeError}}。已完成结果和照片都已保留。</view>
+      <button wx:if="{{analyzeError}}" class="primary-button analyze-panel__primary" bindtap="handleRetryAnalyze">重试未完成照片</button>
+      <button wx:if="{{analyzeError}}" class="analyze-panel__cancel" bindtap="handleAnalyzeManualFallback">直接人工核对</button>
+      <button wx:else class="analyze-panel__cancel" bindtap="handleCancelAnalyze">返回记录 · 保留任务</button>
     </view>
   </view>
 

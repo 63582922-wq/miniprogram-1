@@ -12,7 +12,7 @@ test('photo picker locks project selection, ignores duplicate taps and stale ima
  wx.showActionSheet=o=>o.success({tapIndex:1});wx.chooseImage=o=>{picker=o;opens++;};
  const page=load('miniprogram/pages/inspection/create/index.js',wx,{}, {setTimeout:fn=>{timer=fn;return 1;}});
  page.setData({sessionKey:'B-session','form.projectId':'B',projects:[{_id:'A',name:'A'}]});
- page.chooseImages();page.chooseImages();assert.equal(opens,1);assert.equal(page.data.pickingImages,true);
+ page.chooseImages({currentTarget:{dataset:{sourceType:'album'}}});page.chooseImages({currentTarget:{dataset:{sourceType:'album'}}});assert.equal(opens,1);assert.equal(page.data.pickingImages,true);
  await page.handleProjectChange({detail:{value:0}});assert.equal(page.data.form.projectId,'B');
  timer();assert.equal(page.data.pickingImages,false);assert.match(page.data.pickerError,/未返回/);
  picker.success({tempFilePaths:['/stale.jpg']});await flush();assert.equal(page.data.form.issueDrafts.length,0);

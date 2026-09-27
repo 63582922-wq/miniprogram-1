@@ -29,16 +29,19 @@ Page({
     catch(e){this.setData({identityError:"报告资料暂未加载，可重试或前往我的资料查看"});}
   },
   editReportIdentity(){wx.navigateTo({url:"/pages/settings/index"});},
-  data:{summaryEdited:false,summaryEditing:false,captionEditingIndex:-1,draftKey:"",sessionKey:"",returnContext:null,form:null,originalIssues:[],issues:[],issueGroups:[],summary:{},submitting:false,submissionLocked:false},
+  data:{summaryEdited:false,summaryEditing:false,reviewNeedsAttention:false,reviewStalePhotoIds:[],captionEditingIndex:-1,draftKey:"",sessionKey:"",returnContext:null,form:null,originalIssues:[],issues:[],issueGroups:[],summary:{},submitting:false,submissionLocked:false},
   onLoad(query) {
     const key=query.sessionKey || query.draftKey, draft=readDraft(key);
     if(!draft.form){wx.showModal({title:"记录不存在",content:"请返回现场记录恢复草稿",showCancel:false});return;}
     const form=draft.form, analysis=draft.analysis || {};
     const issues=bindIssues(draft.review ? draft.review.items : (analysis.items || []),form.issueDrafts || []);
-    this.setData({summaryEdited:!!draft.review?.summaryEdited,submissionLocked:!!draft.submission?.requestId,draftKey:key,sessionKey:draft.sessionId || draft.sessionKey || key,returnContext:draft.returnContext || null,form,
+    const summaryEdited=!!draft.review?.summaryEdited;
+    const reviewNeedsAttention=!!draft.review?.stale;
+    const generatedSummary=`本次记录 ${(form.issueDrafts||[]).length} 张照片，确认 ${issues.length} 条问题。`;
+    this.setData({summaryEdited,reviewNeedsAttention,reviewStalePhotoIds:draft.review?.stalePhotoIds||[],submissionLocked:!!draft.submission?.requestId,draftKey:key,sessionKey:draft.sessionId || draft.sessionKey || key,returnContext:draft.returnContext || null,form,
       originalIssues:draft.review ? draft.review.originalItems : JSON.parse(JSON.stringify(issues)),issues,
       issueGroups:buildIssueGroups(issues,form.issueDrafts),
-      summary:{projectName:form.projectName||"未命名项目",title:form.title||"本次巡查",contextNote:form.note||"",aiSummary:draft.review?.summary || `本次记录 ${(form.issueDrafts||[]).length} 张照片，确认 ${issues.length} 条问题。`,issueCount:issues.length,aiMode:analysis.aiMode||"",memoryHint:analysis.memoryHint||"",memoryAlerts:analysis.memoryAlerts||[]}});
+      summary:{projectName:form.projectName||"未命名项目",title:form.title||"本次巡查",contextNote:form.note||"",aiSummary:(summaryEdited||!reviewNeedsAttention) && draft.review?.summary ? draft.review.summary : generatedSummary,issueCount:issues.length,aiMode:analysis.aiMode||"",memoryHint:analysis.memoryHint||"",memoryAlerts:analysis.memoryAlerts||[]}});
     this.persistReview();
   },
   onHide(){if(!this.published)this.persistReview();},
@@ -47,7 +50,7 @@ Page({
     if(!this.data.form || !this.data.sessionKey)return false;
     try {
       writeDraft(this.data.sessionKey,this.data.form,this.data.returnContext);
-      patchDraft(this.data.sessionKey,{phase:this.data.submitting?"submitting":"review",review:{items:this.data.issues,originalItems:this.data.originalIssues,summary:this.data.summary.aiSummary,summaryEdited:this.data.summaryEdited}});
+      patchDraft(this.data.sessionKey,{phase:this.data.submitting?"submitting":"review",review:{items:this.data.issues,originalItems:this.data.originalIssues,summary:this.data.summary.aiSummary,summaryEdited:this.data.summaryEdited,stale:this.data.reviewNeedsAttention,stalePhotoIds:this.data.reviewStalePhotoIds}});
       return true;
     }catch(e){wx.showModal({title:"草稿保存失败",content:e.message||"请勿关闭，释放存储后重试",showCancel:false});return false;}
   },

@@ -46,11 +46,23 @@ function createInspectionTask(payload) {
   }, AI_CALL_OPTIONS);
 }
 
-function getInspectionTaskStatus(taskId, advance = false) {
+function readInspectionTaskStatus(taskId) {
   return callCloud("ai", {
-    action: advance ? "advanceInspectionTask" : "readInspectionTaskStatus",
+    action: "readInspectionTaskStatus",
     payload: { taskId }
   }, AI_CALL_OPTIONS);
+}
+
+function advanceInspectionTask(taskId) {
+  return callCloud("ai", {
+    action: "advanceInspectionTask",
+    payload: { taskId }
+  }, AI_CALL_OPTIONS);
+}
+
+// Keep the old entry point for callers that have not migrated yet.
+function getInspectionTaskStatus(taskId, advance = false) {
+  return advance ? advanceInspectionTask(taskId) : readInspectionTaskStatus(taskId);
 }
 
 function confirmInspection(payload) {
@@ -73,6 +85,8 @@ module.exports = {
   getInspectionDetail,
   analyzeInspection,
   createInspectionTask,
+  readInspectionTaskStatus,
+  advanceInspectionTask,
   getInspectionTaskStatus,
   confirmInspection,
   deleteInspection

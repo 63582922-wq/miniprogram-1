@@ -29,7 +29,10 @@ const RESPONSIBLE_PARTY_LABEL_MAP = {
 const GENERIC_CATEGORY_NAMES = ["施工", "现场问题", "问题", "其他"];
 const GENERIC_AREA_NAMES = ["地面", "现场", "现场问题", "问题区域", "其他区域"];
 const AI_BATCH_SIZE = 1;
-const AI_BATCH_PARALLEL_LIMIT = 3;
+// One photo per request keeps source mapping and retries precise. The small,
+// configurable concurrency cap controls latency without turning a 20-photo
+// submission into a single oversized model request.
+const AI_BATCH_PARALLEL_LIMIT = Math.min(4, Math.max(1, Number(process.env.AI_BATCH_PARALLEL_LIMIT || 3)));
 
 /**
  * AI 任务记录的保留时长。
@@ -81,7 +84,10 @@ function hasMeaningfulVoiceText(text = "") {
 }
 
 function shouldSkipImageRecognitionForDraft(draft = {}) {
-  return hasMeaningfulVoiceText(draft.voiceText);
+  // Voice is context, not a replacement for visual evidence. The old rule
+  // skipped the image as soon as any voice text existed, which made the model
+  // less accurate exactly when the inspector supplied more information.
+  return draft.skipImageRecognition === true || !draft.imagePath;
 }
 
 function polishVoiceDescriptionText(text = "") {
@@ -141,8 +147,8 @@ function getAiRuntimeConfig() {
     /**
      * 图片精细度。
      *
-     * 巡检照片的价值就在于看清毫米级的差别（裂缝宽度、留缝是否一致、底盒是否歪斜），
-     * 而多数多模态接口的默认值会做降采样。所以默认要求原分辨率。
+     * 巡检照片需要尽量保留边缘、接缝和表面状态；但这里只做可见证据定位，
+     * 不把像素观感当成真实尺寸测量。多数多模态接口默认会降采样，因此请求 high。
      * 设成空字符串则不发送该字段，兼容不支持 detail 的服务商。
      */
     imageDetail: process.env.AI_IMAGE_DETAIL === undefined
@@ -199,6 +205,35 @@ function safeJsonParse(text) {
 
 function isOpenAiCompatibleEnabled(runtimeConfig) {
   return Boolean(runtimeConfig.apiKey && runtimeConfig.baseUrl);
+}
+
+function hasDraftsRequiringVision(payload = {}) {
+  return (payload.issueDrafts || []).some((draft) => !shouldSkipImageRecognitionForDraft(draft));
+}
+
+function assertVisionRuntimeAvailable(payload, runtimeConfig) {
+  if (hasDraftsRequiringVision(payload) && !isOpenAiCompatibleEnabled(runtimeConfig)) {
+    throw new Error(
+      "当前 AI 云函数未配置支持图片分析的模型。照片已保留，可稍后重试或直接进入人工核对"
+    );
+  }
+}
+
+function buildSafeRuntimeStatus() {
+  const runtimeConfig = getAiRuntimeConfig();
+  const openAiCompatible = isOpenAiCompatibleEnabled(runtimeConfig);
+  const textFallbackConfigured = Boolean(runtimeConfig.secretId && runtimeConfig.secretKey);
+  return {
+    provider: openAiCompatible
+      ? (runtimeConfig.provider || "openai-compatible")
+      : (textFallbackConfigured ? "tencent-hunyuan-text" : "unconfigured"),
+    model: runtimeConfig.model,
+    visionEnabled: openAiCompatible,
+    imageDetail: runtimeConfig.imageDetail || "provider-default",
+    batchSize: AI_BATCH_SIZE,
+    parallelLimit: AI_BATCH_PARALLEL_LIMIT,
+    maxPhotos: 20
+  };
 }
 
 function mapSeverityLabel(value = "") {
@@ -467,6 +502,8 @@ function getInspectionAiJsonSchema() {
         suggestion: "",
         visualEvidence: "",
         evidenceSource: "image|note|image+note",
+        confidence: "high|medium|low",
+        needsReview: true,
         images: [],
         annotatedImages: [],
         annotations: [],
@@ -485,13 +522,14 @@ function getInspectionAiSystemPrompt() {
     "你是装修巡查问题结构化整理引擎，不是聊天助手。你的输出将直接用于巡查结果确认、报告分组和 PDF 生成。",
     "",
     "你的任务分为五层：",
-    "1. 以每张问题照片为独立分析单元，绝不跨照片合并问题。",
+    "1. 以每张现场照片为独立分析单元，绝不跨照片合并问题。",
     "2. 判断同一张照片里的现场补充、语音转写文字和标注信息，描述的是一个问题的多个细节，还是多个独立问题。",
     "3. 同一张照片里，只要某个细节可以独立成立、独立核验、独立整改，就应拆成 1 条独立子问题。",
     "4. 如果是同一张照片里的多个独立问题，拆成多条问题项；这些问题项必须共享同一个 sourceIndex，并按 1 开始递增 subIssueIndex。",
     "5. 只有当多句描述明显只是同一个问题的补充说明、后果描述或同义复述时，才允许合并为 1 条子问题。",
     "6. 如果某张照片没有任何语音或文字输入，只根据照片中有证据支持的现象整理；没有可确认问题时输出空数组，不编造问题。",
     "7. 每条问题项都要补足结构化字段，并输出 summary。",
+    "8. 语音、文字与历史记录只用于补充定位和语义；不能代替当前照片证据，也不能把历史问题套到当前照片。",
     "",
     "判断同图是否应该拆分为多个独立问题时，使用以下规则：",
     "- 若描述指向不同构件、不同区域、不同缺陷类型、不同整改动作，拆分为多个问题。",
@@ -508,10 +546,16 @@ function getInspectionAiSystemPrompt() {
     "- 当某条问题主要依据语音转写整理时，description 必须润色成书面化、可直接用于巡查确认和 PDF 的问题描述，不能直接照抄口语原文。",
     "- 需要把“这个、那里、有点、好像、然后、就是”等口语化表达整理成正式巡查表述，并去掉语气词、重复词和填充词。",
     "- visualEvidence 必须写你从图片或标注中真正观察到的证据，不能只复述语音文字。",
-    "- 当没有语音转写文字时，仍要根据图片和标注自行判断问题，不允许因为缺少文字输入而返回空结果。",
+    "- 不得从单张照片推断真实尺寸、垂直度、强度、隐蔽层做法或规范结论，除非照片中存在可信量尺、清晰标注或现场文字依据。",
+    "- 如果只能确认现场状态、不能确认质量缺陷，则不要生成问题；允许返回空 items。",
+    "- confidence 只允许 high / medium / low。high 仅用于证据清楚且描述与可见位置直接对应；有遮挡、尺度不明或仅有口述时使用 medium / low。",
+    "- needsReview 在 confidence 为 low、依据主要来自 note、图片与文字冲突或责任方/严重级无法确认时必须为 true。",
+    "- 当没有语音转写文字时，仍要根据图片和标注进行判断；没有足够证据时返回空结果，不得为了有输出而编造。",
     "- 若无法确认责任方或等级，可保守输出 pending / normal，但不要编造不存在的证据。",
     "- images、annotatedImages、annotations、voiceText、voiceStorageFileId、voiceFilePath、voiceFileId 由后处理补全；模型无需编造真实文件路径，可返回空数组或空字符串。",
-    "- 语音里明确点名的每个独立缺陷，必须在 items 中保留，不允许遗漏。",
+    "- 语音里以肯定语气明确陈述的每个独立缺陷，必须在 items 中保留；‘请查看、是否存在、可能、疑似、待确认’只是检查线索，不能直接转成既定问题。",
+    "- 先判断照片展示的是施工过程、成品状态还是无法判断。材料堆放、管线外露、墙面未完成等施工过程状态本身不等于质量缺陷。",
+    "- description 必须描述可定位、可复核的现象；建议不得引入照片和现场说明里没有的材料、尺寸、工艺或责任结论。",
     "",
     "错误示例：",
     "- 把语音里明确提到的‘管卡颜色不一致’直接吞掉，只保留另一个问题。",
@@ -540,8 +584,9 @@ function getInspectionAiUserInstructionLines(payload) {
     "2. 同图里可独立成立、独立核验、独立整改的细节，默认拆成多个子问题。",
     "3. 若同图有多个独立问题，统一保留同一个 sourceIndex，用 subIssueIndex 标记该照片下的 1/2/3/4。",
     "4. 只有明显属于同一个问题的补充说明时，才合并到同一个子问题。",
-    "5. 语音中明确说出的独立缺陷点不允许遗漏。",
-    "6. 若没有语音或文字输入，也必须根据照片和标注自行输出问题。"
+    "5. 语音中以肯定语气明确说出的独立缺陷点不允许遗漏；检查请求、疑问和不确定描述只作为观察线索。",
+    "6. 若没有语音或文字输入，仍要检查照片和标注；没有足够证据时返回空 items。",
+    "7. 不做无量尺的尺寸判断，不把施工过程状态自动判为质量缺陷。"
   ];
 
   const aiMemory = payload.aiMemory || {};
@@ -567,6 +612,12 @@ function normalizeIssueClauseText(text = "") {
 
 function isLikelyIndependentIssueClause(text = "") {
   return /(不一致|未|没有|不垂直|不顺直|不平整|不规范|不均匀|歪斜|偏位|松动|缺失|裸露|开裂|空鼓|破损|污染|弯折|修补|补槽|堵塞|渗漏|色差|太矮|过矮|太高|过高|过低|太深|过深|不直|倾斜|太紧|过紧|过松|过密|过宽|过窄|太短|过短|太长|过长|太小|过小)/.test(text);
+}
+
+function isExplicitIssueAssertion(text = "") {
+  const normalized = `${text || ""}`.trim();
+  if (!normalized || !isLikelyIndependentIssueClause(normalized)) return false;
+  return !/(是否|可能|好像|疑似|似乎|不确定|待确认|判断|核对|请.{0,8}(查看|检查|确认))/.test(normalized);
 }
 
 function extractIndependentIssueClauses(text = "") {
@@ -598,8 +649,19 @@ function extractIndependentIssueClauses(text = "") {
   return merged;
 }
 
+function extractAssertedIssueClauses(text = "") {
+  return extractIndependentIssueClauses(text).filter(isExplicitIssueAssertion);
+}
+
 function buildDraftBackedIssueItem(draft, itemIndex, sourceIndex, subIssueIndex, overrides = {}) {
   const skipImageRecognition = shouldSkipImageRecognitionForDraft(draft);
+  const hasVoiceText = hasMeaningfulVoiceText(draft.voiceText);
+  const evidenceSource = ["image", "note", "image+note"].includes(overrides.evidenceSource)
+    ? overrides.evidenceSource
+    : (skipImageRecognition ? "note" : (hasVoiceText ? "image+note" : "image"));
+  const confidence = ["high", "medium", "low"].includes(overrides.confidence)
+    ? overrides.confidence
+    : "low";
   return {
     sourceIndex,
     subIssueIndex,
@@ -609,12 +671,12 @@ function buildDraftBackedIssueItem(draft, itemIndex, sourceIndex, subIssueIndex,
     responsibleParty: overrides.responsibleParty || "pending",
     description: resolveIssueDescription(overrides.description, draft, itemIndex),
     suggestion: overrides.suggestion || "请结合现场实际情况整改后复检。",
-    visualEvidence: overrides.visualEvidence || (skipImageRecognition
-      ? "已根据现场语音转写内容整理。"
-      : ((draft.annotations || []).length
-        ? "已参考问题照片中的标注位置与局部外观。"
-        : "已参考问题照片中的外观特征。")),
-    evidenceSource: overrides.evidenceSource || (skipImageRecognition ? "note" : "image"),
+    // Do not synthesize a generic visual claim when the model did not return
+    // one. Empty evidence is safer and visibly reviewable than fake certainty.
+    visualEvidence: `${overrides.visualEvidence || ""}`.trim(),
+    evidenceSource,
+    confidence,
+    needsReview: overrides.needsReview === true || confidence !== "high" || evidenceSource === "note",
     images: skipImageRecognition ? [] : (draft.imagePath ? [draft.imagePath] : []),
     annotatedImages: draft.annotatedImagePath
       ? (skipImageRecognition ? [] : [draft.annotatedImagePath])
@@ -656,7 +718,7 @@ function ensureVoiceIssueCoverage(payload, normalizedItems = []) {
       .filter((item) => item.sourceIndex === sourceIndex)
       .sort((left, right) => (left.subIssueIndex || 1) - (right.subIssueIndex || 1));
 
-    const clauses = extractIndependentIssueClauses(draft.voiceText || "");
+    const clauses = extractAssertedIssueClauses(draft.voiceText || "");
     if (!clauses.length) {
       nextItems.push(...sourceItems);
       return;
@@ -687,7 +749,9 @@ function ensureVoiceIssueCoverage(payload, normalizedItems = []) {
         description: clause,
         suggestion: seed.suggestion || "请针对该子问题分别整改并复检。",
         visualEvidence: seed.visualEvidence,
-        evidenceSource: seed.evidenceSource
+        evidenceSource: seed.visualEvidence ? seed.evidenceSource : "note",
+        confidence: seed.visualEvidence ? seed.confidence : "low",
+        needsReview: true
       }));
     });
   });
@@ -728,9 +792,11 @@ function buildInspectionSummary(payload, items) {
     .slice(0, 2)
     .map(([name, count]) => `${name}${count}项`);
 
-  const highlightParts = [
-    `本次巡查共整理出 ${total} 个问题项`
-  ];
+  if (!total) {
+    return `本次记录未整理出可确认的问题项。照片仍已保留，未记录问题不代表工程验收合格。`;
+  }
+
+  const highlightParts = [`本次巡查共整理出 ${total} 个待人工确认的问题项`];
 
   if (topCategories.length) {
     highlightParts.push(`主要集中在${topCategories.join("、")}`);
@@ -812,6 +878,21 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
     const normalizedSourceIndex = getNormalizedSourceIndex(drafts, item, index);
     const sourceIndex = normalizedSourceIndex;
     const sourceDraft = drafts[sourceIndex] || fallbackDraft || {};
+    const visualEvidence = `${item.visualEvidence || ""}`.trim();
+    const hasAssertedNote = extractAssertedIssueClauses(sourceDraft.voiceText || "").length > 0;
+    const requestedEvidenceSource = ["image", "note", "image+note"].includes(item.evidenceSource)
+      ? item.evidenceSource
+      : (hasAssertedNote ? "image+note" : "image");
+
+    // A model-generated defect without any visible evidence or explicit field
+    // assertion is a hallucination candidate, not a useful review suggestion.
+    if (!visualEvidence && !hasAssertedNote) return;
+    const evidenceSource = visualEvidence
+      ? requestedEvidenceSource
+      : "note";
+    const confidence = visualEvidence
+      ? item.confidence
+      : "low";
 
     normalized.push(buildDraftBackedIssueItem(
       sourceDraft,
@@ -825,8 +906,10 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
         responsibleParty: item.responsibleParty || "pending",
         description: item.description,
         suggestion: item.suggestion,
-        visualEvidence: item.visualEvidence,
-        evidenceSource: item.evidenceSource
+        visualEvidence,
+        evidenceSource,
+        confidence,
+        needsReview: item.needsReview === true || !visualEvidence
       }
     ));
   });
@@ -1061,6 +1144,7 @@ async function analyzeDraftBatchWithOpenAiCompatible(payload, draftIndexes = [])
 async function analyzeInspectionBatch(payload, draftIndexes = []) {
   const batchPayload = createBatchPayload(payload, draftIndexes);
   const runtimeConfig = getAiRuntimeConfig();
+  assertVisionRuntimeAvailable(batchPayload, runtimeConfig);
   if (isOpenAiCompatibleEnabled(runtimeConfig)) {
     return analyzeDraftBatchWithOpenAiCompatible(payload, draftIndexes);
   }
@@ -1072,7 +1156,8 @@ async function analyzeInspectionBatch(payload, draftIndexes = []) {
 }
 
 async function finalizeTaskItems(payload, mergedItems = []) {
-  return normalizeInspectionAiItems(payload, mergedItems, {fillMissingDrafts:false}).map((item,index)=>({
+  const normalized = normalizeInspectionAiItems(payload, mergedItems, {fillMissingDrafts:false});
+  return ensureVoiceIssueCoverage(payload, normalized).map((item,index)=>({
     ...item, id:item.id || "ai-"+item.sourceIndex+"-"+index,
     sourcePhotoId:(payload.issueDrafts || [])[item.sourceIndex]?.id || ""
   }));
@@ -1088,10 +1173,27 @@ function buildAiTaskStatus(task = {}, analysis = null) {
     status: task.status || "queued",
     totalBatches: task.totalBatches || 0,
     completedBatches: task.completedBatches || 0,
+    totalPhotos: task.totalPhotos || task.totalBatches || 0,
+    completedPhotos: task.completedPhotos || task.completedBatches || 0,
     currentBatchIndex: task.currentBatchIndex || 0,
     errorMessage: task.errorMessage || "",
+    startedAt: task.startedAt || 0,
+    completedAt: task.completedAt || 0,
     analysis: analysis || task.analysis || null
   };
+}
+
+function toUserFacingAiTaskError(error) {
+  const status = Number(error && error.response && error.response.status) || 0;
+  const code = `${(error && error.code) || ""}`.toUpperCase();
+  const raw = `${(error && error.message) || ""}`;
+  if (status === 402) return "AI 图片分析额度暂时不足，请联系管理员补充服务额度或直接进入人工核对";
+  if (status === 401 || status === 403) return "AI 图片分析服务的授权已失效，请联系管理员检查配置或直接进入人工核对";
+  if (status === 429) return "AI 图片分析服务当前繁忙，请稍后重试未完成照片或直接进入人工核对";
+  if (status >= 500) return "AI 图片分析服务暂时不可用，请稍后重试未完成照片或直接进入人工核对";
+  if (code === "ECONNABORTED" || /timeout|timed out|超时/i.test(raw)) return "AI 图片分析等待超时，请重试未完成照片";
+  if (/未配置支持图片分析的模型|AI 返回结构不完整|照片尚未上传/.test(raw)) return raw;
+  return "AI 图片分析未完成，请稍后重试未完成照片；也可以直接进入人工核对";
 }
 
 async function createAnalysisTask(payload, openId) {
@@ -1114,8 +1216,13 @@ async function createAnalysisTask(payload, openId) {
       partialItems: [],
       totalBatches: batches.length,
       completedBatches: 0,
+      totalPhotos: draftIndexes.length,
+      completedPhotos: 0,
       currentBatchIndex: 0,
       errorMessage: "",
+      model: getAiRuntimeConfig().model,
+      startedAt: 0,
+      completedAt: 0,
       createdAt: now,
       expiresAt: now + AI_TASK_TTL_MS,
       updatedAt: now
@@ -1141,14 +1248,22 @@ async function processAnalysisTask(task) {
       memoryAlerts: []
     };
     await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
-      data: { status: "success", analysis, updatedAt: Date.now() }
+      data: {
+        status: "success",
+        analysis,
+        completedBatches: 0,
+        completedPhotos: 0,
+        completedAt: Date.now(),
+        updatedAt: Date.now()
+      }
     });
     const refreshed = await db.collection(AI_TASK_COLLECTION).doc(task._id).get();
     return refreshed.data;
   }
 
+  const startedAt = task.startedAt || Date.now();
   await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
-    data: { status: "running", updatedAt: Date.now() }
+    data: { status: "running", errorMessage: "", startedAt, updatedAt: Date.now() }
   });
 
   // 在一次调用里尽量多处理几批，而不是每次只处理一批。
@@ -1168,14 +1283,32 @@ async function processAnalysisTask(task) {
       if(!pending.length)break;
       if(deadline-Date.now()<31000)break;
       const indices=pending.slice(0,AI_BATCH_PARALLEL_LIMIT);
+      // Requests still run in parallel, but successful photos checkpoint one at
+      // a time through this serialized writer. Read-only status polling can now
+      // show 1/20, 2/20... instead of waiting for the slowest request in a wave.
+      let checkpointChain=Promise.resolve();
       const results=await Promise.all(indices.map(async i=>{
-        try{return {i,items:await analyzeInspectionBatch(payload,batches[i])};}
-        catch(error){return {i,error};}
+        try {
+          const items=await analyzeInspectionBatch(payload,batches[i]);
+          checkpointChain=checkpointChain.then(async()=>{
+            completed[i]=items||[];
+            cursor=Object.keys(completed).length;
+            mergedItems=legacyItems.concat(...Object.keys(completed).sort((a,b)=>Number(a)-Number(b)).map(key=>completed[key]));
+            await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{
+              batchResults:completed,
+              completedBatches:cursor,
+              completedPhotos:cursor,
+              currentBatchIndex:cursor,
+              partialItems:mergedItems,
+              updatedAt:Date.now()
+            }});
+          });
+          await checkpointChain;
+          return {i,items};
+        } catch(error) {
+          return {i,error};
+        }
       }));
-      for(const r of results)if(!r.error)completed[r.i]=r.items||[];
-      cursor=Object.keys(completed).length;
-      mergedItems=legacyItems.concat(...Object.keys(completed).sort((a,b)=>Number(a)-Number(b)).map(i=>completed[i]));
-      await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{batchResults:completed,completedBatches:cursor,currentBatchIndex:cursor,partialItems:mergedItems,updatedAt:Date.now()}});
       const failure=results.find(r=>r.error);if(failure)throw failure.error;
     }
     cursor=Object.keys(completed).length;
@@ -1195,7 +1328,9 @@ async function processAnalysisTask(task) {
           status: "success",
           analysis: finalAnalysis,
           completedBatches: cursor,
+          completedPhotos: cursor,
           currentBatchIndex: cursor,
+          completedAt: Date.now(),
           partialItems: _.remove(),
           batchResults: _.remove(),
           payload: _.remove(),
@@ -1211,6 +1346,7 @@ async function processAnalysisTask(task) {
       data: {
         status: "running",
         completedBatches: cursor,
+        completedPhotos: cursor,
         currentBatchIndex: cursor,
         partialItems: mergedItems,
         updatedAt: Date.now()
@@ -1221,7 +1357,9 @@ async function processAnalysisTask(task) {
     await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
       data: {
         status: "failed",
-        errorMessage: error && error.message ? error.message : "AI 分析失败",
+        errorMessage: toUserFacingAiTaskError(error),
+        completedPhotos: Object.keys(completed).length,
+        failedAt: Date.now(),
         updatedAt: Date.now()
       }
     });
@@ -1244,6 +1382,7 @@ async function getAnalysisTask(taskId) {
 
 async function analyzeInspectionWithModel(payload) {
   const runtimeConfig = getAiRuntimeConfig();
+  assertVisionRuntimeAvailable(payload, runtimeConfig);
   if (isOpenAiCompatibleEnabled(runtimeConfig)) {
     const drafts = payload.issueDrafts || [];
 
@@ -1261,10 +1400,11 @@ async function analyzeInspectionWithModel(payload) {
     );
     const mergedItems = batchResults.flat();
 
+    const normalizedItems = normalizeInspectionAiItems(payload, mergedItems, {
+      fillMissingDrafts: false
+    });
     return {
-      items: normalizeInspectionAiItems(payload, mergedItems, {
-        fillMissingDrafts: false
-      }),
+      items: ensureVoiceIssueCoverage(payload, normalizedItems),
       summary: ""
     };
   }
@@ -1297,8 +1437,9 @@ async function analyzeInspectionWithModel(payload) {
   if(!Array.isArray(parsed.items))throw new Error("AI 返回结构不完整，请重试或手动整理");
   const items = parsed.items;
 
+  const normalizedItems = ensureVoiceIssueCoverage(payload, normalizeInspectionAiItems(payload, items));
   return {
-    items: normalizeInspectionAiItems(payload, items).map((item) => {
+    items: normalizedItems.map((item) => {
       const sourceDraft = (payload.issueDrafts || [])[item.sourceIndex] || {};
       return {
         ...item,
@@ -1322,6 +1463,12 @@ exports.main = async (event) => {
 
   try {
     switch (action) {
+      case "getRuntimeStatus":
+        return {
+          success: true,
+          data: buildSafeRuntimeStatus()
+        };
+
       case "analyzeInspection": {
         const access = await assertProjectAccess(payload.projectId, OPENID);
         if (!access.ok) {

@@ -5,6 +5,14 @@
   padding-bottom: calc(176rpx + env(safe-area-inset-bottom));
 }
 
+.review-change-notice {
+  padding: 18rpx 0;
+  border-bottom: 1px solid var(--a-line);
+  color: var(--a-active);
+  font-size: var(--a-type-caption);
+  line-height: 1.5;
+}
+
 .review-identity {
   display: flex;
   align-items: center;

@@ -109,10 +109,20 @@ function writeDraft(sessionKey, form, returnContext, patch = {}) {
     metadata.taskId = "";
     metadata.analysisRequestId = "";
     // Keep human edits when evidence/annotation changes. Only intentionally removed photos
-    // remove their associated issues; a transport upload never invalidates review.
+    // remove their associated issues; a transport upload never invalidates review. Record
+    // exactly which photos changed so a later AI retry can refresh those photos without
+    // overwriting confirmed edits on untouched photos.
     if (metadata.review) {
       const ids = new Set((form.issueDrafts || []).map(p => p.id));
+      const previousById = new Map(((previous.form && previous.form.issueDrafts) || []).map(p => [p.id, p]));
+      const contextChanged = ["projectId", "title", "note"].some(key =>
+        `${(previous.form && previous.form[key]) || ""}` !== `${form[key] || ""}`
+      );
+      const changedPhotoIds = (form.issueDrafts || [])
+        .filter(photo => contextChanged || !previousById.has(photo.id) || photoInputSignature(previousById.get(photo.id)) !== photoInputSignature(photo))
+        .map(photo => photo.id);
       metadata.review = { ...metadata.review, stale: true,
+        stalePhotoIds: [...new Set([...(metadata.review.stalePhotoIds || []), ...changedPhotoIds])],
         items: (metadata.review.items || []).filter(i => !i.sourcePhotoId || ids.has(i.sourcePhotoId)) };
     }
     metadata.phase = "capture";
@@ -131,6 +141,15 @@ function writeDraft(sessionKey, form, returnContext, patch = {}) {
   return snapshot;
 }
 
+function photoInputSignature(photo = {}) {
+  return JSON.stringify({
+    id: photo.id || "",
+    revision: photo.mediaRevision || 1,
+    annotations: photo.annotations || [],
+    voiceText: photo.voiceText || ""
+  });
+}
+
 // Legacy bytes remain untouched until ownership has been checked by the entry flow.
 function claimLegacyDraft(sessionKey, projectId) {
   const raw = wx.getStorageSync(sessionKey);
@@ -143,8 +162,7 @@ function claimLegacyDraft(sessionKey, projectId) {
 // Transport paths and transient UI state do not constitute a new analysis input.
 function inputSignature(form = {}) {
   return JSON.stringify({ projectId: form.projectId, title: form.title, note: form.note,
-    photos: (form.issueDrafts || []).map(p => ({ id: p.id, revision: p.mediaRevision || 1,
-      annotations: p.annotations || [], voiceText: p.voiceText || "" })) });
+    photos: (form.issueDrafts || []).map(photoInputSignature) });
 }
 
 function patchDraft(sessionKey, patch) {

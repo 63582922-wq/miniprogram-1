@@ -2,7 +2,6 @@ const { listProjects, deleteProject } = require("../../../services/project");
 const { getGuideProgress, isGuideCompleted } = require("../../../utils/guide");
 const { startCoach } = require("../../../utils/coach");
 const ONBOARDING_SEEN_KEY = "onboardingSeenV1";
-const { openRecord } = require("../../../utils/record-entry");
 const { syncTabBar } = require("../../../utils/tab-bar");
 
 Page({
@@ -23,12 +22,6 @@ Page({
     }catch(e){if(sequence===this.loadSequence)this.setData({loadError:e.message||"项目加载失败，请重试"});}
     finally{if(sequence===this.loadSequence)this.setData({loading:false});}
   },
-  startRecord(){
-    this.setData({selectingProject:true});
-    wx.showToast({title:"请选择项目开始记录",icon:"none"});
-    if(!this.data.projectList.length&&!this.data.loading&&!this.data.keyword&&!this.data.loadError)this.goCreate();
-  },
-  cancelSelection(){this.setData({selectingProject:false});},
   handleKeywordInput(event) {
     this.setData({
       keyword: event.detail.value
@@ -44,11 +37,6 @@ Page({
   },
   openDetail(event) {
     const { _id } = event.detail;
-    if (this.data.selectingProject) {
-      this.setData({selectingProject:false});
-      const p=this.data.projectList.find(x=>x._id===_id);
-      openRecord(_id,p&&p.name).catch(e=>wx.showToast({title:e.message,icon:"none"}));return;
-    }
     wx.navigateTo({
       url: `/pages/project/detail/index?projectId=${_id}`
     });

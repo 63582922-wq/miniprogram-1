@@ -24,7 +24,16 @@ test('annotation changes retain human edits, submitted payload cannot silently c
  D.patchDraft('s',{review:{items:[{id:'i',sourcePhotoId:'photo',description:'人工修改'}]}});
  D.writeDraft('s',{...form,issueDrafts:[{...form.issueDrafts[0],annotations:[{id:'mark'}]}]});
  assert.equal(D.readDraft('s').review.items[0].description,'人工修改');assert.equal(D.readDraft('s').review.stale,true);
+ assert.deepEqual(D.readDraft('s').review.stalePhotoIds,['photo']);
  D.patchDraft('s',{submission:{requestId:'fixed'}});assert.throws(()=>D.writeDraft('s',{...form,note:'改写'}),/内容已锁定/);
+});
+test('new photos mark only changed evidence stale while transport paths do not',()=>{
+ cache.clear();const photo={id:'a',imagePath:'tmp-a',voiceText:''};const form={projectId:'p',issueDrafts:[photo]};
+ D.writeDraft('s',form);D.patchDraft('s',{review:{items:[{id:'kept',sourcePhotoId:'a'}],originalItems:[],summary:'旧小结'}});
+ D.writeDraft('s',{...form,issueDrafts:[{...photo,imagePath:'cloud://uploaded'}]});
+ assert.equal(D.readDraft('s').review.stale,undefined,'upload receipt is not a new analysis input');
+ D.writeDraft('s',{...form,issueDrafts:[photo,{id:'b',imagePath:'tmp-b',voiceText:''}]});
+ assert.deepEqual(D.readDraft('s').review.stalePhotoIds,['b']);
 });
 test('account plus project plus session isolates drafts and retains siblings',()=>{
  cache.clear();let owner='a';global.getApp=()=>({globalData:{userInfo:{openId:owner}}});

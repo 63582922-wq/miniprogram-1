@@ -34,9 +34,42 @@ test('hidden capture page cannot overwrite annotation draft on unload and releas
  },{getRecorderManager:()=>({}),getStorageSync:()=>null,setStorageSync(){},removeStorageSync(){},
   enableAlertBeforeUnload(){},disableAlertBeforeUnload(){disabled++}});
  page.data.sessionKey='s';page.data.form.issueDrafts=[{id:'photo',annotations:[]}];
- page.ownsDraft=true;page.clearAnalyzeTaskPolling=()=>{};
+ page.ownsDraft=true;page.suspendDraftOnHide=true;page.clearAnalyzeTaskPolling=()=>{};
  page.onHide();assert.equal(writes,1);assert.equal(disabled,1);
  page.onUnload();assert.equal(writes,1,'stale capture must not replace newer annotation data');
+});
+
+test('camera or album roundtrip keeps capture ownership and does not restore over the picker callback',async()=>{
+ let writes=0,reads=0;
+ const draft={form:{projectId:'p',issueDrafts:[]}};
+ const {page}=loadPage('inspection/create',{
+  '../../../utils/inspection-draft':{
+   writeDraft(){writes++},readDraft:()=>draft,
+   extractDraftForm:value=>value.form,
+   extractDraftReturnContext:()=>null,
+   createDraftSnapshot:value=>value,
+   patchDraft(){}
+  }
+ },{getRecorderManager:()=>({}),getStorageSync:()=>null,setStorageSync(){},removeStorageSync(){},disableAlertBeforeUnload(){}});
+ page.data.sessionKey='s';page.data.form={projectId:'p',issueDrafts:[]};page.clearAnalyzeTaskPolling=()=>{};
+ page.restoreDraft=()=>{reads++};page.ownsDraft=true;page.pickerInFlight=true;
+ page.onHide();
+ assert.equal(page.ownsDraft,true,'system picker must not hand the draft to another page');
+ await page.onShow();
+ assert.equal(reads,0,'onShow must not restore the stale snapshot while picker callback is pending');
+ assert.equal(writes,1,'current capture state is still autosaved before the picker opens');
+});
+
+test('reanalyzing changed photos preserves reviewed issues on untouched photos and refreshes the summary count',()=>{
+ const {context}=loadPage('inspection/create',{}, {getRecorderManager:()=>({})});
+ const form={issueDrafts:[{id:'old'},{id:'new'}]};
+ const draft={review:{stale:true,stalePhotoIds:['new'],summary:'本次记录 1 张照片，确认 1 条问题。',summaryEdited:false,
+  items:[{id:'human',sourcePhotoId:'old',description:'人工已确认'}],originalItems:[{id:'old-ai',sourcePhotoId:'old'}]}};
+ const merged=context.mergeReanalyzedReview(draft,{items:[{id:'fresh',sourceIndex:1,description:'新增照片建议'}]},form);
+ assert.deepEqual(merged.items.map(item=>item.id),['human','fresh']);
+ assert.equal(merged.items[1].sourcePhotoId,'new');
+ assert.equal(merged.summary,'本次记录 2 张照片，确认 2 条问题。');
+ assert.equal(merged.stale,false);
 });
 
 test('capture relies on autosave and never enables a native unload guard that can leak across pages',async()=>{
