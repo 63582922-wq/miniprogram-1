@@ -42,6 +42,18 @@ test('one tap creates a numbered region and the outer handle switches between ci
  handle=G.toScreen(G.pixel(point.b,e.iw,e.ih),e.view);e.start(event([[handle.x,handle.y]],'touchstart'));e.move(event([[handle.x+35,handle.y+8]]));e.end(event([],'touchend'));
  radius=e.pointRadius(point);assert.notEqual(Math.round(radius.rx),Math.round(radius.ry));
 });
+test('number region stays circular and inside image edges while resizing and dragging',()=>{
+ const e=editor();e.data.tool='point';e.start(event([[160,150]],'touchstart'));e.end(event([],'touchend'));
+ const point=e.shapes[0];e.data.tool='select';e.data.selected=point.id;
+ const handle=G.toScreen(G.pixel(point.b,e.iw,e.ih),e.view);
+ e.start(event([[handle.x,handle.y]],'touchstart'));e.move(event([[handle.x+500,handle.y+500]]));e.end(event([],'touchend'));
+ let radius=e.pointRadius(point);assert.ok(Math.abs(radius.rx-radius.ry)<1e-8,'circle resize must use the most restrictive edge');
+ let center=G.pixel(point.a,e.iw,e.ih);assert.ok(center.x-radius.rx>=-1e-8&&center.x+radius.rx<=e.iw+1e-8);assert.ok(center.y-radius.ry>=-1e-8&&center.y+radius.ry<=e.ih+1e-8);
+ const start=G.toScreen(center,e.view);e.start(event([[start.x,start.y]],'touchstart'));e.move(event([[start.x-1000,start.y-1000]]));e.end(event([],'touchend'));
+ radius=e.pointRadius(point);center=G.pixel(point.a,e.iw,e.ih);
+ assert.ok(center.x-radius.rx>=-1e-8&&center.x+radius.rx<=e.iw+1e-8,'drag must keep the circle inside left/right edges');
+ assert.ok(center.y-radius.ry>=-1e-8&&center.y+radius.ry<=e.ih+1e-8,'drag must keep the circle inside top/bottom edges');
+});
 test('number marker follows a one-finger placement drag in image coordinates',()=>{
  const e=editor();e.data.tool='point';e.start(event([[120,130]],'touchstart'));const before=structuredClone(e.shapes[0]);
  e.move(event([[160,150]]));e.end(event([],'touchend'));

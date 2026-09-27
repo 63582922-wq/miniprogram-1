@@ -85,6 +85,11 @@ Component({
    const radius=Math.min(maxRadius,Math.max(28,Math.min(this.iw,this.ih)*.09)),rx=radius/this.iw,ry=radius/this.ih;
    return {a:center,b:{x:G.clamp(center.x+rx,0,1),y:G.clamp(center.y+ry,0,1)},aspectLocked:true};
   },
+  translatePointShape(shape,dx,dy){
+   const radius=this.pointRadius(shape),rx=radius.rx/this.iw,ry=radius.ry/this.ih;
+   const x=G.clamp(shape.a.x+dx,rx,1-rx),y=G.clamp(shape.a.y+dy,ry,1-ry);
+   return G.translate(shape,x-shape.a.x,y-shape.a.y);
+  },
   normalizePointShapes(shapes){return (shapes||[]).map(shape=>{
    if(shape.type!=="point")return shape;
    const missingRegion=!shape.b||Math.hypot((shape.b.x-shape.a.x)*this.iw,(shape.b.y-shape.a.y)*this.ih)<8;
@@ -122,13 +127,13 @@ Component({
    if(g.kind==="pinch"){if(points.length<2)return;const[a,b]=points,mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},scale=G.clamp(g.scale*Math.hypot(a.x-b.x,a.y-b.y)/(g.distance||1),this.fitScale,this.fitScale*12);this.view=this.boundView({scale,x:mid.x-g.anchor.x*scale,y:mid.y-g.anchor.y*scale});this.draw();return;}
    if(g.kind==="pan"){this.view=this.boundView({...g.view,x:g.view.x+p.x-g.p.x,y:g.view.y+p.y-g.p.y});this.draw();return;}
    const s=this.shapes.find(s=>s.id===g.id);if(!s)return;const n=this.norm(p);
-   if(g.kind==="draw"){if(s.type==="point")Object.assign(s,G.translate(g.original,n.x-g.start.x,n.y-g.start.y));else s.b=n;}
-   if(g.kind==="move")Object.assign(s,G.translate(g.original,n.x-g.start.x,n.y-g.start.y));
+   if(g.kind==="draw"){if(s.type==="point")Object.assign(s,this.translatePointShape(g.original,n.x-g.start.x,n.y-g.start.y));else s.b=n;}
+   if(g.kind==="move")Object.assign(s,s.type==="point"?this.translatePointShape(g.original,n.x-g.start.x,n.y-g.start.y):G.translate(g.original,n.x-g.start.x,n.y-g.start.y));
    if(g.kind==="handle"){
     if(s.type==="point"&&g.handle==="b"){
       let rx=Math.abs(n.x-s.a.x)*this.iw,ry=Math.abs(n.y-s.a.y)*this.ih;
-      if(s.aspectLocked!==false){const radius=Math.max(rx,ry,18);rx=radius;ry=radius;}
-      rx=Math.min(rx,s.a.x*this.iw,(1-s.a.x)*this.iw);ry=Math.min(ry,s.a.y*this.ih,(1-s.a.y)*this.ih);
+      if(s.aspectLocked!==false){const desired=Math.max(rx,ry,18),available=Math.min(s.a.x*this.iw,(1-s.a.x)*this.iw,s.a.y*this.ih,(1-s.a.y)*this.ih);rx=ry=Math.min(desired,available);}
+      else{rx=Math.min(rx,s.a.x*this.iw,(1-s.a.x)*this.iw);ry=Math.min(ry,s.a.y*this.ih,(1-s.a.y)*this.ih);}
       s.b={x:G.clamp(s.a.x+rx/this.iw,0,1),y:G.clamp(s.a.y+ry/this.ih,0,1)};
     }else{
       const o=g.original[g.handle];s[g.handle]={x:G.clamp(o.x+n.x-g.start.x,0,1),y:G.clamp(o.y+n.y-g.start.y,0,1)};
@@ -162,7 +167,7 @@ Component({
    if(locked){const available=Math.min(selected.a.x*this.iw,(1-selected.a.x)*this.iw,selected.a.y*this.ih,(1-selected.a.y)*this.ih),radius=Math.min(available,Math.max(this.pointRadius(selected).rx,this.pointRadius(selected).ry));selected.b={x:G.clamp(selected.a.x+radius/this.iw,0,1),y:G.clamp(selected.a.y+radius/this.ih,0,1)};}
    this.setData({pointAspectLocked:locked});this.commit(before);
   },
-  nudge(e){const [x,y]=e.currentTarget.dataset.delta.split(",").map(Number),before=copy(this.shapes);this.shapes=this.shapes.map(s=>s.id===this.data.selected?G.translate(s,x/this.iw,y/this.ih):s);this.commit(before);},
+  nudge(e){const [x,y]=e.currentTarget.dataset.delta.split(",").map(Number),before=copy(this.shapes);this.shapes=this.shapes.map(s=>s.id===this.data.selected?(s.type==="point"?this.translatePointShape(s,x/this.iw,y/this.ih):G.translate(s,x/this.iw,y/this.ih)):s);this.commit(before);},
   zoom(e){if(!this.view)return;this.view=this.boundView(G.zoomAt(this.view,{x:this.width/2,y:this.height/2},G.clamp(this.view.scale*Number(e.currentTarget.dataset.factor),this.fitScale,this.fitScale*12)));this.draw();},
   async exportImage(){
    if(!this.data.ready)throw new Error(this.data.error||"图片未就绪");
