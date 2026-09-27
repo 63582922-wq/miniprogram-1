@@ -9,6 +9,18 @@ test('second finger cancels pending stroke, pinch anchor is stable, no ghost ann
  const before=G.toImage({x:150,y:100},e.view);e.move(event([[50,100],[250,100]]));const after=G.toImage({x:150,y:100},e.view);
  assert.deepEqual(after,before);e.end(event([],'touchend'));assert.equal(e.undoStack.length,0);assert.equal(e.shapes.length,0);
 });
+test('one remaining finger can continue panning immediately after a pinch',()=>{
+ const e=editor();e.data.tool='pan';
+ e.start(event([[100,100],[200,100]],'touchstart'));
+ e.move(event([[70,100],[230,100]]));
+ const zoomed={...e.view};
+ e.end(event([[70,100]],'touchend'));
+ e.move(event([[45,90]]));
+ assert.equal(e.view.scale,zoomed.scale);
+ assert.equal(e.view.x,zoomed.x-25);
+ assert.equal(e.view.y,zoomed.y-10);
+ e.end(event([],'touchend'));
+});
 test('draw, select/move, undo/redo, delete and one-pixel nudge preserve geometry',()=>{
  const e=editor();e.start(event([[100,100]],'touchstart'));e.move(event([[200,180]]));e.end(event([],'touchend'));assert.equal(e.shapes.length,1);assert.equal(e.undoStack.length,1);
  const first=JSON.stringify(e.shapes);e.undo();assert.equal(e.shapes.length,0);e.redo();assert.equal(JSON.stringify(e.shapes),first);

@@ -242,7 +242,9 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.match(captureMarkup, /data-source-type="album"/);
   assert.doesNotMatch(captureMarkup, /继续添加|拍照或添加照片/);
   assert.doesNotMatch(projectListMarkup, /开始现场记录|project-record-action|selectingProject/);
-  assert.match(captureMarkup, /wx:if="\{\{issueDraftCount > 1\}\}" class="issue-order"/);
+  assert.match(captureMarkup, /class="capture-section__count">\{\{form\.issueDrafts\.length\}\} \/ 20/);
+  assert.match(captureMarkup, /wx:if="\{\{form\.issueDrafts\.length > 1\}\}" class="issue-order"/);
+  assert.doesNotMatch(captureMarkup, /issueDraftCount/);
   assert.ok(captureMarkup.indexOf('class="create-ai-row"') < captureMarkup.indexOf('class="footer-actions create-footer-actions"'));
   assert.match(capture, /\.inspection-create-page\{padding-bottom:calc\(128rpx \+ env\(safe-area-inset-bottom\)\)\}/);
   assert.doesNotMatch(captureMarkup, /<view class="(?:issue-draft-card__(?:collapse|delete|media-action)|create-card__toggle|voice-hold-button|analyze-panel__cancel)"[^>]+bind/);

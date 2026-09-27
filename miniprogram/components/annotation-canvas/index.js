@@ -141,7 +141,11 @@ Component({
    }
    this.draw(p);
   },
-  end(e){const g=this.gesture;if(!g)return;if(g.kind==="pinch"&&e.touches.length)return;
+  end(e){const g=this.gesture;if(!g)return;if(g.kind==="pinch"&&e.touches.length>=2)return;
+   // Let the remaining finger continue as a pan when a pinch ends. This makes
+   // inspecting a zoomed detail feel continuous instead of requiring a full
+   // lift-and-touch cycle between zooming and repositioning the photo.
+   if(g.kind==="pinch"&&e.touches.length===1){this.gesture={kind:"pan",p:this.point(e.touches[0]),view:{...this.view}};return;}
    if(g.before){if(e.type==="touchcancel")this.shapes=g.before;
     else{const s=this.shapes.find(s=>s.id===g.id);if(g.kind==="draw"&&s&&s.type!=="point"&&Math.hypot((s.a.x-s.b.x)*this.iw,(s.a.y-s.b.y)*this.ih)*this.view.scale<5)this.shapes=g.before;}
     this.commit(g.before);

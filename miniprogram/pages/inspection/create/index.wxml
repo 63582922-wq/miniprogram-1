@@ -11,17 +11,17 @@
     <view class="capture-section__head">
       <view><view class="capture-section__title">现场照片</view><view class="section-subtitle">一张照片可标注多处问题，也可以只留存现场</view></view>
       <view class="capture-section__tools">
-        <view class="capture-section__count">{{issueDraftCount}} / 20</view>
+        <view class="capture-section__count">{{form.issueDrafts.length}} / 20</view>
       </view>
     </view>
-    <view wx:if="{{issueDraftCount < 20}}" class="capture-section__picker-actions">
+    <view wx:if="{{form.issueDrafts.length < 20}}" class="capture-section__picker-actions">
       <button class="capture-section__action" data-source-type="camera" disabled="{{pickingImages}}" loading="{{pickingImages && pickerSourceType === 'camera'}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />{{pickingImages && pickerSourceType === 'camera' ? pickerStatusText : '拍照'}}</button>
       <button class="capture-section__action capture-section__action--album" data-source-type="album" disabled="{{pickingImages}}" loading="{{pickingImages && pickerSourceType === 'album'}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" />{{pickingImages && pickerSourceType === 'album' ? pickerStatusText : '从相册选择'}}</button>
     </view>
   </view>
 
   <view wx:if="{{pickerError}}" class="precision-state">{{pickerError}}<button class="secondary-button" bindtap="chooseImages">重新选图</button></view>
-  <view wx:if="{{issueDraftCount}}" class="issue-draft-list">
+  <view wx:if="{{form.issueDrafts.length}}" class="issue-draft-list">
     <view wx:for="{{form.issueDrafts}}" wx:key="id" class="card issue-draft-card">
       <view class="issue-draft-card__header">
         <view class="issue-draft-card__title-wrap">
@@ -44,7 +44,7 @@
           </button>
           <button class="issue-draft-card__media-action" data-index="{{index}}" bindtap="replaceIssueImage">更换照片</button>
         </view>
-        <view wx:if="{{issueDraftCount > 1}}" class="issue-order"><text class="issue-order__label">调整顺序</text><button class="issue-order__button {{index === 0 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === 0}}" data-index="{{index}}" data-step="-1" bindtap="moveIssue">上移</button><button class="issue-order__button {{index === issueDraftCount - 1 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === issueDraftCount - 1}}" data-index="{{index}}" data-step="1" bindtap="moveIssue">下移</button></view>
+        <view wx:if="{{form.issueDrafts.length > 1}}" class="issue-order"><text class="issue-order__label">调整顺序</text><button class="issue-order__button {{index === 0 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === 0}}" data-index="{{index}}" data-step="-1" bindtap="moveIssue">上移</button><button class="issue-order__button {{index === form.issueDrafts.length - 1 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === form.issueDrafts.length - 1}}" data-index="{{index}}" data-step="1" bindtap="moveIssue">下移</button></view>
         <view class="issue-draft-card__editor">
           <view wx:if="{{item.annotationCount || item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badges">
             <view wx:if="{{item.annotationCount}}" class="issue-draft-card__badge">已标注 {{item.annotationCount}} 处</view>
@@ -90,12 +90,12 @@
     </view>
   </view>
 
-  <view wx:if="{{issueDraftCount}}" class="create-ai-row">
-    <button class="create-ai-link" loading="{{analyzing}}" disabled="{{analyzing || !issueDraftCount}}" bindtap="handleAnalyze">{{analyzing ? 'AI 正在整理…' : 'AI 识别未说明照片（选用）'}}</button>
+  <view wx:if="{{form.issueDrafts.length}}" class="create-ai-row">
+    <button class="create-ai-link" loading="{{analyzing}}" disabled="{{analyzing || !form.issueDrafts.length}}" bindtap="handleAnalyze">{{analyzing ? 'AI 正在整理…' : 'AI 识别未说明照片（选用）'}}</button>
   </view>
 
-  <view wx:if="{{issueDraftCount}}" class="footer-actions create-footer-actions">
-    <button class="primary-button" disabled="{{analyzing || !issueDraftCount}}" bindtap="handleManualReview">进入人工核对</button>
+  <view wx:if="{{form.issueDrafts.length}}" class="footer-actions create-footer-actions">
+    <button class="primary-button" disabled="{{analyzing || !form.issueDrafts.length}}" bindtap="handleManualReview">进入人工核对</button>
   </view>
 
   <view wx:if="{{analyzing || analyzeError}}" class="analyze-mask">
