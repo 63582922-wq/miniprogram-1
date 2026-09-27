@@ -146,7 +146,8 @@ function photoInputSignature(photo = {}) {
     id: photo.id || "",
     revision: photo.mediaRevision || 1,
     annotations: photo.annotations || [],
-    voiceText: photo.voiceText || ""
+    voiceText: photo.voiceText || "",
+    analysisMode: photo.analysisMode || "auto"
   });
 }
 

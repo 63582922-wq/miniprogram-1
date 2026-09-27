@@ -85,13 +85,14 @@ async function confirmInspection(payload = {}) {
     if(!photo)throw new Error("问题与来源照片不匹配");
     if(typeof item.description!=="string" || !item.description.trim())throw new Error("问题描述不能为空");
     return {id:item.id || "legacy-issue-"+index,sourcePhotoId:photo.id,sourceIndex:photo.sourceIndex,subIssueIndex:0,
+      annotationId:item.annotationId||"",markerNumber:Number.isInteger(item.markerNumber)&&item.markerNumber>0?item.markerNumber:0,
       area:item.area||"",category:item.category||"",severity:["normal","major","critical"].includes(item.severity)?item.severity:"normal",
       responsibleParty:["pending","constructor","supplier","client"].includes(item.responsibleParty)?item.responsibleParty:"pending",
       description:item.description,suggestion:item.suggestion||"",images:[photo.imagePath],annotatedImages:[photo.annotatedImagePath||photo.imagePath],
       annotations:photo.annotations||[],voiceStorageFileId:photo.voiceStorageFileId||"",voiceFileId:photo.voiceStorageFileId||"",voiceText:photo.voiceText||"",sortOrder:index};
   });
   if(new Set(rows.map(r=>r.id)).size!==rows.length)throw new Error("问题编号重复");
-  const counts={};rows.forEach(r=>{counts[r.sourcePhotoId]=(counts[r.sourcePhotoId]||0)+1;r.subIssueIndex=counts[r.sourcePhotoId];});
+  const counts={};rows.forEach(r=>{counts[r.sourcePhotoId]=(counts[r.sourcePhotoId]||0)+1;r.subIssueIndex=r.markerNumber||counts[r.sourcePhotoId];});
   const evidence=[...photoMap.values()].map(p=>({id:p.id,sourceIndex:p.sourceIndex,imagePath:p.imagePath,sourceOriginalImagePath:p.sourceOriginalImagePath||p.imagePath,annotatedImagePath:p.annotatedImagePath||"",annotations:p.annotations||[],annotationStage:p.annotationStage||null,voiceText:p.voiceText||"",voiceStorageFileId:p.voiceStorageFileId||""}));
   const canonical={projectId:payload.form.projectId,title:payload.form.title||"",note:payload.form.note||"",aiSummary:payload.form.aiSummary||"",photos:evidence,items:rows};
   // Legacy clients are deduplicated by confirmed content; v2 sends a stable explicit request.

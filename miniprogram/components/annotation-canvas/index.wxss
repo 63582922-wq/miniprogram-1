@@ -28,13 +28,44 @@
 
 .annotation-tool-rail,
 .annotation-subrail,
-.annotation-nudge {
+.annotation-nudge,
+.annotation-region-mode {
   display: flex;
   align-items: center;
   padding: 8rpx 10rpx;
   border-top: 1px solid var(--a-line);
   background: var(--a-paper);
 }
+
+.annotation-region-mode {
+  gap: 10rpx;
+  padding: 10rpx 20rpx;
+  background: var(--a-field);
+}
+
+.annotation-region-mode__label,
+.annotation-region-mode__hint {
+  color: var(--a-muted);
+  font-size: 26rpx;
+}
+
+.annotation-region-mode__hint { margin-left: auto; }
+
+.annotation-region-mode__button {
+  min-width: 94rpx;
+  min-height: 64rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  border: 1px solid var(--a-line);
+  border-radius: 32rpx;
+  background: var(--a-paper);
+  color: var(--a-ink);
+  font-size: 26rpx;
+  line-height: 62rpx;
+}
+
+.annotation-region-mode__button::after { border: 0; }
+.annotation-region-mode__button.is-active { border-color: var(--a-accent); color: var(--a-accent-text); }
 
 .annotation-tool-rail .tool,
 .annotation-subrail .tool {

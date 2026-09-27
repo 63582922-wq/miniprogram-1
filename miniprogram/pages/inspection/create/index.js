@@ -39,6 +39,7 @@ function createIssueDraft(filePath) {
     imagePath: filePath,
     annotations: [],
     annotationCount: 0,
+    analysisMode: "auto",
     voiceText: "",
     voiceFilePath: "",
     voiceFileId: ""
@@ -70,7 +71,12 @@ function buildExpandedStatesAfterAppend(previousCount, appendCount) {
 function normalizeIssueDrafts(issueDrafts = []) {
   return issueDrafts.map((item) => ({
     ...item,
-    annotationCount: (item.annotations || []).length
+    annotationCount: (item.annotations || []).length,
+    analysisModeResolved: item.analysisMode === "ai"
+      ? "ai"
+      : item.analysisMode === "manual"
+        ? "manual"
+        : (hasMeaningfulVoiceText(item.voiceText) ? "manual" : "ai")
   }));
 }
 
@@ -116,9 +122,31 @@ function hasMeaningfulVoiceText(text = "") {
 }
 
 function countImageRecognitionDrafts(issueDrafts = []) {
-  // A voice note supplements visual evidence; it must never make the client
-  // skip a photo that the model is expected to inspect.
-  return (issueDrafts || []).filter((item) => Boolean(item.imagePath)).length;
+  return (issueDrafts || []).filter((item) => Boolean(item.imagePath) && (
+    item.analysisMode === "ai" ||
+    (item.analysisMode !== "manual" && !hasMeaningfulVoiceText(item.voiceText))
+  )).length;
+}
+
+function buildManualReviewItems(issueDrafts = []) {
+  return (issueDrafts || []).flatMap((photo, sourceIndex) => {
+    const text = `${photo.voiceText || ""}`.trim();
+    const clauses = text.split(/[；;。！？\n]+/).map(value=>value.trim()).filter(Boolean);
+    const markers = (photo.annotations || []).filter(annotation=>annotation.type === "point");
+    const count = Math.max(markers.length, clauses.length, text ? 1 : 0);
+    return Array.from({length:count},(_,index)=>({
+      id:identity("issue"),
+      sourcePhotoId:photo.id,
+      sourceIndex,
+      subIssueIndex:index+1,
+      annotationId:markers[index]?.id || "",
+      markerNumber:markers[index] ? index+1 : 0,
+      description:clauses[index] || (count===1 ? text : ""),
+      suggestion:"",
+      severity:"normal",
+      responsibleParty:"pending"
+    }));
+  });
 }
 
 function bindAnalysisItemsToPhotos(items = [], photos = []) {
@@ -813,8 +841,25 @@ Page({
   },
   handleIssueVoiceTextInput(event) {
     const index = Number(event.currentTarget.dataset.index);
+    const issue = this.data.form.issueDrafts[index] || {};
+    const nextMode = issue.analysisMode === "ai" ? "ai" : "manual";
     this.setData({
-      [`form.issueDrafts[${index}].voiceText`]: event.detail.value
+      [`form.issueDrafts[${index}].voiceText`]: event.detail.value,
+      [`form.issueDrafts[${index}].analysisMode`]: nextMode,
+      [`form.issueDrafts[${index}].analysisModeResolved`]: nextMode
+    });
+    this.persistDraft();
+  },
+  handleAnalysisModeChange(event) {
+    const index=Number(event.currentTarget.dataset.index),mode=event.currentTarget.dataset.mode;
+    const issue=this.data.form.issueDrafts[index];
+    if(!issue||!["manual","ai"].includes(mode))return;
+    if(mode==="manual"&&!hasMeaningfulVoiceText(issue.voiceText)){
+      wx.showToast({title:"请先输入或转写问题说明",icon:"none"});return;
+    }
+    this.setData({
+      [`form.issueDrafts[${index}].analysisMode`]:mode,
+      [`form.issueDrafts[${index}].analysisModeResolved`]:mode
     });
     this.persistDraft();
   },
@@ -885,7 +930,9 @@ Page({
           ...item,
           isTranscribing: false,
           voiceFilePath: tempFilePath,
-          voiceText: mergeSpeechText(item.voiceText, result.text, true)
+          voiceText: mergeSpeechText(item.voiceText, result.text, true),
+          analysisMode: item.analysisMode === "ai" ? "ai" : "manual",
+          analysisModeResolved: item.analysisMode === "ai" ? "ai" : "manual"
         };
       });
 
@@ -977,9 +1024,7 @@ Page({
       this.suspendDraftOnHide = true;
       wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});return;
     }
-    const items=this.data.form.issueDrafts.flatMap((p,i)=>p.voiceText && p.voiceText.trim() ? [{
-      id:identity("issue"),sourcePhotoId:p.id,sourceIndex:i,description:p.voiceText,suggestion:"",severity:"normal",responsibleParty:"pending"
-    }]:[]);
+    const items=buildManualReviewItems(this.data.form.issueDrafts);
     await this.completeAnalyzeSuccess(this.data.form,{items,summary:"人工记录，请核对照片与说明；未记录问题不代表验收合格。",aiMode:"manual"});
   },
   clearAnalyzeTaskPolling() {
@@ -1229,6 +1274,14 @@ Page({
         title: "请先拍照或添加问题照片",
         icon: "none"
       });
+      return;
+    }
+
+    if (countImageRecognitionDrafts(this.data.form.issueDrafts) === 0) {
+      // Every photo already has an inspector-authored statement. The user has
+      // explicitly chosen the manual path, so entering review must be instant
+      // and must not spend vision quota on a second opinion they did not ask for.
+      await this.handleManualReview();
       return;
     }
 

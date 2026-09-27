@@ -58,6 +58,13 @@
           </view>
           <view wx:if="{{item.isTranscribing}}" class="section-subtitle issue-draft-card__transcribing">正在识别中...</view>
           <view wx:if="{{item.speechError}}" class="precision-state">{{item.speechError}}</view><textarea auto-height maxlength="5000" class="issue-draft-card__textarea" value="{{item.voiceText}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="录完音后，文字会附在这里；也可以直接手动补充和修改" />
+          <view class="issue-analysis-choice">
+            <view><view class="issue-analysis-choice__title">这张照片如何整理</view><view class="issue-analysis-choice__hint">{{item.analysisModeResolved === 'manual' ? '按你的说明生成问题，不再重复识图' : 'AI 查看照片并给出待核对建议'}}</view></view>
+            <view class="issue-analysis-choice__actions">
+              <button class="issue-analysis-choice__button {{item.analysisModeResolved === 'manual' ? 'is-active' : ''}}" data-index="{{index}}" data-mode="manual" bindtap="handleAnalysisModeChange">人工说明</button>
+              <button class="issue-analysis-choice__button {{item.analysisModeResolved === 'ai' ? 'is-active' : ''}}" data-index="{{index}}" data-mode="ai" bindtap="handleAnalysisModeChange">AI 识图</button>
+            </view>
+          </view>
         </view>
       </view>
     </view>
@@ -84,7 +91,7 @@
   </view>
 
   <view wx:if="{{issueDraftCount}}" class="create-ai-row">
-    <button class="create-ai-link" loading="{{analyzing}}" disabled="{{analyzing || !issueDraftCount}}" bindtap="handleAnalyze">{{analyzing ? 'AI 正在整理…' : '先用 AI 整理（选用）'}}</button>
+    <button class="create-ai-link" loading="{{analyzing}}" disabled="{{analyzing || !issueDraftCount}}" bindtap="handleAnalyze">{{analyzing ? 'AI 正在整理…' : 'AI 识别未说明照片（选用）'}}</button>
   </view>
 
   <view wx:if="{{issueDraftCount}}" class="footer-actions create-footer-actions">

@@ -508,7 +508,7 @@ async function readerReport(report){
   const pick=(source,keys)=>Object.fromEntries(keys.filter(k=>source[k]!==undefined).map(k=>[k,source[k]]));
   const safe=pick(report,["_id","title","projectName","summary","contextNote","inspectorName","inspectorPhone","publisherName","publisherPhone","companyName","companyPhone","companyAddress","logoFileId","inspectionDate","inspectionDateText","publishedAt","createdAt","generatedAt","shareState","snapshotVersion"]);
   safe.photos=(report.photos||[]).map(p=>({...pick(p,["id","sourceIndex","imagePath","annotatedImagePath"]),caption:p.caption||p.voiceText||""}));
-  safe.items=(report.items||[]).map(i=>pick(i,["id","sourcePhotoId","sourceIndex","subIssueIndex","sortOrder","description","suggestion","severity","responsibleParty","category","area","images","annotatedImages","createdAt"]));
+  safe.items=(report.items||[]).map(i=>pick(i,["id","sourcePhotoId","sourceIndex","subIssueIndex","annotationId","markerNumber","sortOrder","description","suggestion","severity","responsibleParty","category","area","images","annotatedImages","createdAt"]));
   const media=await preparePdfSnapshot(safe);
   return {...safe,items:media.items,photos:media.photos,logoFileId:media.logoUrl};
 }

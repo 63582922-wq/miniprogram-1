@@ -12,14 +12,14 @@ Component({
   // from resetting undo history after every draw.
   value:{type:Array,value:[],observer(next){
    if(!this.image||!this.iw||!this.ih||this.gesture)return;
-   const incoming=G.legacy(next||[],this.iw,this.ih,this.properties.legacyStage);
+   const incoming=this.normalizePointShapes(G.legacy(next||[],this.iw,this.ih,this.properties.legacyStage));
    if(JSON.stringify(incoming)===JSON.stringify(this.shapes||[]))return;
    this.shapes=incoming;this.undoStack=[];this.redoStack=[];
-   this.setData({selected:""});this.draw();
+   this.setData({selected:"",selectedType:""});this.draw();
   }},
   legacyStage:{type:Object,value:null}
  },
- data:{tool:"select",ready:false,error:"",selected:"",zoom:100,canUndo:false,canRedo:false,hint:"双指缩放，选择后拖动白色端点",workingSize:""},
+ data:{tool:"select",ready:false,error:"",selected:"",selectedType:"",pointAspectLocked:true,zoom:100,canUndo:false,canRedo:false,hint:"双指缩放，选择后拖动白色端点",workingSize:""},
  lifetimes:{ready(){this.createSelectorQuery().select("#stage").fields({node:true,size:true,rect:true}).exec(async result=>{
    const r=result[0];if(!r?.node)return;this.canvas=r.node;this.ctx=r.node.getContext("2d");this.width=r.width;this.height=r.height;this.left=r.left||0;this.top=r.top||0;
    this.dpr=getWindowInfo().pixelRatio||1;this.canvas.width=Math.round(r.width*this.dpr);this.canvas.height=Math.round(r.height*this.dpr);
@@ -63,16 +63,40 @@ Component({
     }
     // Use the exact decoded image for both preview and export, avoiding independent aspectFit math.
     this.image=image;this.iw=image.width||info.width;this.ih=image.height||info.height;
-    this.shapes=G.legacy(this.properties.value||[],this.iw,this.ih,this.properties.legacyStage);
+    this.shapes=this.normalizePointShapes(G.legacy(this.properties.value||[],this.iw,this.ih,this.properties.legacyStage));
     this.undoStack=[];this.redoStack=[];this.setData({ready:true,workingSize:this.iw+" × "+this.ih+" px · 工作图"});
     this.fit();this.emit();this.triggerEvent("ready",{width:this.iw,height:this.ih});
    }catch(e){if(loadToken!==this.loadToken)return;const message=e.message||"照片加载失败，请返回重试";this.setData({error:message,ready:false});this.triggerEvent("error",{message});}
   },
   fit(){if(!this.image)return;this.fitScale=Math.min(this.width/this.iw,this.height/this.ih)*.96;this.view={scale:this.fitScale,x:(this.width-this.iw*this.fitScale)/2,y:(this.height-this.ih*this.fitScale)/2};this.draw();},
+  boundView(view){
+   const displayWidth=this.iw*view.scale,displayHeight=this.ih*view.scale;
+   return {
+    ...view,
+    x:displayWidth<=this.width?(this.width-displayWidth)/2:G.clamp(view.x,this.width-displayWidth,0),
+    y:displayHeight<=this.height?(this.height-displayHeight)/2:G.clamp(view.y,this.height-displayHeight,0)
+   };
+  },
   point(t){return {x:t.x!==undefined?t.x:t.clientX-this.left,y:t.y!==undefined?t.y:t.clientY-this.top};},
   norm(p){return G.normalize(G.toImage(p,this.view),this.iw,this.ih);},
+  pointRadius(shape){return {rx:Math.max(1,Math.abs(shape.b.x-shape.a.x)*this.iw),ry:Math.max(1,Math.abs(shape.b.y-shape.a.y)*this.ih)};},
+  defaultPointShape(center){
+   const maxRadius=Math.max(12,Math.min(center.x*this.iw,(1-center.x)*this.iw,center.y*this.ih,(1-center.y)*this.ih));
+   const radius=Math.min(maxRadius,Math.max(28,Math.min(this.iw,this.ih)*.09)),rx=radius/this.iw,ry=radius/this.ih;
+   return {a:center,b:{x:G.clamp(center.x+rx,0,1),y:G.clamp(center.y+ry,0,1)},aspectLocked:true};
+  },
+  normalizePointShapes(shapes){return (shapes||[]).map(shape=>{
+   if(shape.type!=="point")return shape;
+   const missingRegion=!shape.b||Math.hypot((shape.b.x-shape.a.x)*this.iw,(shape.b.y-shape.a.y)*this.ih)<8;
+   return missingRegion?{...shape,...this.defaultPointShape(shape.a)}:{...shape,aspectLocked:shape.aspectLocked!==false};
+  });},
   shapeAt(p){return [...this.shapes].reverse().find(s=>{const a=G.toScreen(G.pixel(s.a,this.iw,this.ih),this.view),b=G.toScreen(G.pixel(s.b,this.iw,this.ih),this.view);
-    if(s.type==="point"||s.type==="text")return Math.hypot(p.x-a.x,p.y-a.y)<24;
+    if(s.type==="point"){
+      const radius=this.pointRadius(s),rx=Math.max(24,radius.rx*this.view.scale),ry=Math.max(24,radius.ry*this.view.scale);
+      const value=((p.x-a.x)*(p.x-a.x))/(rx*rx)+((p.y-a.y)*(p.y-a.y))/(ry*ry);
+      return value<=1.35||Math.hypot(p.x-a.x,p.y-a.y)<24;
+    }
+    if(s.type==="text")return Math.hypot(p.x-a.x,p.y-a.y)<24;
     if(s.type==="arrow")return G.distance(p,a,b)<22;
     return p.x>=Math.min(a.x,b.x)-18&&p.x<=Math.max(a.x,b.x)+18&&p.y>=Math.min(a.y,b.y)-18&&p.y<=Math.max(a.y,b.y)+18;
   });},
@@ -82,22 +106,34 @@ Component({
    if(this.data.tool==="pan"){this.gesture={kind:"pan",p,view:{...this.view}};return;}
    if(this.data.tool==="select"){
     const selected=this.shapes.find(s=>s.id===this.data.selected);let handle="";
-    if(selected)for(const key of ["a","b"]){const q=G.toScreen(G.pixel(selected[key],this.iw,this.ih),this.view);if(Math.hypot(p.x-q.x,p.y-q.y)<22){handle=key;break;}}
-    const s=handle?selected:this.shapeAt(p);this.setData({selected:s?s.id:""});
+    if(selected){
+      const keys=selected.type==="point"?["b"]:["a","b"];
+      for(const key of keys){const q=G.toScreen(G.pixel(selected[key],this.iw,this.ih),this.view);if(Math.hypot(p.x-q.x,p.y-q.y)<24){handle=key;break;}}
+    }
+    const s=handle?selected:this.shapeAt(p);this.setData({selected:s?s.id:"",selectedType:s?s.type:"",pointAspectLocked:s?.type==="point"?s.aspectLocked!==false:true});
     this.gesture=s?{kind:handle?"handle":"move",handle,before,original:copy(s),id:s.id,start:n}:{kind:"pan",p,view:{...this.view}};this.draw();return;
    }
    const pixel=G.toImage(p,this.view);if(pixel.x<0||pixel.y<0||pixel.x>this.iw||pixel.y>this.ih)return;
    const s={id:"mark-"+Date.now()+"-"+Math.random().toString(36).slice(2),type:this.data.tool,a:n,b:{...n}};
-   if(s.type==="point")s.label=this.shapes.filter(x=>x.type==="point").length+1;
-   this.shapes.push(s);this.setData({selected:s.id});this.gesture={kind:"draw",id:s.id,before,start:p};this.draw(p);
+   if(s.type==="point")Object.assign(s,this.defaultPointShape(n),{label:this.shapes.filter(x=>x.type==="point").length+1});
+   this.shapes.push(s);this.setData({selected:s.id,selectedType:s.type,pointAspectLocked:s.aspectLocked!==false});this.gesture={kind:"draw",id:s.id,before,start:n,original:copy(s)};this.draw(p);
   },
   move(e){if(!this.gesture)return;const points=e.touches.map(t=>this.point(t));const p=points[0],g=this.gesture;if(!p)return;
-   if(g.kind==="pinch"){if(points.length<2)return;const[a,b]=points,mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},scale=G.clamp(g.scale*Math.hypot(a.x-b.x,a.y-b.y)/(g.distance||1),this.fitScale,this.fitScale*12);this.view={scale,x:mid.x-g.anchor.x*scale,y:mid.y-g.anchor.y*scale};this.draw();return;}
-   if(g.kind==="pan"){this.view={...g.view,x:g.view.x+p.x-g.p.x,y:g.view.y+p.y-g.p.y};this.draw();return;}
+   if(g.kind==="pinch"){if(points.length<2)return;const[a,b]=points,mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},scale=G.clamp(g.scale*Math.hypot(a.x-b.x,a.y-b.y)/(g.distance||1),this.fitScale,this.fitScale*12);this.view=this.boundView({scale,x:mid.x-g.anchor.x*scale,y:mid.y-g.anchor.y*scale});this.draw();return;}
+   if(g.kind==="pan"){this.view=this.boundView({...g.view,x:g.view.x+p.x-g.p.x,y:g.view.y+p.y-g.p.y});this.draw();return;}
    const s=this.shapes.find(s=>s.id===g.id);if(!s)return;const n=this.norm(p);
-   if(g.kind==="draw"){s.b=n;if(s.type==="point")s.a=n;}
+   if(g.kind==="draw"){if(s.type==="point")Object.assign(s,G.translate(g.original,n.x-g.start.x,n.y-g.start.y));else s.b=n;}
    if(g.kind==="move")Object.assign(s,G.translate(g.original,n.x-g.start.x,n.y-g.start.y));
-   if(g.kind==="handle"){const o=g.original[g.handle];s[g.handle]={x:G.clamp(o.x+n.x-g.start.x,0,1),y:G.clamp(o.y+n.y-g.start.y,0,1)};if(s.type==="point")s.b={...s.a};}
+   if(g.kind==="handle"){
+    if(s.type==="point"&&g.handle==="b"){
+      let rx=Math.abs(n.x-s.a.x)*this.iw,ry=Math.abs(n.y-s.a.y)*this.ih;
+      if(s.aspectLocked!==false){const radius=Math.max(rx,ry,18);rx=radius;ry=radius;}
+      rx=Math.min(rx,s.a.x*this.iw,(1-s.a.x)*this.iw);ry=Math.min(ry,s.a.y*this.ih,(1-s.a.y)*this.ih);
+      s.b={x:G.clamp(s.a.x+rx/this.iw,0,1),y:G.clamp(s.a.y+ry/this.ih,0,1)};
+    }else{
+      const o=g.original[g.handle];s[g.handle]={x:G.clamp(o.x+n.x-g.start.x,0,1),y:G.clamp(o.y+n.y-g.start.y,0,1)};
+    }
+   }
    this.draw(p);
   },
   end(e){const g=this.gesture;if(!g)return;if(g.kind==="pinch"&&e.touches.length)return;
@@ -112,16 +148,22 @@ Component({
   draw(lens){
    if(!this.image||!this.view)return;const c=this.ctx;c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle="#DDD6CC";c.fillRect(0,0,this.width,this.height);this.scene(c,this.view);
    const s=this.shapes.find(s=>s.id===this.data.selected);
-   if(s)for(const k of (s.type==="point"?["a"]:["a","b"])){const p=G.toScreen(G.pixel(s[k],this.iw,this.ih),this.view);c.beginPath();c.arc(p.x,p.y,s.type==="point"?15:6,0,Math.PI*2);if(s.type!=="point"){c.fillStyle="#fff";c.fill();}c.strokeStyle="#fff";c.lineWidth=2;c.stroke();}
+   if(s)for(const k of (s.type==="point"?["b"]:["a","b"])){const p=G.toScreen(G.pixel(s[k],this.iw,this.ih),this.view);c.beginPath();c.arc(p.x,p.y,7,0,Math.PI*2);c.fillStyle="#fff";c.fill();c.strokeStyle="#C13D2A";c.lineWidth=2;c.stroke();}
    if(lens){const size=112,x=lens.x<this.width/2?this.width-size-12:12,y=12,q=G.toImage(lens,this.view),scale=this.view.scale*2.5;c.save();c.beginPath();c.rect(x,y,size,size);c.clip();c.fillStyle="#DDD6CC";c.fillRect(x,y,size,size);this.scene(c,{x:x+size/2-q.x*scale,y:y+size/2-q.y*scale,scale});c.strokeStyle="#191816";c.lineWidth=1;c.beginPath();c.moveTo(x+size/2-10,y+size/2);c.lineTo(x+size/2+10,y+size/2);c.moveTo(x+size/2,y+size/2-10);c.lineTo(x+size/2,y+size/2+10);c.stroke();c.restore();c.strokeRect(x,y,size,size);}
    this.setData({zoom:Math.round(this.view.scale/this.fitScale*100),canUndo:!!this.undoStack.length,canRedo:!!this.redoStack.length});
   },
   setTool(e){if(this.gesture?.before)this.shapes=this.gesture.before;this.gesture=null;this.setData({tool:e.currentTarget.dataset.tool});this.draw();},
-  undo(){if(!this.undoStack.length)return;this.redoStack.push(copy(this.shapes));this.shapes=this.undoStack.pop();this.setData({selected:""});this.emit();this.draw();},
-  redo(){if(!this.redoStack.length)return;this.undoStack.push(copy(this.shapes));this.shapes=this.redoStack.pop();this.setData({selected:""});this.emit();this.draw();},
-  remove(){if(!this.data.selected)return;const before=copy(this.shapes);this.shapes=this.shapes.filter(s=>s.id!==this.data.selected);this.setData({selected:""});this.commit(before);},
+  undo(){if(!this.undoStack.length)return;this.redoStack.push(copy(this.shapes));this.shapes=this.undoStack.pop();this.setData({selected:"",selectedType:""});this.emit();this.draw();},
+  redo(){if(!this.redoStack.length)return;this.undoStack.push(copy(this.shapes));this.shapes=this.redoStack.pop();this.setData({selected:"",selectedType:""});this.emit();this.draw();},
+  remove(){if(!this.data.selected)return;const before=copy(this.shapes);this.shapes=this.shapes.filter(s=>s.id!==this.data.selected);this.setData({selected:"",selectedType:""});this.commit(before);},
+  setPointAspect(e){
+   const selected=this.shapes.find(s=>s.id===this.data.selected);if(!selected||selected.type!=="point")return;
+   const locked=e.currentTarget.dataset.mode==="circle",before=copy(this.shapes);selected.aspectLocked=locked;
+   if(locked){const available=Math.min(selected.a.x*this.iw,(1-selected.a.x)*this.iw,selected.a.y*this.ih,(1-selected.a.y)*this.ih),radius=Math.min(available,Math.max(this.pointRadius(selected).rx,this.pointRadius(selected).ry));selected.b={x:G.clamp(selected.a.x+radius/this.iw,0,1),y:G.clamp(selected.a.y+radius/this.ih,0,1)};}
+   this.setData({pointAspectLocked:locked});this.commit(before);
+  },
   nudge(e){const [x,y]=e.currentTarget.dataset.delta.split(",").map(Number),before=copy(this.shapes);this.shapes=this.shapes.map(s=>s.id===this.data.selected?G.translate(s,x/this.iw,y/this.ih):s);this.commit(before);},
-  zoom(e){if(!this.view)return;this.view=G.zoomAt(this.view,{x:this.width/2,y:this.height/2},G.clamp(this.view.scale*Number(e.currentTarget.dataset.factor),this.fitScale,this.fitScale*12));this.draw();},
+  zoom(e){if(!this.view)return;this.view=this.boundView(G.zoomAt(this.view,{x:this.width/2,y:this.height/2},G.clamp(this.view.scale*Number(e.currentTarget.dataset.factor),this.fitScale,this.fitScale*12)));this.draw();},
   async exportImage(){
    if(!this.data.ready)throw new Error(this.data.error||"图片未就绪");
    const result=await new Promise(resolve=>this.createSelectorQuery().select("#export").fields({node:true}).exec(resolve));

@@ -31,6 +31,29 @@ test('only number points receive visible contiguous labels',()=>{
  ],1000,500);
  assert.deepEqual(labels,['1','2']);
 });
+test('one tap creates a numbered region and the outer handle switches between circle and ellipse',()=>{
+ const e=editor();e.data.tool='point';e.start(event([[160,150]],'touchstart'));e.end(event([],'touchend'));
+ assert.equal(e.shapes.length,1);const point=e.shapes[0];assert.equal(point.type,'point');assert.equal(point.aspectLocked,true);
+ let radius=e.pointRadius(point);assert.ok(Math.abs(radius.rx-radius.ry)<1e-8);assert.ok(radius.rx>=28);
+ e.data.tool='select';e.data.selected=point.id;e.data.selectedType='point';
+ let handle=G.toScreen(G.pixel(point.b,e.iw,e.ih),e.view);e.start(event([[handle.x,handle.y]],'touchstart'));e.move(event([[handle.x+45,handle.y+10]]));e.end(event([],'touchend'));
+ radius=e.pointRadius(point);assert.ok(Math.abs(radius.rx-radius.ry)<1e-8,'locked resize stays circular in image pixels');
+ e.setPointAspect({currentTarget:{dataset:{mode:'ellipse'}}});assert.equal(point.aspectLocked,false);
+ handle=G.toScreen(G.pixel(point.b,e.iw,e.ih),e.view);e.start(event([[handle.x,handle.y]],'touchstart'));e.move(event([[handle.x+35,handle.y+8]]));e.end(event([],'touchend'));
+ radius=e.pointRadius(point);assert.notEqual(Math.round(radius.rx),Math.round(radius.ry));
+});
+test('number marker follows a one-finger placement drag in image coordinates',()=>{
+ const e=editor();e.data.tool='point';e.start(event([[120,130]],'touchstart'));const before=structuredClone(e.shapes[0]);
+ e.move(event([[160,150]]));e.end(event([],'touchend'));
+ const after=e.shapes[0];assert.ok(Math.abs(after.a.x-before.a.x-.1)<1e-8);assert.ok(Math.abs(after.a.y-before.a.y-.1)<1e-8);
+ assert.ok(Math.abs((after.b.x-before.b.x)-.1)<1e-8);assert.ok(Math.abs((after.b.y-before.b.y)-.1)<1e-8);
+});
+test('photo pan is bounded so the image cannot be lost outside the viewport',()=>{
+ const e=editor();e.data.tool='pan';e.start(event([[200,150]],'touchstart'));e.move(event([[1200,900]]));
+ assert.equal(e.view.x,0);assert.equal(e.view.y,50);
+ e.view={scale:.8,x:-200,y:-50};e.start(event([[200,150]],'touchstart'));e.move(event([[-1000,-900]]));
+ assert.equal(e.view.x,-400);assert.equal(e.view.y,-100);
+});
 test('late-bound saved geometry restores after image decoding without clearing an identical live canvas',()=>{
  const e=editor();e.image={};e.properties={legacyStage:null};
  const saved=[{id:'saved-mark',type:'box',a:{x:.2,y:.3},b:{x:.7,y:.8},label:1}];

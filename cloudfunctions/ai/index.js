@@ -84,10 +84,13 @@ function hasMeaningfulVoiceText(text = "") {
 }
 
 function shouldSkipImageRecognitionForDraft(draft = {}) {
-  // Voice is context, not a replacement for visual evidence. The old rule
-  // skipped the image as soon as any voice text existed, which made the model
-  // less accurate exactly when the inspector supplied more information.
-  return draft.skipImageRecognition === true || !draft.imagePath;
+  if (draft.skipImageRecognition === true || !draft.imagePath) return true;
+  if (draft.analysisMode === "ai") return false;
+  if (draft.analysisMode === "manual") return true;
+  // Backward-compatible default: a successful transcription or typed field
+  // statement is already the inspector's conclusion. Do not spend time and
+  // quota guessing the same photo unless the user explicitly chooses AI.
+  return hasMeaningfulVoiceText(draft.voiceText);
 }
 
 function polishVoiceDescriptionText(text = "") {
@@ -565,6 +568,7 @@ function getInspectionAiSystemPrompt() {
     "正确目标：",
     "- 模型输出能直接支持‘一张照片一个一级问题块，右侧多个子问题条目’的报告结构。",
     "- 同图多问题时，sourceIndex 相同，subIssueIndex 为 1/2/3/4。",
+    "- 照片上存在‘编号 1、2、3…’区域标记时，subIssueIndex 必须与编号一致；不得交换编号对应的问题。",
     "",
     "必须返回可解析 JSON。"
   ].join("\n");
@@ -586,7 +590,8 @@ function getInspectionAiUserInstructionLines(payload) {
     "4. 只有明显属于同一个问题的补充说明时，才合并到同一个子问题。",
     "5. 语音中以肯定语气明确说出的独立缺陷点不允许遗漏；检查请求、疑问和不确定描述只作为观察线索。",
     "6. 若没有语音或文字输入，仍要检查照片和标注；没有足够证据时返回空 items。",
-    "7. 不做无量尺的尺寸判断，不把施工过程状态自动判为质量缺陷。"
+    "7. 不做无量尺的尺寸判断，不把施工过程状态自动判为质量缺陷。",
+    "8. 照片上有编号区域时，问题顺序必须严格对应编号 1、2、3、4。"
   ];
 
   const aiMemory = payload.aiMemory || {};
@@ -662,9 +667,13 @@ function buildDraftBackedIssueItem(draft, itemIndex, sourceIndex, subIssueIndex,
   const confidence = ["high", "medium", "low"].includes(overrides.confidence)
     ? overrides.confidence
     : "low";
+  const numberedMarkers = (draft.annotations || []).filter(annotation => annotation.type === "point");
+  const numberedMarker = numberedMarkers[Math.max(0, subIssueIndex - 1)] || null;
   return {
     sourceIndex,
     subIssueIndex,
+    annotationId: numberedMarker ? numberedMarker.id || "" : "",
+    markerNumber: numberedMarker ? subIssueIndex : 0,
     area: overrides.area || `现场问题 ${itemIndex + 1}`,
     category: overrides.category || "施工",
     severity: ["critical", "major", "normal"].includes(overrides.severity) ? overrides.severity : ((draft.annotations || []).length ? "major" : "normal"),
@@ -933,11 +942,17 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
 }
 
 function formatAnnotations(annotations = []) {
+  let markerNumber = 0;
   return annotations.map((item, index) => {
     const type = item.type || "mark";
-    const start = item.start || {};
-    const end = item.end || {};
-    return `${index + 1}. ${type} 起点(${Math.round(start.x || 0)},${Math.round(start.y || 0)}) 终点(${Math.round(end.x || 0)},${Math.round(end.y || 0)})`;
+    const start = item.a || item.start || {};
+    const end = item.b || item.end || start;
+    const percent = value => Math.round((Number(value) || 0) * (Math.abs(Number(value) || 0) <= 1 ? 100 : 1));
+    if (type === "point") {
+      markerNumber += 1;
+      return `编号 ${markerNumber}：中心(${percent(start.x)}%,${percent(start.y)}%)，外圈控制点(${percent(end.x)}%,${percent(end.y)}%)；该区域对应第 ${markerNumber} 条子问题`;
+    }
+    return `${index + 1}. ${type} 起点(${percent(start.x)}%,${percent(start.y)}%) 终点(${percent(end.x)}%,${percent(end.y)}%)`;
   }).join("\n");
 }
 
@@ -1164,7 +1179,9 @@ async function finalizeTaskItems(payload, mergedItems = []) {
 }
 
 function buildTaskDraftIndexes(payload = {}) {
-  return (payload.issueDrafts || []).map((_, index) => index);
+  return (payload.issueDrafts || []).map((draft, index) => ({draft,index}))
+    .filter(({draft}) => !shouldSkipImageRecognitionForDraft(draft))
+    .map(({index}) => index);
 }
 
 function buildAiTaskStatus(task = {}, analysis = null) {
@@ -1239,11 +1256,13 @@ async function processAnalysisTask(task) {
   const batches = task.batches || [];
 
   if (!batches.length) {
-    // 没有草稿可分析：返回空清单，不编造任何条目
+    // 全部照片都已有人工说明时不调用视觉模型，但仍把明确陈述整理成
+    // 可核对的问题清单。这样「不识图」不等于「丢掉人工输入」。
+    const items = await finalizeTaskItems(payload, []);
     const analysis = {
-      items: [],
-      summary: buildInspectionSummary(payload, []),
-      aiMode: "empty",
+      items,
+      summary: buildInspectionSummary(payload, items),
+      aiMode: items.length ? "manual" : "empty",
       memoryHint: payload.memoryHint || "",
       memoryAlerts: []
     };
@@ -1392,7 +1411,7 @@ async function analyzeInspectionWithModel(payload) {
     // 2 张高分辨率图（detail: high）一次请求就可能超过云函数 60 秒上限，
     // 整个调用被杀死，用户只看到「AI 整理中」一直转。
     // 现在每批只放 AI_BATCH_SIZE 张，单次请求耗时可控。
-    const draftIndexes = drafts.map((_, index) => index);
+    const draftIndexes = buildTaskDraftIndexes(payload);
     const batches = chunkArray(draftIndexes, AI_BATCH_SIZE);
     const batchResults = await runWithConcurrency(
       batches.map((batchIndexes) => async () => analyzeDraftBatchWithOpenAiCompatible(payload, batchIndexes)),

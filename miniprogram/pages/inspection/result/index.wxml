@@ -61,7 +61,7 @@
           <inspection-item-card
             item="{{subIssue}}"
             index="{{subIssue.originalIndex}}"
-            displayIndex="{{subIndex + 1}}"
+            displayIndex="{{subIssue.markerNumber || subIndex + 1}}"
             hideTitle="{{true}}"
             showImages="{{false}}"
             editable="{{!submissionLocked}}"

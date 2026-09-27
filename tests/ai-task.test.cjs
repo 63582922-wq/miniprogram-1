@@ -31,16 +31,29 @@ test('AI partial success is checkpointed; retry only reprocesses failed input',a
  assert.equal(done.data.analysis.items.length,3);assert.equal(new Set(done.data.analysis.items.map(i=>i.sourcePhotoId)).size,3);
 });
 
-test('voice supplements the photo instead of disabling vision and uncertainty is retained for review',async()=>{
+test('transcribed or typed findings skip duplicate image recognition by default',async()=>{
+ let calls=0;
+ const {fn}=fixture(async()=>{calls++;return response([]);});
+ const payload=input();payload.issueDrafts[0].voiceText='吊顶边缘已经开裂，需要复核';
+ const created=await fn({action:'createInspectionTask',payload});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(calls,0,'manual findings must not spend vision quota');
+ assert.equal(done.data.completedPhotos,0);
+ assert.equal(done.data.analysis.aiMode,'manual');
+ assert.equal(done.data.analysis.items.length,1);
+ assert.equal(done.data.analysis.items[0].confidence,'low');
+ assert.equal(done.data.analysis.items[0].needsReview,true);
+ assert.equal(done.data.analysis.items[0].evidenceSource,'note');
+});
+
+test('the user can explicitly request AI image recognition even when a note exists',async()=>{
  let requestBody;
  const {fn}=fixture(async(_url,body)=>{requestBody=body;return response([{sourceIndex:0,description:'吊顶板边缘存在待核对缝隙',visualEvidence:'板材边缘可见连续缝隙',evidenceSource:'image+note',confidence:'low',needsReview:true}]);});
- const payload=input();payload.issueDrafts[0].voiceText='这里看一下缝隙';
+ const payload=input();payload.issueDrafts[0].voiceText='这里看一下缝隙';payload.issueDrafts[0].analysisMode='ai';
  const created=await fn({action:'createInspectionTask',payload});
  const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
  const userContent=requestBody.messages.find(message=>message.role==='user').content;
- assert.equal(userContent.some(part=>part.type==='image_url'),true,'voice must not suppress the photo input');
- assert.equal(done.data.analysis.items[0].confidence,'low');
- assert.equal(done.data.analysis.items[0].needsReview,true);
+ assert.equal(userContent.some(part=>part.type==='image_url'),true);
  assert.equal(done.data.analysis.items[0].evidenceSource,'image+note');
 });
 

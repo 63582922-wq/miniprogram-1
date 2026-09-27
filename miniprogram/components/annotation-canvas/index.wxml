@@ -25,5 +25,11 @@
   <button class="nudge-button" aria-label="向上微调" data-delta="0,-1" bindtap="nudge"><image class="nudge-button__icon" src="/images/icons/annotation-up.svg" mode="aspectFit"/></button>
   <button class="nudge-button" aria-label="向下微调" data-delta="0,1" bindtap="nudge"><image class="nudge-button__icon" src="/images/icons/annotation-down.svg" mode="aspectFit"/></button>
  </view>
- <view class="annotation-help">双指缩放；选中标记后可拖动或调整端点</view>
+ <view wx:if="{{selectedType === 'point'}}" class="annotation-region-mode">
+  <text class="annotation-region-mode__label">编号外圈</text>
+  <button class="annotation-region-mode__button {{pointAspectLocked ? 'is-active' : ''}}" data-mode="circle" bindtap="setPointAspect">等圆</button>
+  <button class="annotation-region-mode__button {{!pointAspectLocked ? 'is-active' : ''}}" data-mode="ellipse" bindtap="setPointAspect">椭圆</button>
+  <text class="annotation-region-mode__hint">拖动白点调整范围</text>
+ </view>
+ <view class="annotation-help">双指以手势中心缩放；空白处拖动图片；编号按 1、2、3 自动排列</view>
 </view>
