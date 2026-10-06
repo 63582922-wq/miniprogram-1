@@ -45,7 +45,7 @@
     "disableSWC": true
   },
   "appid": "wxf30ba9025bea84ab",
-  "projectname": "haolizhiguan-inspection",
+  "projectname": "chibao",
   "libVersion": "3.7.3",
   "cloudfunctionTemplateRoot": "cloudfunctionTemplate/",
   "condition": {
@@ -68,7 +68,12 @@
   "compileType": "miniprogram",
   "srcMiniprogramRoot": "miniprogram/",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {"type":"file","value":"images/brand/haoli-symbol-v8.png"},
+      {"type":"file","value":"images/brand/haoli-miniapp-icon-v8-1024.png"},
+      {"type":"file","value":"images/brand/haoli-symbol-v8.svg"},
+      {"type":"file","value":"images/brand/haoli-symbol-v8-app.svg"}
+    ],
     "include": []
   },
   "editorSetting": {
