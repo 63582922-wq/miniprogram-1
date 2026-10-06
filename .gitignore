@@ -16,3 +16,7 @@ tmp/
 .claude/worktrees/
 project.private.config.json
 .DS_Store
+
+# 验收截图：含真实客户信息（姓名/电话/公司/地址与真实施工内景），
+# 不随公开仓库发布；文件保留在本机。需要发布时另行脱敏。
+docs/验收证据/
