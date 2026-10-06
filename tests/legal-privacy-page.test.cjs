@@ -65,11 +65,33 @@ test('retrying after a failure reuses the same request id so the server can dedu
   }});
 
   await page.submitRequest();
-  assert.match(page.data.requestMessage,/网络异常/);
+  assert.match(page.data.requestMessage,/没有提交成功/);
   assert.equal(page.data.submitting,false);
   await page.submitRequest();
 
   assert.equal(calls.submitted.length,2);
   assert.equal(calls.submitted[0].requestId,calls.submitted[1].requestId,'重试必须复用同一申请编号');
   assert.ok(calls.submitted[0].requestId.length>=12);
+});
+
+test('a raw cloud error is never shown to the user',async()=>{
+  // 实测：集合缺失时云返回 -502005 的英文长串 + 文档链接。
+  // 这种内容甩在合规功能上既看不懂也不知道该做什么。
+  const raw='[auth:submitPrivacyRequest] collection.add:fail -502005 database collection not exists. '
+    +'[ResourceNotFound] Db or Table not exist: privacy_requests. Please check your request, '
+    +'but if the problem cannot be solved, contact us. 更多错误信息请访问：https://docs.cloudbase.net/error-code/basic/DATABASE_COLLECTION_NOT_EXIST';
+  const {page}=mount({submitRequest:()=>{throw new Error(raw);}});
+  await page.submitRequest();
+  const shown=page.data.requestMessage;
+  assert.doesNotMatch(shown,/502005|ResourceNotFound|cloudbase|collection\.add/,'原始云错误不得出现在页面上');
+  assert.match(shown,/没有提交成功/);
+  assert.match(shown,/重试|联系我们/,'要给出可执行的下一步');
+});
+
+test('a failed status read says so instead of looking like no requests exist',async()=>{
+  const {page}=mount({listRequests:async()=>{throw new Error('collection not exists');}});
+  page.onShow();
+  await flush();
+  assert.deepEqual(page.data.requests,[]);
+  assert.equal(page.data.requestsLoaded,false,'读失败必须与「确实没有申请」区分开');
 });

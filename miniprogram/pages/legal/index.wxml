@@ -41,6 +41,8 @@
     <view wx:if="{{requests.length}}" class="request-list">
       <view class="legal-request-row" wx:for="{{requests}}" wx:key="_id"><text class="legal-text">{{item.requestType}} · {{item.statusText}} · {{item.dateText}}</text><text wx:if="{{item.response}}" class="legal-text">{{item.response}}</text></view>
     </view>
+    <!-- 读不到记录时必须说清楚，否则用户会以为自己的申请丢了。 -->
+    <view wx:elif="{{requestsLoaded === false}}" class="legal-text request-message">申请记录暂时读不到，请稍后下拉重进本页。这不代表你没有提交过申请。</view>
   </view>
 
   <view class="card legal-card">
