@@ -330,12 +330,15 @@
 }
 
 .report-priority__row {
-  width: 100%;
+  /* button 内置 width/margin 会把它压成按内容收缩并水平居中（实测 184px 居中），
+     与项目内其它整行可点控件一样用 !important 复位。 */
+  width: 100% !important;
+  margin: 0 !important;
   min-height: var(--a-hit);
   display: flex;
   align-items: flex-start;
   gap: var(--a-space-2);
-  padding: var(--a-space-2) 0;
+  padding: var(--a-space-2) 0 !important;
   text-align: left;
 }
 
@@ -365,18 +368,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--a-space-1);
+  /* button 自带居中对齐，会把「照片 01 · 2.」和问题描述挤到中间。 */
+  text-align: left;
 }
 
 .report-priority__where {
   color: var(--a-muted);
   font-size: var(--a-type-caption);
   line-height: 1.4;
+  text-align: left;
 }
 
 .report-priority__what {
   color: var(--a-ink);
   font-size: var(--a-type-body);
   line-height: 1.5;
+  text-align: left;
 }
 
 .report-priority__jump {

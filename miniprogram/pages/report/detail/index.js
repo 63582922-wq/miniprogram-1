@@ -345,24 +345,27 @@ function buildReportDisplayState(report = {}) {
 }
 
 /**
- * 顶部固定导航的实际占位高度。
+ * 顶部固定头部的实际占位高度 —— 状态栏 + 导航栏。
  *
- * 胶囊按钮的位置因机型而异，写死 44 会在部分机型上让跳转目标被压在导航下。
+ * 只算导航栏是不够的：page-nav-bar 会额外渲染一条状态栏高度的占位。
+ * 实测机型状态栏 54 + 导航 44 = 98；只减 44 会让跳转目标正好被压在
+ * 导航下（分组标题藏在栏后，屏幕顶部直接是照片）。
  */
-function navigationHeight() {
+function fixedHeaderHeight() {
   const system = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo() : {};
   const statusBarHeight = system.statusBarHeight || 20;
+  let navHeight = 44;
   try {
     const capsule = typeof wx.getMenuButtonBoundingClientRect === "function"
       ? wx.getMenuButtonBoundingClientRect()
       : null;
     if (capsule && capsule.height) {
-      return Math.max(44, Math.round((capsule.top - statusBarHeight) * 2 + capsule.height));
+      navHeight = Math.max(44, Math.round((capsule.top - statusBarHeight) * 2 + capsule.height));
     }
   } catch (_error) {
     // Runtimes without a capsule rect keep the standard navigation height.
   }
-  return 44;
+  return statusBarHeight + navHeight;
 }
 
 Page({
@@ -401,7 +404,7 @@ Page({
     shareBusy:false
   },
   async onLoad(query) {
-    this.reportNavHeight = navigationHeight();
+    this.reportHeaderHeight = fixedHeaderHeight();
     this.setData({
       reportId: query.reportId || "",
       inspectionId: query.inspectionId || "",
@@ -455,8 +458,8 @@ Page({
       if (!rect || !viewport) {
         return;
       }
-      const navHeight = this.reportNavHeight || 0;
-      const target = Math.max(0, viewport.scrollTop + rect.top - navHeight - 12);
+      const headerHeight = this.reportHeaderHeight || 0;
+      const target = Math.max(0, viewport.scrollTop + rect.top - headerHeight - 12);
       wx.pageScrollTo({ scrollTop: target, duration: 260 });
     });
   },

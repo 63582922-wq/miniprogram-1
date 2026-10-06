@@ -1,4 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
 const {loadPage}=require('./page-harness.cjs');
 
 const stubs={
@@ -24,9 +25,13 @@ const stubs={
   '../../../utils/guide':{markGuideStep:()=>{}}
 };
 
-function mount(scrollResponse){
+function mount(scrollResponse,windowInfo){
   const calls={scrolled:[]};
+  const system=windowInfo||{statusBarHeight:54,windowWidth:390,windowHeight:844,safeArea:{bottom:810}};
   const {page,context}=loadPage('report/detail',stubs,{
+    hideShareMenu:()=>{},
+    getWindowInfo:()=>system,
+    getMenuButtonBoundingClientRect:()=>({top:system.statusBarHeight+6,height:32,left:280}),
     createSelectorQuery:()=>({
       select(){return this;},
       boundingClientRect(){return this;},
@@ -102,20 +107,27 @@ test('long descriptions are shortened in the summary but the original text stays
   assert.equal(display.issueGroups[0].issues[0].description,long,'完整描述必须原样留在下方问题里');
 });
 
-test('tapping a priority row scrolls to that photo group, clear of the fixed navigation',()=>{
-  // 分组在文档里的绝对位置 800，当前已滚动 300，导航占 88。
+test('the jump offset covers the status bar, not just the navigation row',async()=>{
+  // 模拟器实测：状态栏 54 + 导航 44 = 98。只减导航会让分组标题藏在状态栏下。
+  const {page}=mount(null);
+  await page.onLoad({});
+  assert.equal(page.reportHeaderHeight,98,'固定头部高度必须包含状态栏');
+});
+
+test('tapping a priority row scrolls to that photo group, clear of the fixed header',async()=>{
+  // 分组在文档里的绝对位置 800，当前已滚动 300，固定头部占 98。
   const {page,calls}=mount([{top:800},{scrollTop:300}]);
-  page.reportNavHeight=88;
+  await page.onLoad({});
   page.handleJumpToGroup({currentTarget:{dataset:{group:2}}});
   // 只比数值：页面代码跑在隔离 vm 里，对象原型与测试进程不同。
   assert.equal(calls.scrolled.length,1);
-  assert.equal(calls.scrolled[0].scrollTop,300+800-88-12);
+  assert.equal(calls.scrolled[0].scrollTop,300+800-98-12);
   assert.equal(calls.scrolled[0].duration,260);
 });
 
-test('an unusable scroll measurement does not throw or scroll somewhere wrong',()=>{
+test('an unusable scroll measurement does not throw or scroll somewhere wrong',async()=>{
   const {page,calls}=mount(null);
-  page.reportNavHeight=88;
+  await page.onLoad({});
   page.handleJumpToGroup({currentTarget:{dataset:{group:1}}});
   assert.equal(calls.scrolled.length,0,'拿不到位置时宁可不跳，也不能跳到错误的地方');
 });
@@ -126,4 +138,15 @@ test('an invalid group index is ignored',()=>{
   page.handleJumpToGroup({currentTarget:{dataset:{group:'abc'}}});
   page.handleJumpToGroup({currentTarget:{dataset:{group:-1}}});
   assert.equal(calls.scrolled.length,0);
+});
+
+test('the priority row resets the built-in button box, or it renders centred and narrow',()=>{
+  // 实测：button 内置样式会把整行压成 184px 并水平居中（容器 364px），
+  // 表现是「严重」不在左边缘、描述也居中。项目内其它整行控件同样用 !important 复位。
+  const css=fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/report/detail/index.wxss'),'utf8');
+  const rule=/\.report-priority__row\s*\{([^}]*)\}/.exec(css);
+  assert.ok(rule,'找不到 .report-priority__row 规则');
+  const body=rule[1];
+  assert.match(body,/width:\s*100%\s*!important/,'整行宽度必须用 !important 压过 button 内置样式');
+  assert.match(body,/margin:\s*0\s*!important/,'必须清掉 button 内置的自动外边距，否则整行居中');
 });
