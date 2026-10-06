@@ -1,7 +1,6 @@
-<view class="custom-tab-bar">
-  <button wx:for="{{list}}" wx:key="pagePath" class="custom-tab-bar__item {{selected === item.pagePath ? 'is-selected' : ''}}" data-path="{{item.pagePath}}" bindtap="switchTab" hover-class="is-pressed" aria-label="{{item.text}}">
-    <image class="custom-tab-bar__icon" src="/images/icons/icon-tab-{{selected === item.pagePath ? item.activeIconName : item.iconName}}.svg" mode="aspectFit" />
+<view wx:if="{{!hiddenByOverlay}}" class="custom-tab-bar">
+  <button wx:for="{{list}}" wx:key="pagePath" class="ui-button-reset custom-tab-bar__item {{item.selected ? 'is-selected' : ''}}" data-path="{{item.pagePath}}" bindtap="switchTab" hover-class="is-pressed" aria-label="{{item.text}}">
+    <image class="custom-tab-bar__icon" src="{{item.iconSrc}}" mode="aspectFit" />
     <text class="custom-tab-bar__label">{{item.text}}</text>
-    <view wx:if="{{selected === item.pagePath}}" class="custom-tab-bar__indicator"></view>
   </button>
 </view>

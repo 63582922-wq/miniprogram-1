@@ -1,9 +1,14 @@
-:host{display:block;position:sticky;top:0;z-index:50;margin:-16rpx calc(-1 * var(--a-page-inset)) 0}
-.page-nav-bar{display:block;padding-left:24rpx;background:var(--a-paper);border-bottom:1px solid var(--a-line);box-sizing:border-box;color:var(--a-ink);font-family:var(--a-font-body,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",sans-serif)}
-.page-nav-bar__content{display:flex;align-items:center;gap:16rpx;box-sizing:border-box;min-width:0}
-.page-nav-bar__back{min-width:88rpx;min-height:44px;padding:0 12rpx;display:flex;align-items:center;justify-content:center;gap:6rpx;background:transparent;color:var(--a-ink);border:0;font-size:26rpx;margin:0;flex-shrink:0;line-height:1.2}
-.page-nav-bar__back:after{border:0}.page-nav-bar__icon{width:32rpx;height:32rpx}
-.page-nav-bar__title{font-size:30rpx;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-weight:600;letter-spacing:-.3rpx}
-.page-nav-bar__title--brand{font-family:var(--a-font-display);font-size:32rpx;font-weight:500;letter-spacing:.5rpx}
+:host{display:block;position:sticky;top:0;z-index:50;margin:var(--a-space-page-bleed) calc(-1 * var(--a-page-inset)) 0}
+.page-nav-bar{display:block;background:var(--a-paper);box-sizing:border-box;color:var(--a-ink);font-family:var(--a-font-body)}
+.page-nav-bar__content{position:relative;display:flex;align-items:center;gap:var(--a-space-2);box-sizing:border-box;min-width:0}
+.page-nav-bar__heading{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:var(--a-space-1);min-width:0;pointer-events:none;text-align:center}
+.page-nav-bar__back{min-width:calc(var(--a-hit) * 2);min-height:var(--a-hit-compact);box-sizing:border-box;padding:0 var(--a-space-2);display:flex;align-items:center;justify-content:center;gap:var(--a-space-1);background:transparent;color:var(--a-ink);border:0;font-size:var(--a-type-body);font-weight:var(--a-weight-medium);margin:0;flex-shrink:0;line-height:1.35}
+.page-nav-bar__back:after{border:0}.page-nav-bar__icon{width:var(--a-icon);height:var(--a-icon);flex:none}
+.page-nav-bar__title{font-size:var(--a-type-body);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-weight:var(--a-weight-medium);letter-spacing:0}
+.page-nav-bar__title--brand{font-family:var(--a-font-body);font-size:var(--a-type-body);font-weight:var(--a-weight-medium);letter-spacing:0}
 .page-nav-bar .page-nav-bar__back{width:auto;flex:0 0 auto;margin:0}
-.privacy-mask{position:fixed;top:0;bottom:0;left:0;right:0;z-index:999;background:rgba(25,24,22,.45);display:flex;align-items:center;justify-content:center}.privacy-dialog{width:85%;padding:32rpx;background:var(--a-paper);color:var(--a-ink);border-radius:var(--a-radius-object)}.privacy-title{font-size:34rpx;font-weight:600}.privacy-copy{font-size:28rpx;line-height:1.7;margin-top:20rpx;color:var(--a-muted)}.privacy-link{width:100%;min-height:44px;font-size:28rpx;background:transparent;margin:12rpx 0;color:var(--a-ink)}.privacy-agree{width:100%;min-height:48px;font-size:30rpx;background:var(--a-accent);color:var(--a-accent-ink);border:0;border-radius:var(--a-radius-control)}
+.page-nav-bar--root{border-bottom:0}
+.page-nav-bar--root .page-nav-bar__content{height:0!important;min-height:0!important;padding:0!important}
+.privacy-mask{position:fixed;top:0;bottom:0;left:0;right:0;z-index:999;background:var(--a-scrim);display:flex;align-items:center;justify-content:center}.privacy-dialog{width:85%;padding:var(--a-space-4);background:var(--a-paper);color:var(--a-ink);border-radius:var(--a-radius-object)}.privacy-title{font-size:var(--a-type-section);font-weight:var(--a-weight-emphasis)}.privacy-copy{font-size:var(--a-type-medium);line-height:1.7;margin-top:var(--a-space-2);color:var(--a-muted)}.privacy-link{width:100%;min-height:var(--a-hit);font-size:var(--a-type-medium);background:transparent;margin:var(--a-space-2) 0;color:var(--a-ink)}.privacy-agree{width:100%;min-height:var(--a-hit-compact);font-size:var(--a-type-action);background:var(--a-accent);color:var(--a-accent-ink);border:0;border-radius:var(--a-radius-control)}
+@import "../../styles/precision-a.wxss";
+.page-nav-bar__brand-mark{width:52rpx;height:52rpx;flex:none;border-radius:var(--a-radius-brand);overflow:hidden}

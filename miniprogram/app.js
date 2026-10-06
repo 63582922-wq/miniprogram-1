@@ -1,17 +1,11 @@
 const { loginAndBootstrapUser } = require("./services/user");
 const { setupPrivacyListener } = require("./utils/privacy");
+const { PRIVACY_CONSENT_KEY } = require("./utils/privacy-consent");
 const {
   getCloudEnvId,
   isCloudEnvConfigured,
   isCloudEnvError
 } = require("./config/env");
-
-const ENV_HELP_LINES = [
-  "排查步骤：",
-  "1. 打开微信开发者工具，进入「云开发」控制台；",
-  "2. 确认环境是否存在、是否已过期；",
-  "3. 复制环境 ID，填入 miniprogram/config/env.js 的 CLOUD_ENV_ID。"
-].join("\n");
 
 App({
   globalData: {
@@ -31,16 +25,16 @@ App({
     setupPrivacyListener();
     if (!wx.cloud) {
       this.showFatal(
-        "基础库版本过低",
-        "请使用 2.2.3 或以上基础库以启用云能力。"
+        "请更新微信",
+        "当前微信版本暂不支持此功能，请更新后重试。"
       );
       return;
     }
 
     if (!isCloudEnvConfigured()) {
       this.showFatal(
-        "尚未配置云环境",
-        `缺少云环境 ID，无法连接后端。\n\n${ENV_HELP_LINES}`
+        "服务暂不可用",
+        "暂时无法连接服务，请稍后重新打开。"
       );
       return;
     }
@@ -55,16 +49,16 @@ App({
     } catch (error) {
       this.globalData.bootError = { type: "init", message: this.describe(error) };
       console.error("[app] wx.cloud.init failed", error);
-      this.showFatal("云环境初始化失败", this.describe(error).slice(0, 200));
+      this.showFatal("连接失败", "暂时无法加载你的记录，请稍后重试。");
       return;
     }
 
-    if (wx.getStorageSync("welcomeAcceptedV1")) this.bootstrap().catch(() => {});
+    if (wx.getStorageSync(PRIVACY_CONSENT_KEY)) this.bootstrap().catch(() => {});
   },
 
   ensureReady() {
     if (this.globalData.appReady && this.globalData.userInfo) return Promise.resolve(this.globalData.userInfo);
-    if (!wx.getStorageSync("welcomeAcceptedV1")) {
+    if (!wx.getStorageSync(PRIVACY_CONSENT_KEY)) {
       if (!this.openingWelcome) {
         this.openingWelcome = true;
         wx.navigateTo({url:"/pages/welcome/index",complete:()=>{this.openingWelcome=false;}});
@@ -93,15 +87,8 @@ App({
       if (isCloudEnvError(error)) {
         this.globalData.bootError = { type: "env", message: this.describe(error) };
         this.showFatal(
-          "云环境不可用",
-          [
-            `当前环境：${this.globalData.env}`,
-            "",
-            "该环境可能已过期或被删除，所以所有数据都读不到。",
-            "此时页面上的「暂无项目」「暂无报告」都不代表真的没有数据。",
-            "",
-            ENV_HELP_LINES
-          ].join("\n")
+          "记录暂时无法加载",
+          "服务连接异常，暂时无法读取项目和报告。这不表示记录已删除，请稍后重试。"
         );
         throw error;
       }

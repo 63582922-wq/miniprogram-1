@@ -1,7 +1,18 @@
 <view class="page annotate-page">
  <page-nav-bar title="精准标注" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap"/>
  <view wx:if="{{storageError}}" class="precision-state">{{storageError}}</view>
- <annotation-canvas id="annotationEditor" image-url="{{imagePath}}" value="{{annotations}}" legacy-stage="{{annotationStage}}" bindchange="handleAnnotationChange" bindstagechange="handleStageChange" bindnormalized="handleNormalized" bindready="handleEditorReady" binderror="handleEditorError"/>
+ <annotation-canvas wx:if="{{imagePath}}" class="annotate-canvas" id="annotationEditor" image-url="{{imagePath}}" value="{{annotations}}" legacy-stage="{{annotationStage}}" bindchange="handleAnnotationChange" bindstagechange="handleStageChange" bindnormalized="handleNormalized" bindready="handleEditorReady" binderror="handleEditorError"/>
+ <view wx:elif="{{!editorError}}" class="precision-state">正在加载照片…</view>
  <view wx:if="{{editorError}}" class="precision-state">{{editorError}}</view>
- <view class="footer-actions"><button class="primary-button" loading="{{saving}}" disabled="{{saving || !editorReady}}" bindtap="handleSave">{{editorReady ? '保存标注并返回' : '照片加载中…'}}</button></view>
+ <view class="footer-actions"><button class="ui-button-reset primary-button {{saving || !editorReady ? 'ui-disabled' : ''}} {{saving ? 'ui-loading' : ''}}" loading="{{saving}}" disabled="{{saving || !editorReady}}" bindtap="handleSave">{{editorReady ? '保存标注并返回' : '照片加载中…'}}</button></view>
+ <cover-view wx:if="{{leaveDialogOpen}}" class="annotation-exit" aria-label="标注尚未保存，可保存返回、继续编辑或取消本次编辑" bindtap="closeLeaveDialog">
+  <cover-view class="annotation-exit__sheet" catchtap="ignoreLeaveDialogTap">
+   <cover-view class="annotation-exit__grabber"></cover-view>
+   <cover-view class="annotation-exit__title">标注尚未保存</cover-view>
+   <cover-view class="annotation-exit__hint">选择如何处理本次标注</cover-view>
+   <cover-view class="annotation-exit__action annotation-exit__action--primary" bindtap="saveAndReturn">保存并返回</cover-view>
+   <cover-view class="annotation-exit__action" bindtap="closeLeaveDialog">继续编辑</cover-view>
+   <cover-view class="annotation-exit__action annotation-exit__action--danger" bindtap="cancelEditsAndReturn">取消本次编辑</cover-view>
+  </cover-view>
+ </cover-view>
 </view>

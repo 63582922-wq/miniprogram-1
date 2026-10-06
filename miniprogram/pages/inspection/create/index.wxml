@@ -1,118 +1,72 @@
 <view class="page inspection-create-page">
   <page-nav-bar title="现场记录" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleReturn" />
-  <view class="record-context">
-    <view class="record-context__label">本次记录归属</view>
-    <picker range="{{projects}}" range-key="name" value="{{projectIndex}}" disabled="{{loadingProjects || pickingImages}}" bindchange="handleProjectChange"><view class="record-project"><text class="record-project__name">{{currentProjectNameText}}</text><text class="record-project__action">更换项目</text></view></picker>
-    <view class="record-context__hint">照片、标注与说明会保存在这个项目的本机草稿中</view>
-  </view>
-  <view wx:if="{{projectLoadError}}" class="precision-state">{{projectLoadError}}<button class="secondary-button" bindtap="retryLoadProjects">重新加载项目</button></view>
-
+  <view class="record-context"><picker range="{{projects}}" range-key="name" value="{{projectIndex}}" disabled="{{loadingProjects || pickingImages || analyzing}}" bindchange="handleProjectChange"><view class="record-project"><text class="record-project__name">{{currentProjectNameText}}</text><text class="record-project__action">更换项目</text></view></picker></view>
+  <view wx:if="{{projectLoadError}}" class="precision-state">{{projectLoadError}}<button class="ui-button-reset secondary-button" bindtap="retryLoadProjects">重新加载</button></view>
   <view class="capture-section">
-    <view class="capture-section__head">
-      <view><view class="capture-section__title">现场照片</view><view class="section-subtitle">一张照片可标注多处问题，也可以只留存现场</view></view>
-      <view class="capture-section__tools">
-        <view class="capture-section__count">{{form.issueDrafts.length}} / 20</view>
-      </view>
-    </view>
-    <view wx:if="{{form.issueDrafts.length < 20}}" class="capture-section__picker-actions">
-      <button class="capture-section__action" data-source-type="camera" disabled="{{pickingImages}}" loading="{{pickingImages && pickerSourceType === 'camera'}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />{{pickingImages && pickerSourceType === 'camera' ? pickerStatusText : '拍照'}}</button>
-      <button class="capture-section__action capture-section__action--album" data-source-type="album" disabled="{{pickingImages}}" loading="{{pickingImages && pickerSourceType === 'album'}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" />{{pickingImages && pickerSourceType === 'album' ? pickerStatusText : '从相册选择'}}</button>
-    </view>
+    <view class="capture-section__head ui-section-row"><view class="capture-section__title ui-section-row__label">现场照片 <text class="capture-section__count">{{form.issueDrafts.length}} / 20</text></view><button wx:if="{{form.issueDrafts.length > 1}}" class="ui-button-reset ui-section-row__action" bindtap="chooseAllPhotoProcessing">批量处理</button></view>
+    <view wx:if="{{pickingImages}}" class="photo-picker-status" aria-live="polite"><view class="photo-picker-status__spinner"></view><text>{{pickerStatusText || '正在处理照片…'}}</text></view>
+    <view wx:if="{{!form.issueDrafts.length && !pickingImages}}" class="capture-section__guidance">建议横向拍摄，竖图也支持。</view>
   </view>
-
-  <view wx:if="{{pickerError}}" class="precision-state">{{pickerError}}<button class="secondary-button" bindtap="chooseImages">重新选图</button></view>
-  <view wx:if="{{form.issueDrafts.length}}" class="issue-draft-list">
-    <view wx:for="{{form.issueDrafts}}" wx:key="id" class="card issue-draft-card">
+  <view wx:if="{{pickerError}}" class="precision-state">{{pickerError}}<button class="ui-button-reset secondary-button" bindtap="chooseImages">重新选图</button></view>
+  <view class="issue-draft-list">
+    <view wx:for="{{form.issueDrafts}}" wx:key="id" id="capture-photo-{{index}}" class="issue-draft-card">
       <view class="issue-draft-card__header">
-        <view class="issue-draft-card__title-wrap">
-
-          <view class="issue-draft-card__title-main">
-            <view class="issue-draft-card__title">照片 {{issueSectionTitles[index] || (index + 1)}}</view>
-          </view>
-        </view>
-        <view class="issue-draft-card__header-actions">
-          <button class="issue-draft-card__collapse" data-index="{{index}}" bindtap="toggleIssueExpanded">{{issueExpandedStates[index] ? '收起' : '展开'}}</button>
-          <button class="issue-draft-card__delete" data-index="{{index}}" bindtap="removeIssue">删除</button>
-        </view>
+        <button class="ui-button-reset issue-draft-card__collapse issue-draft-card__expand" data-index="{{index}}" bindtap="toggleIssueExpanded"><text class="issue-draft-card__title">照片 {{issueSectionTitles[index] || (index + 1)}}</text><text class="capture-photo-status">{{item.analysisModeResolved === 'ai' ? 'AI 识图' : item.voiceText ? '已说明' : item.annotationCount ? '已标注' : ''}}</text></button>
+        <button class="ui-button-reset issue-draft-card__collapse" data-index="{{index}}" bindtap="handlePhotoMenu">更多</button>
       </view>
-
       <view wx:if="{{issueExpandedStates[index]}}" class="issue-draft-card__body">
-        <view class="issue-draft-card__media">
-          <button class="issue-draft-card__media-open" aria-label="打开照片 {{issueSectionTitles[index] || (index + 1)}} 进行精准标注" data-index="{{index}}" bindtap="openAnnotate">
-            <image class="issue-draft-card__image" src="{{item.annotatedImagePath || item.imagePath}}" mode="aspectFit" />
-            <view class="issue-draft-card__media-tip">点击照片进入标注</view>
-          </button>
-          <button class="issue-draft-card__media-action" data-index="{{index}}" bindtap="replaceIssueImage">更换照片</button>
+        <view class="issue-draft-card__media"><view class="issue-draft-card__media-open" aria-label="标注照片" data-index="{{index}}" bindtap="openAnnotate">
+          <image wx:if="{{failedPhotoPreviewId !== item.id}}" class="issue-draft-card__image" src="{{item.displayImagePath || item.localAnnotatedImagePath || item.localImagePath || item.annotatedImagePath || item.imagePath}}" mode="widthFix" binderror="handlePhotoPreviewError" data-id="{{item.id}}" />
+          <view wx:else class="issue-draft-card__image-fallback"><text>照片暂时无法显示</text><button class="ui-button-reset issue-draft-card__image-fallback-action" data-id="{{item.id}}" data-index="{{index}}" catchtap="replaceIssueImage">重新选图</button></view>
+        </view></view>
+        <view class="capture-photo-actions">
+          <button class="ui-button-reset photo-processing-mode {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" data-id="{{item.id}}" data-index="{{index}}" bindtap="recognizePhoto"><text>{{item.aiRecognized ? '重新识图' : 'AI识图'}}</text></button>
+          <button class="ui-button-reset photo-processing-mode" data-index="{{index}}" bindtap="openAnnotate"><image class="capture-section__action-icon" src="/images/icons/annotation-rectangle.svg" mode="aspectFit"/><text>标注{{item.annotationCount ? ' · '+item.annotationCount : ''}}</text></button>
         </view>
-        <view wx:if="{{form.issueDrafts.length > 1}}" class="issue-order"><text class="issue-order__label">调整顺序</text><button class="issue-order__button {{index === 0 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === 0}}" data-index="{{index}}" data-step="-1" bindtap="moveIssue">上移</button><button class="issue-order__button {{index === form.issueDrafts.length - 1 ? 'issue-order__button--disabled' : ''}}" disabled="{{index === form.issueDrafts.length - 1}}" data-index="{{index}}" data-step="1" bindtap="moveIssue">下移</button></view>
+        <view wx:if="{{item.aiRecognized}}" class="capture-ai-result"><view wx:for="{{item.aiIssues}}" wx:for-item="problem" wx:key="*this">{{problem}}</view><text wx:if="{{!item.aiIssues.length}}">未识别到明确问题，可直接补充说明。</text></view>
         <view class="issue-draft-card__editor">
-          <view wx:if="{{item.annotationCount || item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badges">
-            <view wx:if="{{item.annotationCount}}" class="issue-draft-card__badge">已标注 {{item.annotationCount}} 处</view>
-            <view wx:if="{{item.voiceFilePath || item.voiceFileId}}" class="issue-draft-card__badge">已录音</view>
+          <view class="issue-composer">
+            <textarea auto-height maxlength="5000" class="issue-draft-card__textarea" value="{{item.voiceText}}" data-id="{{item.id}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="输入现场说明或问题描述" placeholder-class="ui-placeholder" />
+            <button class="ui-button-reset voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}} {{recordCancelArmed && transcribingIssueId === item.id ? 'voice-hold-button--cancel' : ''}} {{item.isTranscribing ? 'ui-disabled' : ''}}" disabled="{{item.isTranscribing}}" aria-label="按住说话，松开发送；录错向上滑动取消" data-index="{{index}}" bindtouchstart="handleRecordTouchStart" catchtouchmove="handleRecordMove" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordCancel"><image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" /><view class="voice-hold-button__copy"><text>{{item.isTranscribing ? '正在转成文字…' : transcribingIssueId === item.id ? (recordCancelArmed ? '松开，取消这段' : '松开，完成转写') : '按住说话'}}</text><text class="voice-hold-button__hint">{{transcribingIssueId === item.id ? (recordCancelArmed ? '已进入取消状态' : '向上滑动可取消') : '松开转文字 · 上滑取消'}}</text></view></button>
           </view>
-          <view class="voice-hold">
-            <button class="voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}}" aria-label="{{transcribingIssueId === item.id ? (recordCancelArmed ? '松开取消录音' : '正在录音，上滑取消') : '按住开始录音'}}" data-index="{{index}}" bindlongpress="handleRecordLongPress" bindtouchmove="handleRecordMove" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordCancel">
-              <image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" /><text>{{transcribingIssueId === item.id ? (recordCancelArmed ? '松开取消' : '录音中 · 上滑取消') : '按住说话'}}</text>
-            </button>
-
-          </view>
-          <view wx:if="{{item.isTranscribing}}" class="section-subtitle issue-draft-card__transcribing">正在识别中...</view>
-          <view wx:if="{{item.speechError}}" class="precision-state">{{item.speechError}}</view><textarea auto-height maxlength="5000" class="issue-draft-card__textarea" value="{{item.voiceText}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="录完音后，文字会附在这里；也可以直接手动补充和修改" />
-          <view class="issue-analysis-choice">
-            <view><view class="issue-analysis-choice__title">这张照片如何整理</view><view class="issue-analysis-choice__hint">{{item.analysisModeResolved === 'manual' ? '按你的说明生成问题，不再重复识图' : 'AI 查看照片并给出待核对建议'}}</view></view>
-            <view class="issue-analysis-choice__actions">
-              <button class="issue-analysis-choice__button {{item.analysisModeResolved === 'manual' ? 'is-active' : ''}}" data-index="{{index}}" data-mode="manual" bindtap="handleAnalysisModeChange">人工说明</button>
-              <button class="issue-analysis-choice__button {{item.analysisModeResolved === 'ai' ? 'is-active' : ''}}" data-index="{{index}}" data-mode="ai" bindtap="handleAnalysisModeChange">AI 识图</button>
-            </view>
+          <view wx:if="{{item.speechError}}" class="speech-error-row">
+            <view class="precision-state">{{item.speechError}}</view>
+            <button class="ui-button-reset speech-retry {{item.isTranscribing ? 'ui-disabled' : ''}}" data-index="{{index}}" disabled="{{item.isTranscribing}}" bindtap="retryIssueTranscription">重试转写</button>
           </view>
         </view>
       </view>
     </view>
   </view>
-  <empty-state wx:else title="从一张现场照片开始" description="照片可以记录问题，也可以只留存现场；不强制生成问题。" />
-
-  <view class="card create-card">
-    <view class="create-card__section-head">
-      <view class="create-card__section-lead">
-        <view class="create-card__section-title">现场补充</view>
-      </view>
-      <button class="create-card__toggle" bindtap="toggleSupplementFields">{{showSupplementFields ? '收起' : '展开'}}</button>
-    </view>
-    <view wx:if="{{showSupplementFields}}" class="create-card__supplement-fields">
-      <view class="field">
-        <view class="field-label">巡查标题</view>
-        <input class="field-input" value="{{form.title}}" data-field="title" bindinput="handleInput" placeholder="例如：4月2日木作巡查" />
-      </view>
-      <view class="field">
-        <view class="field-label">现场补充</view>
-        <textarea class="field-textarea" value="{{form.note}}" data-field="note" bindinput="handleInput" placeholder="选填：补充本次巡查范围、客户特别关注点或现场背景。" />
-      </view>
+  <view wx:if="{{form.issueDrafts.length < 20}}" class="capture-section__picker-actions">
+    <button class="ui-button-reset secondary-button {{pickingImages || analyzing ? 'ui-disabled' : ''}}" disabled="{{pickingImages || analyzing}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" /><text>继续添加</text></button>
+  </view>
+  <view wx:if="{{form.issueDrafts.length}}" class="create-card">
+    <view class="create-card__section-head"><button class="ui-button-reset create-card__toggle" bindtap="toggleSupplementFields">{{showSupplementFields ? '收起巡查信息' : '巡查信息（选填）'}}</button></view>
+      <view wx:if="{{showSupplementFields}}" class="create-card__supplement-fields">
+      <view class="field"><view class="field-label">报告标题</view><input class="field-input" value="{{form.title}}" data-field="title" bindinput="handleInput" placeholder="本次现场记录" placeholder-class="ui-placeholder" /></view>
+      <view class="field"><view class="field-label">现场补充说明</view><textarea class="field-textarea" value="{{form.note}}" data-field="note" bindinput="handleInput" placeholder="选填：补充整次巡查的背景" placeholder-class="ui-placeholder" /></view>
     </view>
   </view>
-
-  <view wx:if="{{form.issueDrafts.length}}" class="create-ai-row">
-    <button class="create-ai-link" loading="{{analyzing}}" disabled="{{analyzing || !form.issueDrafts.length}}" bindtap="handleAnalyze">{{analyzing ? 'AI 正在整理…' : 'AI 识别未说明照片（选用）'}}</button>
+  <view wx:if="{{form.issueDrafts.length}}" class="footer-actions footer-actions--fixed"><button class="ui-button-reset primary-button {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" bindtap="handleContinueReview">{{nextActionLabel}}</button></view>
+  <view wx:if="{{photoChoiceOpen}}" class="photo-choice-mask" catchtap="deferPhotoProcessing">
+    <view class="photo-choice-panel" catchtap="ignoreTap">
+      <view class="photo-choice-title ui-sheet-title">{{photoChoiceIds.length > 1 ? '这 '+photoChoiceIds.length+' 张照片怎么整理？' : '这张照片怎么整理？'}}</view>
+      <button class="ui-button-reset photo-choice-option" data-mode="manual" bindtap="choosePhotoProcessing"><image class="photo-choice-option__icon" src="/images/icons/icon-note.svg" mode="aspectFit" /><view class="photo-choice-option__copy"><text>仅手动填写</text><text class="section-subtitle">说或写，AI 帮你填表</text></view></button>
+      <button class="ui-button-reset photo-choice-option" data-mode="ai" bindtap="choosePhotoProcessing"><image class="photo-choice-option__icon" src="/images/icons/icon-inspection.svg" mode="aspectFit" /><view class="photo-choice-option__copy"><text>{{photoChoiceIds.length > 1 ? '全部交给 AI 识图' : 'AI 识图'}}</text><text class="section-subtitle">识别结果由你核对</text></view></button>
+      <button class="ui-button-reset photo-choice-later" bindtap="deferPhotoProcessing">先保留照片</button>
+    </view>
   </view>
-
-  <view wx:if="{{form.issueDrafts.length}}" class="footer-actions create-footer-actions">
-    <button class="primary-button" disabled="{{analyzing || !form.issueDrafts.length}}" bindtap="handleManualReview">进入人工核对</button>
-  </view>
-
   <view wx:if="{{analyzing || analyzeError}}" class="analyze-mask">
     <view class="analyze-panel">
-      <view class="analyze-panel__eyebrow">照片分析</view>
       <view wx:if="{{analyzing}}" class="analyze-panel__spinner"></view>
-      <view class="analyze-panel__title">{{analyzeError ? '有照片尚未完成' : 'AI 正在逐张整理'}}</view>
+      <view class="analyze-panel__title">{{analyzeError ? '部分记录未完成' : analyzeStageIndex === 1 ? '正在保存照片' : analyzePanelTitle}}</view>
       <view class="analyze-panel__desc">{{analyzeStageText}}</view>
-      <view wx:if="{{analyzeTotalPhotos}}" class="analyze-panel__progress" aria-label="已分析 {{analyzeCompletedPhotos}} / {{analyzeTotalPhotos}} 张照片">
-        <view class="analyze-panel__progress-head"><text>已完成 {{analyzeCompletedPhotos}} / {{analyzeTotalPhotos}} 张</text><text>{{analyzeProgressPercent}}%</text></view>
-        <view class="analyze-panel__progress-track"><view class="analyze-panel__progress-value" style="width: {{analyzeProgressPercent}}%"></view></view>
-      </view>
-      <view wx:if="{{analyzeError}}" class="analyze-panel__error">{{analyzeError}}。已完成结果和照片都已保留。</view>
-      <button wx:if="{{analyzeError}}" class="primary-button analyze-panel__primary" bindtap="handleRetryAnalyze">重试未完成照片</button>
-      <button wx:if="{{analyzeError}}" class="analyze-panel__cancel" bindtap="handleAnalyzeManualFallback">直接人工核对</button>
-      <button wx:else class="analyze-panel__cancel" bindtap="handleCancelAnalyze">返回记录 · 保留任务</button>
+      <view wx:if="{{analyzeTotalPhotos && analyzeStageIndex !== 1}}" class="analyze-panel__progress"><view class="analyze-panel__progress-head"><text>{{analyzeProgressLabel}} {{analyzeCompletedPhotos}} / {{analyzeTotalPhotos}}</text><text>{{analyzeProgressPercent}}%</text></view><view class="analyze-panel__progress-track"><view class="analyze-panel__progress-value" style="width:{{analyzeProgressPercent}}%"></view></view></view>
+      <view wx:if="{{analyzePhotoProgressText}}" class="analyze-panel__photo-progress">{{analyzePhotoProgressText}}</view>
+      <view wx:if="{{analyzeError}}" class="analyze-panel__error">{{analyzeError}}</view>
+      <button wx:if="{{analyzeError}}" class="ui-button-reset primary-button" bindtap="handleRetryAnalyze">重试未完成照片</button>
+      <button wx:if="{{analyzeError}}" class="ui-button-reset analyze-panel__cancel" bindtap="handleAnalyzeManualFallback">直接人工核对</button>
+      <button wx:else class="ui-button-reset analyze-panel__cancel" bindtap="handleCancelAnalyze">返回记录</button>
     </view>
   </view>
-
 </view>

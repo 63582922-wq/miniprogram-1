@@ -60,6 +60,13 @@ function advanceInspectionTask(taskId) {
   }, AI_CALL_OPTIONS);
 }
 
+function cancelInspectionTask(taskId) {
+  return callCloud("ai", {
+    action: "cancelInspectionTask",
+    payload: { taskId }
+  }, AI_CALL_OPTIONS);
+}
+
 // Keep the old entry point for callers that have not migrated yet.
 function getInspectionTaskStatus(taskId, advance = false) {
   return advance ? advanceInspectionTask(taskId) : readInspectionTaskStatus(taskId);
@@ -87,6 +94,7 @@ module.exports = {
   createInspectionTask,
   readInspectionTaskStatus,
   advanceInspectionTask,
+  cancelInspectionTask,
   getInspectionTaskStatus,
   confirmInspection,
   deleteInspection

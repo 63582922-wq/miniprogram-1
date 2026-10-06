@@ -3,14 +3,16 @@ const {
   analyzeInspection,
   createInspectionTask,
   readInspectionTaskStatus,
-  advanceInspectionTask
+  advanceInspectionTask,
+  cancelInspectionTask
 } = require("../../../services/inspection");
 const { transcribeVoiceFile, mergeSpeechText, formatSpeechError } = require("../../../services/speech");
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { runWithConcurrency } = require("../../../utils/async");
 const { keepLocalFile, uploadDraftMedia } = require("../../../services/inspection-media");
 const { readDraft, writeDraft, patchDraft } = require("../../../utils/inspection-draft");
-const { identity } = require("../../../utils/inspection-model");
+const { identity, buildManualReviewItems, getPhotoDisplayPath } = require("../../../utils/inspection-model");
+const { isCloudFileId, resolveCloudFileUrls } = require("../../../services/cloud-media");
 
 const recorderManager = wx.getRecorderManager();
 const MAX_ISSUE_DRAFTS = 20;
@@ -29,6 +31,8 @@ const LATEST_INSPECTION_DRAFT_META_KEY = "latestInspectionDraftMeta";
  */
 const ASYNC_ANALYZE_THRESHOLD = 0;
 const ANALYZE_POLL_INTERVAL = 1500;
+// Allow one expired server lease (180s) to recover, but never wait forever.
+const ANALYZE_NO_PROGRESS_LIMIT = 210000;
 /** 轮询连续失败多少次后停止等待（每次失败会退避重试） */
 const ANALYZE_POLL_MAX_FAILURES = 5;
 const ISSUE_SECTION_TITLES = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十"];
@@ -39,7 +43,8 @@ function createIssueDraft(filePath) {
     imagePath: filePath,
     annotations: [],
     annotationCount: 0,
-    analysisMode: "auto",
+    annotationRevision: 0,
+    analysisMode: "pending",
     voiceText: "",
     voiceFilePath: "",
     voiceFileId: ""
@@ -71,11 +76,15 @@ function buildExpandedStatesAfterAppend(previousCount, appendCount) {
 function normalizeIssueDrafts(issueDrafts = []) {
   return issueDrafts.map((item) => ({
     ...item,
+    // Cloud file IDs are for persistence and submission, not <image src>.
+    // Keep the on-device source as the preview so uploading for AI does not
+    // make the photo disappear while the user is still in the capture flow.
+    displayImagePath: getPhotoDisplayPath(item),
     annotationCount: (item.annotations || []).length,
     analysisModeResolved: item.analysisMode === "ai"
       ? "ai"
-      : item.analysisMode === "manual"
-        ? "manual"
+      : ["manual", "pending"].includes(item.analysisMode)
+        ? item.analysisMode
         : (hasMeaningfulVoiceText(item.voiceText) ? "manual" : "ai")
   }));
 }
@@ -124,29 +133,25 @@ function hasMeaningfulVoiceText(text = "") {
 function countImageRecognitionDrafts(issueDrafts = []) {
   return (issueDrafts || []).filter((item) => Boolean(item.imagePath) && (
     item.analysisMode === "ai" ||
-    (item.analysisMode !== "manual" && !hasMeaningfulVoiceText(item.voiceText))
+    (!['manual', 'pending'].includes(item.analysisMode) && !hasMeaningfulVoiceText(item.voiceText))
   )).length;
 }
 
-function buildManualReviewItems(issueDrafts = []) {
-  return (issueDrafts || []).flatMap((photo, sourceIndex) => {
-    const text = `${photo.voiceText || ""}`.trim();
-    const clauses = text.split(/[；;。！？\n]+/).map(value=>value.trim()).filter(Boolean);
-    const markers = (photo.annotations || []).filter(annotation=>annotation.type === "point");
-    const count = Math.max(markers.length, clauses.length, text ? 1 : 0);
-    return Array.from({length:count},(_,index)=>({
-      id:identity("issue"),
-      sourcePhotoId:photo.id,
-      sourceIndex,
-      subIssueIndex:index+1,
-      annotationId:markers[index]?.id || "",
-      markerNumber:markers[index] ? index+1 : 0,
-      description:clauses[index] || (count===1 ? text : ""),
-      suggestion:"",
-      severity:"normal",
-      responsibleParty:"pending"
-    }));
-  });
+function countTextOrganizationDrafts(issueDrafts = []) {
+  return issueDrafts.filter(photo => photo.organizeText === true && photo.analysisMode !== 'ai' && hasMeaningfulVoiceText(photo.voiceText)).length;
+}
+
+function getAnalyzePanelTitle(issueDrafts = []) {
+  const hasImageRecognition = countImageRecognitionDrafts(issueDrafts) > 0;
+  const hasTextOrganization = countTextOrganizationDrafts(issueDrafts) > 0;
+  if (hasImageRecognition && hasTextOrganization) return "正在整理现场记录";
+  if (hasImageRecognition) return "正在识别现场照片";
+  return "正在整理现场说明";
+}
+
+function getNextActionLabel(issueDrafts = []) {
+  if (issueDrafts.some(photo => hasMeaningfulVoiceText(photo.voiceText))) return "整理说明并核对";
+  return "进入人工核对";
 }
 
 function bindAnalysisItemsToPhotos(items = [], photos = []) {
@@ -167,19 +172,47 @@ function mergeReanalyzedReview(draft = {}, analysis = {}, form = {}) {
   const keepUnchanged = item => item.sourcePhotoId && photoIds.has(item.sourcePhotoId) && !staleIds.has(item.sourcePhotoId);
   const nextAiItems = bindAnalysisItemsToPhotos(analysis.items || [], photos)
     .filter(item => item.sourcePhotoId && staleIds.has(item.sourcePhotoId));
-  const items = (review.items || []).filter(keepUnchanged).concat(nextAiItems);
+  // Field edits belong to the inspector, not to the model. Match only stable
+  // item/annotation IDs or an exact source span, never array position.
+  const editedItems = (review.items || []).filter(item => photoIds.has(item.sourcePhotoId) && staleIds.has(item.sourcePhotoId) && (item.editedFields || []).length);
+  const preserved = new Set();
+  const refreshedItems = nextAiItems.map(item => {
+    const previous = editedItems.find(old => old.sourcePhotoId === item.sourcePhotoId && (
+      old.id === item.id || (old.annotationId && old.annotationId === item.annotationId) ||
+      (old.sourceQuote && old.sourceQuote === item.sourceQuote)
+    ));
+    if (!previous) return item;
+    preserved.add(previous.id);
+    const result = {...item, id:previous.id, editedFields:previous.editedFields};
+    previous.editedFields.forEach(field => {result[field]=previous[field];});
+    return result;
+  });
+  editedItems.filter(item => !preserved.has(item.id)).forEach(item => refreshedItems.push({...item,needsReview:true}));
+  const items = (review.items || []).filter(keepUnchanged).concat(refreshedItems);
   const originalItems = (review.originalItems || []).filter(keepUnchanged).concat(nextAiItems);
   const summaryEdited = review.summaryEdited === true;
   return {
     items,
     originalItems,
-    summary: summaryEdited
-      ? review.summary
-      : `本次记录 ${photos.length} 张照片，确认 ${items.length} 条问题。`,
+    summary: summaryEdited ? review.summary : "",
     summaryEdited,
     stale: false,
     stalePhotoIds: []
   };
+}
+
+function mergeReanalyzedObservations(draft = {}, analysis = {}, form = {}) {
+  const review=draft.review;
+  if(!review || !review.stale)return analysis.observations || [];
+  const photos=form.issueDrafts || [];
+  const photoIds=new Set(photos.map(photo=>photo.id).filter(Boolean));
+  const staleIds=new Set((review.stalePhotoIds && review.stalePhotoIds.length)
+    ? review.stalePhotoIds
+    : photos.map(photo=>photo.id));
+  const previous=(draft.analysis && draft.analysis.observations) || [];
+  const unchanged=previous.filter(item=>item.sourcePhotoId && photoIds.has(item.sourcePhotoId) && !staleIds.has(item.sourcePhotoId));
+  const refreshed=(analysis.observations || []).filter(item=>item.sourcePhotoId && staleIds.has(item.sourcePhotoId));
+  return unchanged.concat(refreshed);
 }
 
 function isPrivacyScopeUndeclared(error) {
@@ -197,6 +230,67 @@ function isPickerPermissionDenied(error) {
   return /auth deny|authorize|permission|denied|reject|拒绝|未授权/.test(text);
 }
 
+function normalizePickerResult(result = {}) {
+  const paths = Array.isArray(result.tempFilePaths) ? result.tempFilePaths : [];
+  const files = Array.isArray(result.tempFiles)
+    ? result.tempFiles.map(file => file && (file.tempFilePath || file.path)).filter(Boolean)
+    : [];
+  return Array.from(new Set(paths.concat(files).filter(Boolean)));
+}
+
+/**
+ * 统一照片入口。
+ *
+ * chooseMedia 是真机当前基础库面向相册/相机的主入口。
+ * 微信开发者工具的 macOS 文件选择器在部分版本里能完成选择却不回调
+ * chooseMedia；仅在 platform=devtools 时把 chooseImage 提到前面，避免把
+ * 开发工具的兼容问题带进真实用户路径。两条路径都归一化为本地照片路径。
+ */
+function choosePhotoFiles({ count = 1, sourceType = ["album", "camera"] } = {}) {
+  // getDeviceInfo describes the host device and can report macOS in DevTools.
+  // getAppBaseInfo describes the mini-program runtime, which is what we need
+  // to decide whether to use the DevTools-compatible legacy picker.
+  let runtimePlatform = "";
+  try {
+    if (typeof wx.getAppBaseInfo === "function") {
+      runtimePlatform = String((wx.getAppBaseInfo() || {}).platform || "").toLowerCase();
+    }
+  } catch (_error) {}
+  // If runtime metadata is unavailable, keep the standard chooseMedia order.
+  // Never fall back to getSystemInfoSync: it is deprecated and can report the
+  // host Mac instead of the mini-program runtime in Developer Tools.
+  const isDevtools = runtimePlatform === "devtools";
+  const chooseLegacyFirst = isDevtools && typeof wx.chooseImage === "function";
+  if (chooseLegacyFirst) {
+    return new Promise((resolve, reject) => wx.chooseImage({
+      count,
+      sizeType: ["original"],
+      sourceType,
+      success: (result) => resolve(normalizePickerResult(result)),
+      fail: reject
+    }));
+  }
+  if (typeof wx.chooseMedia === "function") {
+    return new Promise((resolve, reject) => wx.chooseMedia({
+      count,
+      mediaType: ["image"],
+      sourceType,
+      success: (result) => resolve(normalizePickerResult(result)),
+      fail: reject
+    }));
+  }
+  if (typeof wx.chooseImage === "function") {
+    return new Promise((resolve, reject) => wx.chooseImage({
+      count,
+      sizeType: ["original"],
+      sourceType,
+      success: (result) => resolve(normalizePickerResult(result)),
+      fail: reject
+    }));
+  }
+  return Promise.reject(new Error("当前微信版本不支持选图，请升级后重试。"));
+}
+
 Page({
   data: {
     projects: [],
@@ -208,20 +302,27 @@ Page({
     pickerSourceType: "",
     pickerStatusText: "",
     pickerError: "",
+    failedPhotoPreviewId: "",
+    photoChoiceIds: [],
+    photoChoiceOpen: false,
     sessionKey: "",
     recordingIssueId: "",
     transcribingIssueId: "",
     transcribeStartedAt: 0,
     issueExpandedStates: [],
     issueDraftCount: 0,
+    nextActionLabel: "进入人工核对",
     showSupplementFields: false,
     analyzing: false,
+    analyzePanelTitle: "正在整理现场记录",
     analyzeStageText: "",
     analyzeStageIndex: 0,
     analyzeTaskId: "",
     analyzeCompletedPhotos: 0,
     analyzeTotalPhotos: 0,
+    analyzePhotoProgressText: "",
     analyzeProgressPercent: 0,
+    analyzeProgressLabel: "进度",
     analyzeError: "",
     returnContext: null,
     issueSectionTitles: ISSUE_SECTION_TITLES,
@@ -232,9 +333,19 @@ Page({
     try {if(typeof getApp === "function" && getApp().ensureReady) await getApp().ensureReady();}
     catch(e){this.setData({projectLoadError:e.message});return;}
     this.initializing=false;
+    // Read existing permission early without prompting; recording still starts
+    // only on the user's press. This removes a settings round trip per take.
+    if(typeof wx.getSetting==='function')wx.getSetting({success:setting=>{this.recordPermissionReady=setting.authSetting?.['scope.record']===true;},fail:()=>{}});
+    this.boundRecorderStart=()=>{
+      if(!this.recordPressActive){this.recordCancelled=true;recorderManager.stop();return;}
+      this.recorderStarted=true;
+      this.setData({transcribeStartedAt:Date.now()});
+      this.triggerRecordVibration();
+    };
     // recorderManager 是全局单例，必须成对注册/解绑（见 onUnload），
     // 否则页面每次进入都会再挂一个 onStop，同一段录音被重复转写。
     this.boundRecorderStop = async (result) => {
+      this.recorderStarted=false;
       const transcribingIssueId = this.data.transcribingIssueId;
       if(this.recordCancelled){this.setData({transcribingIssueId:"",recordCancelArmed:false});wx.showToast({title:"录音已取消",icon:"none"});return;}
 
@@ -251,13 +362,14 @@ Page({
         return;
       }
 
-      const duration = Math.max(0, Date.now() - (this.data.transcribeStartedAt || 0));
+      const duration = Number(result.duration) || Math.max(0, Date.now() - (this.data.transcribeStartedAt || 0));
+      if(duration<600){this.setData({transcribingIssueId:""});wx.showToast({title:'录音太短，请按住说话',icon:'none'});return;}
       try { result.tempFilePath = await keepLocalFile(result.tempFilePath); }
       catch(e){wx.showModal({title:"录音未保存",content:e.message,showCancel:false});this.setData({transcribingIssueId:""});return;}
 
       const issueDrafts = this.data.form.issueDrafts.map(item => {
         if (item.id === transcribingIssueId) {
-          return { ...item, isTranscribing: true, voiceFilePath: result.tempFilePath, voiceFileId:"",voiceStorageFileId:"",speechError:"" };
+          return { ...item, isTranscribing: true, voiceFilePath: result.tempFilePath, voiceDuration: duration, voiceFileId:"",voiceStorageFileId:"",speechError:"" };
         }
         return item;
       });
@@ -276,11 +388,14 @@ Page({
     // recorderManager.start 没有 success/fail 回调，失败只能靠 onError 感知。
     // 原来没监听，麦克风权限被拒后会一直停在录音状态，用户退不出来。
     this.boundRecorderError = (error) => {
+      this.recorderStarted=false;
+      this.recordPressActive=false;
       console.error("[inspection-create] recorder error", error);
       this.setData({ transcribingIssueId: "" });
 
       const text = `${(error && error.errMsg) || (error && error.message) || ""}`;
       if (/auth deny|authorize|permission|拒绝|未授权/i.test(text)) {
+        this.recordPermissionReady=false;
         wx.showModal({
           title: "需要麦克风权限",
           content: "可以直接输入文字；也可在设置中允许麦克风后重试录音。",
@@ -303,6 +418,7 @@ Page({
 
     recorderManager.onStop(this.boundRecorderStop);
     recorderManager.onError(this.boundRecorderError);
+    if(typeof recorderManager.onStart==='function')recorderManager.onStart(this.boundRecorderStart);
 
     const initialReturnContext = decodeReturnContext(query.returnContext) || null;
     this.explicitProjectId = query.projectId || (initialReturnContext && initialReturnContext.projectId) || "";
@@ -331,12 +447,28 @@ Page({
     if(this.initializing)return;
     this.ownsDraft = true;
     this.suspendDraftOnHide = false;
+    // The native album/camera can keep the mini-program hidden for an
+    // unbounded amount of time. Measure the callback timeout only while the
+    // picker page is foregrounded; otherwise a deliberate slow selection
+    // invalidates the eventual success callback and silently drops the photo.
+    if (this.pickerInFlight && this.pickerTimeoutPaused) {
+      this.pickerTimeoutPaused = false;
+      this.armPhotoPickerTimeout();
+    }
     // Camera and album temporarily hide the page. On some phones onShow fires
     // before the picker success callback. Restoring the old snapshot here used
     // to erase the freshly selected photo as soon as the user returned.
     if (!this.pickerInFlight) this.restoreDraft();
     if(readDraft(this.data.sessionKey).submission?.requestId){
       wx.redirectTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});return;
+    }
+    const retryDraft=readDraft(this.data.sessionKey);
+    if(retryDraft.retryRequested){
+      try{patchDraft(this.data.sessionKey,{retryRequested:false});}
+      catch(error){wx.showModal({title:"重新识图未启动",content:error.message||"照片仍已保留，请点下一步重新整理。",showCancel:false});return;}
+      const retrySessionKey=this.data.sessionKey;
+      setTimeout(()=>{if(this.data.sessionKey===retrySessionKey&&this.ownsDraft!==false)this.handleAnalyze();},0);
+      return;
     }
     // Every edit is already persisted. Do not install a native Back guard:
     // some clients keep it alive after this page is hidden, so it can block
@@ -350,8 +482,15 @@ Page({
   },
   onHide() {
     this.waitingForAnalysis = false;
+    this.recordPressActive = false;
+    this.recordGesture = (this.recordGesture || 0) + 1;
     if(this.data.transcribingIssueId)this.handleRecordCancel();
     this.persistDraft();
+    if (this.pickerInFlight && this.pickerTimer) {
+      clearTimeout(this.pickerTimer);
+      this.pickerTimer = null;
+      this.pickerTimeoutPaused = true;
+    }
     // Only an internal editor/review page is allowed to take over this draft.
     // System camera/album and app backgrounding must keep capture ownership.
     if (this.suspendDraftOnHide) this.ownsDraft = false;
@@ -363,8 +502,12 @@ Page({
     }
   },
   onUnload() {
+    this.recordPressActive=false;
+    this.recordGesture=(this.recordGesture||0)+1;
     this.pickerEpoch = (this.pickerEpoch || 0) + 1;
     clearTimeout(this.pickerTimer);
+    this.pickerTimer = null;
+    this.pickerTimeoutPaused = false;
     this.waitingForAnalysis = false;
     this.persistDraft();
     this.clearAnalyzeTaskPolling();
@@ -379,6 +522,8 @@ Page({
     }
     this.boundRecorderStop = null;
     this.boundRecorderError = null;
+    if(this.boundRecorderStart&&typeof recorderManager.offStart==='function')recorderManager.offStart(this.boundRecorderStart);
+    this.boundRecorderStart=null;
     if (typeof wx.disableAlertBeforeUnload === "function") {
       wx.disableAlertBeforeUnload();
     }
@@ -438,6 +583,7 @@ Page({
       analyzeStageIndex: 0,
       analyzeCompletedPhotos: 0,
       analyzeTotalPhotos: 0,
+      analyzePhotoProgressText: "",
       analyzeProgressPercent: 0,
       analyzeError: "",
       returnContext: null,
@@ -461,7 +607,8 @@ Page({
       return false;
     }
     if (cachedForm && cachedForm.issueDrafts) {
-      const issueDrafts = normalizeIssueDrafts(cachedForm.issueDrafts);
+      const reviewItems=cached.review?.items || cached.analysis?.items || [];
+      const issueDrafts = normalizeIssueDrafts(cachedForm.issueDrafts).map(p=>({...p,aiIssues:p.aiRecognized?reviewItems.filter(i=>i.sourcePhotoId===p.id).map(i=>i.description):[]}));
       const shouldResumeAnalysis = cached.phase === "analyzing" && Boolean(cached.taskId);
       this.setData({
         form: {
@@ -472,15 +619,43 @@ Page({
         returnContext: cachedReturnContext || this.data.returnContext || null,
         analyzeTaskId: cached.taskId || "",
         analyzing: shouldResumeAnalysis,
+        analyzePanelTitle: getAnalyzePanelTitle(issueDrafts),
         analyzeStageText: shouldResumeAnalysis ? "正在恢复照片分析" : this.data.analyzeStageText,
         analyzeError: "",
         issueDraftCount: issueDrafts.length,
+        nextActionLabel: getNextActionLabel(issueDrafts),
         issueExpandedStates: buildIssueExpandedStates(issueDrafts, this.data.issueExpandedStates),
         showSupplementFields: Boolean((cachedForm.title || "").trim() || (cachedForm.note || "").trim())
       });
+      this.resolveCapturePreviewMedia(issueDrafts, this.data.sessionKey);
       return true;
     }
     return false;
+  },
+  async resolveCapturePreviewMedia(issueDrafts = [], sessionKey = "") {
+    const candidates = issueDrafts
+      .map((photo) => getPhotoDisplayPath(photo))
+      .filter(isCloudFileId);
+    if (!candidates.length) return;
+
+    const generation = (this.capturePreviewGeneration || 0) + 1;
+    this.capturePreviewGeneration = generation;
+    const result = await resolveCloudFileUrls(candidates);
+    if (generation !== this.capturePreviewGeneration || sessionKey !== this.data.sessionKey) return;
+
+    // Only replace the presentation path. Stable cloud IDs and local recovery
+    // paths remain untouched for upload, retry and report binding.
+    const current = this.data.form.issueDrafts || [];
+    const next = current.map((photo) => {
+      const stablePath = getPhotoDisplayPath(photo);
+      return {
+        ...photo,
+        displayImagePath: isCloudFileId(stablePath)
+          ? (result.urls[stablePath] || stablePath)
+          : stablePath
+      };
+    });
+    this.setData({"form.issueDrafts": next, failedPhotoPreviewId: ""});
   },
   hasUnsavedDraft() {
     return hasMeaningfulDraftContent(this.data.form || {});
@@ -598,19 +773,26 @@ Page({
       ? event.currentTarget.dataset.sourceType || ""
       : "";
     const epoch = this.pickerEpoch = (this.pickerEpoch || 0) + 1;
+    this.activePickerEpoch = epoch;
     const isCurrent = () => page.pickerEpoch === epoch && page.data.sessionKey === sessionKey && page.data.form.projectId === projectId;
     const finish = (error = "") => {
       if (!isCurrent()) return;
       clearTimeout(page.pickerTimer);
+      page.pickerTimer = null;
+      page.pickerTimeoutPaused = false;
       page.pickerInFlight = false;
       page.setData({pickingImages:false,pickerSourceType:"",pickerStatusText:"",pickerError:error});
     };
     this.pickerInFlight = true;
     this.setData({pickingImages:true,pickerSourceType:requestedSourceType,pickerStatusText:"正在打开…",pickerError:""});
-    this.pickerTimer = setTimeout(() => {
-      finish("选图未返回。可重新打开相册，或先保留草稿返回。");
-      if (isCurrent()) page.pickerEpoch += 1;
-    }, 120000);
+    this.armPhotoPickerTimeout = () => {
+      clearTimeout(page.pickerTimer);
+      page.pickerTimer = setTimeout(() => {
+        finish("选图未返回。可重新打开相册，或先保留草稿返回。");
+        if (isCurrent()) page.pickerEpoch += 1;
+      }, 120000);
+    };
+    this.armPhotoPickerTimeout();
 
     const commitPickedPaths = async (paths) => {
       if (!isCurrent()) return;
@@ -629,10 +811,16 @@ Page({
       page.setData({
         "form.issueDrafts": issueDrafts,
         issueDraftCount: issueDrafts.length,
-        issueExpandedStates
+        nextActionLabel: getNextActionLabel(issueDrafts),
+        issueExpandedStates,
+        failedPhotoPreviewId: ""
       });
-      page.persistDraft();
+      if (!page.persistDraft()) {
+        finish("照片已显示，但草稿未保存。请勿关闭页面，释放存储后重试保存。");
+        return;
+      }
       finish();
+      page.setData({photoChoiceIds:[],photoChoiceOpen:false});
 
       if (issueDrafts.length >= MAX_ISSUE_DRAFTS) {
         wx.showToast({
@@ -649,8 +837,8 @@ Page({
       finish(isUserCancelledPrivacyOrPicker(error) ? "" : "无法打开相册或相机，请重试或检查授权。");
       if (isPrivacyScopeUndeclared(error)) {
         wx.showModal({
-          title: "需完善隐私声明",
-          content: "当前小程序后台未声明「相机/相册」用途，请先在微信公众平台补充隐私指引后再试。",
+          title: "暂时无法选择照片",
+          content: "此功能暂不可用，请稍后重试。你可以先输入文字记录。",
           showCancel: false
         });
         return;
@@ -685,44 +873,15 @@ Page({
 
     const openIssueImagePicker = (sourceType) => {
       page.setData({pickerSourceType:sourceType,pickerStatusText:sourceType === "camera" ? "正在拍照…" : "正在选择…"});
-      // 这里最终只接收照片。优先使用 chooseImage：它在真机和开发者工具
-      // 的系统相册/文件选择回调都更稳定，并能明确请求原图，避免标注基准在
-      // 选择时被压缩后的临时图悄悄改变。保留 chooseMedia 仅作旧基础库兜底。
-      if (typeof wx.chooseImage === "function") {
-        wx.chooseImage({
-          count,
-          sizeType: ["original"],
-          sourceType: [sourceType],
-          success(res) {
-            commitPickedPaths(res.tempFilePaths || []);
-          },
-          fail(error) {
-            handlePickerFail(error, sourceType);
+      choosePhotoFiles({count, sourceType: [sourceType]})
+        .then((paths) => {
+          if (!paths.length) {
+            finish("没有选择到照片，请重新选择。" );
+            return;
           }
-        });
-        return;
-      }
-
-      if (typeof wx.chooseMedia !== "function") {
-        finish("当前微信版本不支持选图，请升级后重试。");
-        wx.showToast({
-          title: "当前基础库不支持选图",
-          icon: "none"
-        });
-        return;
-      }
-      wx.chooseMedia({
-        count,
-        mediaType: ["image"],
-        sourceType: [sourceType],
-        success(res) {
-          const paths = (res.tempFiles || []).map((f) => f.tempFilePath);
           commitPickedPaths(paths);
-        },
-        fail(error) {
-          handlePickerFail(error, sourceType);
-        }
-      });
+        })
+        .catch((error) => handlePickerFail(error, sourceType));
     };
 
     if (requestedSourceType === "camera" || requestedSourceType === "album") {
@@ -747,11 +906,16 @@ Page({
     });
   },
   async replaceIssueImage(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    const issue = this.data.form.issueDrafts[index];
+    if (this.pickerInFlight) return;
+    const dataset=event.currentTarget.dataset||{};
+    const photos=this.data.form && this.data.form.issueDrafts;
+    const index=dataset.id ? (Array.isArray(photos)?photos:[]).findIndex(photo=>photo.id===dataset.id) : Number(dataset.index);
+    const issue = Array.isArray(photos) ? photos[index] : null;
     if (!issue) {
       return;
     }
+    if(issue.isTranscribing){wx.showToast({title:"语音转写完成后再更换照片",icon:"none"});return;}
+    const issueId=issue.id;
 
     const confirmResult = await new Promise((resolve) => {
       wx.showModal({
@@ -766,28 +930,16 @@ Page({
       return;
     }
 
-    let result;
+    let paths;
     this.pickerInFlight = true;
     try {
-      result = typeof wx.chooseImage === "function"
-        ? await new Promise((resolve, reject) => wx.chooseImage({
-          count: 1,
-          sizeType: ["original"],
-          sourceType: ["album", "camera"],
-          success: (value) => resolve({tempFiles:(value.tempFilePaths || []).map(tempFilePath=>({tempFilePath}))}),
-          fail: reject
-        }))
-        : await wx.chooseMedia({
-          count: 1,
-          mediaType: ["image"],
-          sourceType: ["album", "camera"]
-        });
+      paths = await choosePhotoFiles({count: 1, sourceType: ["album", "camera"]});
     } catch (error) {
       this.pickerInFlight = false;
       if (isPrivacyScopeUndeclared(error)) {
         wx.showModal({
-          title: "需完善隐私声明",
-          content: "当前小程序后台未声明「相机/相册」用途，请先在微信公众平台补充隐私指引后再试。",
+          title: "暂时无法选择照片",
+          content: "此功能暂不可用，请稍后重试。你可以先输入文字记录。",
           showCancel: false
         });
         return;
@@ -812,56 +964,132 @@ Page({
     }
 
     this.pickerInFlight = false;
-    const tempFile = result.tempFiles && result.tempFiles[0];
-    if (!tempFile) {
+    const tempFilePath = paths && paths[0];
+    if (!tempFilePath) {
       return;
     }
 
     let savedPath;
-    try { savedPath=await keepLocalFile(tempFile.tempFilePath); }
+    try { savedPath=await keepLocalFile(tempFilePath); }
     catch(e){wx.showModal({title:"照片未保存",content:e.message,showCancel:false});return;}
-    this.setData({
-      [`form.issueDrafts[${index}].imagePath`]: savedPath,
-      [`form.issueDrafts[${index}].localImagePath`]: savedPath,
-      [`form.issueDrafts[${index}].localAnnotatedImagePath`]: "",
-      [`form.issueDrafts[${index}].sourceOriginalImagePath`]: "",
-      [`form.issueDrafts[${index}].localOriginalImagePath`]: "",
-      [`form.issueDrafts[${index}].annotationStage`]: null,
-      [`form.issueDrafts[${index}].annotationDirty`]: false,
-      [`form.issueDrafts[${index}].mediaRevision`]: (this.data.form.issueDrafts[index].mediaRevision || 1)+1,
-      [`form.issueDrafts[${index}].annotatedImagePath`]: "",
-      [`form.issueDrafts[${index}].annotations`]: [],
-      [`form.issueDrafts[${index}].annotationCount`]: 0
-    });
+    const currentPhotos=this.data.form && this.data.form.issueDrafts;
+    const currentIndex=Array.isArray(currentPhotos) ? currentPhotos.findIndex(photo=>photo.id===issueId) : -1;
+    if(currentIndex<0){wx.showToast({title:"照片列表已变化，未替换任何照片",icon:"none"});return;}
+    const current=currentPhotos[currentIndex];
+    const issueDrafts=currentPhotos.map(photo=>photo.id===issueId?{
+      ...photo,imagePath:savedPath,localImagePath:savedPath,displayImagePath:savedPath,
+      localAnnotatedImagePath:"",sourceOriginalImagePath:"",localOriginalImagePath:"",
+      annotationStage:null,annotationDirty:false,mediaRevision:(current.mediaRevision||1)+1,
+      annotatedImagePath:"",annotationRevision:0,annotations:[],annotationCount:0
+    }:photo);
+    this.setData({form:{...this.data.form,issueDrafts},failedPhotoPreviewId:""});
     this.persistDraft();
     wx.showToast({
       title: "照片已更换",
       icon: "success"
     });
   },
+  handlePhotoPreviewError(event) {
+    const issueId = `${event.currentTarget.dataset.id || ""}`;
+    if (!issueId) return;
+    this.setData({failedPhotoPreviewId: issueId});
+  },
   handleIssueVoiceTextInput(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    const issue = this.data.form.issueDrafts[index] || {};
+    const dataset=event.currentTarget.dataset||{};
+    const photos=this.data.form && this.data.form.issueDrafts;
+    if(!Array.isArray(photos))return;
+    const index=dataset.id ? photos.findIndex(photo=>photo.id===dataset.id) : Number(dataset.index);
+    const issue=photos[index];
+    if(!issue)return;
     const nextMode = issue.analysisMode === "ai" ? "ai" : "manual";
-    this.setData({
-      [`form.issueDrafts[${index}].voiceText`]: event.detail.value,
-      [`form.issueDrafts[${index}].analysisMode`]: nextMode,
-      [`form.issueDrafts[${index}].analysisModeResolved`]: nextMode
-    });
+    const issueDrafts=photos.map((photo,photoIndex)=>photoIndex===index?{...photo,voiceText:event.detail.value||"",analysisMode:nextMode,analysisModeResolved:nextMode}:photo);
+    this.setData({form:{...this.data.form,issueDrafts},nextActionLabel:getNextActionLabel(issueDrafts)});
     this.persistDraft();
   },
   handleAnalysisModeChange(event) {
-    const index=Number(event.currentTarget.dataset.index),mode=event.currentTarget.dataset.mode;
-    const issue=this.data.form.issueDrafts[index];
+    const dataset=event.currentTarget.dataset||{},mode=dataset.mode;
+    const photos=this.data.form && this.data.form.issueDrafts;
+    if(!Array.isArray(photos))return;
+    const index=dataset.id ? photos.findIndex(photo=>photo.id===dataset.id) : Number(dataset.index);
+    const issue=photos[index];
     if(!issue||!["manual","ai"].includes(mode))return;
-    if(mode==="manual"&&!hasMeaningfulVoiceText(issue.voiceText)){
-      wx.showToast({title:"请先输入或转写问题说明",icon:"none"});return;
-    }
-    this.setData({
-      [`form.issueDrafts[${index}].analysisMode`]:mode,
-      [`form.issueDrafts[${index}].analysisModeResolved`]:mode
-    });
+    const issueDrafts=photos.map((photo,photoIndex)=>photoIndex===index?{...photo,analysisMode:mode,analysisModeResolved:mode}:photo);
+    this.setData({form:{...this.data.form,issueDrafts},nextActionLabel:getNextActionLabel(issueDrafts)});
     this.persistDraft();
+  },
+  recognizePhoto(event) {
+    const id=event.currentTarget.dataset.id;
+    return this.startPhotoRecognition([id]);
+  },
+  async startPhotoRecognition(ids) {
+    if(this.data.analyzing || this.data.pickingImages)return;
+    if(this.data.transcribingIssueId || this.data.form.issueDrafts.some(p=>p.isTranscribing)){
+      wx.showToast({title:'请等语音转写完成',icon:'none'});return;
+    }
+    const selected=new Set(ids);
+    const before=readDraft(this.data.sessionKey);
+    if(before.submission?.requestId){wx.showToast({title:'记录已提交，不能重新识图',icon:'none'});return;}
+    const photos=this.data.form.issueDrafts.map(p=>({...p,analysisMode:selected.has(p.id)?'ai':'manual',organizeText:false}));
+    if(!photos.some(p=>selected.has(p.id)))return;
+    const priorItems=before.review?.items || before.analysis?.items || buildManualReviewItems(photos);
+    const originalItems=before.review?.originalItems || before.analysis?.items || [];
+    this.setData({form:{...this.data.form,issueDrafts:normalizeIssueDrafts(photos)},nextActionLabel:getNextActionLabel(photos)});
+    if(!this.persistDraft())return;
+    try{
+      patchDraft(this.data.sessionKey,{taskId:'',analysisRequestId:'',analysisReturn:'capture',recognitionPhotoIds:[...selected],review:{...before.review,items:priorItems,originalItems,stale:true,stalePhotoIds:[...selected]}});
+    }catch(error){this.setData({analyzeError:error.message||'草稿保存失败'});return;}
+    this.setData({analyzeTaskId:''});
+    return this.handleAnalyze();
+  },
+  chooseSinglePhotoProcessing(event) {
+    const dataset = event.currentTarget.dataset || {};
+    const photos = this.data.form && this.data.form.issueDrafts;
+    const index = dataset.id && Array.isArray(photos)
+      ? photos.findIndex(photo => photo.id === dataset.id)
+      : Number(dataset.index);
+    if (!Array.isArray(photos) || !photos[index]) return;
+    this.setData({photoChoiceIds:[photos[index].id],photoChoiceOpen:true});
+  },
+  choosePhotoProcessing(event) {
+    const mode=event.currentTarget.dataset.mode;
+    if(!['manual','ai'].includes(mode))return;
+    const selected=new Set(this.data.photoChoiceIds);
+    const photos=normalizeIssueDrafts(this.data.form.issueDrafts.map(photo=>selected.has(photo.id)?{...photo,analysisMode:mode}:photo));
+    const first=photos.findIndex(photo=>selected.has(photo.id));
+    this.setData({form:{...this.data.form,issueDrafts:photos},nextActionLabel:getNextActionLabel(photos),photoChoiceOpen:false,photoChoiceIds:[],issueExpandedStates:photos.map((_,index)=>index===first)});
+    this.persistDraft();
+    if(mode==='ai')return this.startPhotoRecognition([...selected]);
+  },
+  ignoreTap() {},
+  deferPhotoProcessing() {
+    // Keeping a photo without a problem is an explicit manual path.
+    this.choosePhotoProcessing({currentTarget:{dataset:{mode:'manual'}}});
+  },
+  chooseAllPhotoProcessing() {
+    this.setData({photoChoiceIds:this.data.form.issueDrafts.map(photo=>photo.id),photoChoiceOpen:true});
+  },
+  handlePhotoMenu(event) {
+    const index=Number(event.currentTarget.dataset.index);
+    const photo=this.data.form.issueDrafts[index];
+    if(!photo||photo.isTranscribing||this.data.analyzing||this.data.transcribingIssueId)return;
+    const actions=[{label:'更换照片',run:()=>this.replaceIssueImage(event)}];
+    if(index>0)actions.push({label:'上移',run:()=>this.moveIssue({currentTarget:{dataset:{index,step:-1}}})});
+    if(index<this.data.form.issueDrafts.length-1)actions.push({label:'下移',run:()=>this.moveIssue({currentTarget:{dataset:{index,step:1}}})});
+    actions.push({label:'删除照片',run:()=>this.removeIssue(event)});
+    wx.showActionSheet({itemList:actions.map(action=>action.label),success:result=>actions[result.tapIndex]?.run()});
+  },
+  async handleContinueReview() {
+    if(this.data.transcribingIssueId||this.data.form.issueDrafts.some(photo=>photo.isTranscribing)){
+      wx.showToast({title:'请等语音转写完成',icon:'none'});return;
+    }
+    const current=readDraft(this.data.sessionKey);
+    if(current.review && !current.review.stale)return this.handleManualReview();
+    // Explicitly opt new clients into text organization. Older drafts/clients
+    // keep the old manual fallback until this ordinary Next action is used.
+    const photos = normalizeIssueDrafts(this.data.form.issueDrafts.map(photo => ({...photo,analysisMode:'manual', organizeText:hasMeaningfulVoiceText(photo.voiceText)})));
+    this.setData({form:{...this.data.form,issueDrafts:photos},nextActionLabel:getNextActionLabel(photos)});
+    if (!this.persistDraft()) return;
+    return countTextOrganizationDrafts(photos)>0?this.handleAnalyze():this.handleManualReview();
   },
   toggleIssueExpanded(event) {
     const index = Number(event.currentTarget.dataset.index);
@@ -879,7 +1107,14 @@ Page({
       type: "medium"
     });
   },
-  handleRecordLongPress(event) {
+  handleRecordTouchStart(event) {
+    this.recordPressActive=true;
+    this.recordGesture=(this.recordGesture||0)+1;
+    this.recordStartY=event.touches?.[0]?.clientY||0;
+    this.setData({recordCancelArmed:false});
+    if(event.currentTarget?.dataset?.index!==undefined)return this.handleRecordLongPress(event);
+  },
+  async handleRecordLongPress(event) {
     const index = Number(event.currentTarget.dataset.index);
     const issue = this.data.form.issueDrafts[index];
 
@@ -887,39 +1122,51 @@ Page({
       return;
     }
 
+    const gesture=this.recordGesture;
+    try {
+      if(!this.recordPermissionReady && typeof wx.getSetting==='function'){
+        const setting=await new Promise((resolve,reject)=>wx.getSetting({success:resolve,fail:reject}));
+        if(!setting.authSetting?.['scope.record'])await new Promise((resolve,reject)=>wx.authorize({scope:'scope.record',success:resolve,fail:reject}));
+        this.recordPermissionReady=true;
+      }
+    }catch(error){this.boundRecorderError?.(error);return;}
+    // Authorization can outlive the finger gesture. A fresh press is required
+    // after release; never start an unattended recording behind a permission UI.
+    if(!this.recordPressActive||gesture!==this.recordGesture)return;
     this.recordCancelled=false;
-    this.recordStartY=event.touches && event.touches[0] ? event.touches[0].clientY : 0;
     this.setData({
       recordCancelArmed:false,
       transcribingIssueId: issue.id,
       transcribeStartedAt: Date.now()
     });
-    this.triggerRecordVibration();
-
     recorderManager.start({
       format: "mp3",
-      duration: 60000
+      duration: 60000,
+      sampleRate:16000,
+      numberOfChannels:1,
+      encodeBitRate:48000
     });
   },
   handleRecordTouchEnd() {
+    this.recordPressActive=false;
     if (!this.data.transcribingIssueId) {
       return;
     }
 
     this.recordCancelled=!!this.data.recordCancelArmed;
-    this.triggerRecordVibration();
-    recorderManager.stop();
+    if(this.recorderStarted)recorderManager.stop();
   },
   handleRecordMove(event){
     if(!this.data.transcribingIssueId || !event.touches?.[0])return;
     this.setData({recordCancelArmed:this.recordStartY-event.touches[0].clientY>60});
   },
-  handleRecordCancel(){this.recordCancelled=true;recorderManager.stop();},
-  async handleIssueTranscription(issueId, tempFilePath, duration) {
+  handleRecordCancel(){this.recordPressActive=false;this.recordGesture=(this.recordGesture||0)+1;this.recordCancelled=true;recorderManager.stop();},
+  async handleIssueTranscription(issueId, tempFilePath, duration, fileID = "") {
     try {
       const result = await transcribeVoiceFile(tempFilePath, {
         duration,
-        label: "inspection"
+        label: "inspection",
+        fileID
       });
       const issueDrafts = this.data.form.issueDrafts.map((item) => {
         if (item.id !== issueId) {
@@ -930,6 +1177,10 @@ Page({
           ...item,
           isTranscribing: false,
           voiceFilePath: tempFilePath,
+          voiceDuration: duration,
+          voiceStorageFileId: result.fileID || "",
+          voiceFileId: result.fileID || "",
+          speechError:"",
           voiceText: mergeSpeechText(item.voiceText, result.text, true),
           analysisMode: item.analysisMode === "ai" ? "ai" : "manual",
           analysisModeResolved: item.analysisMode === "ai" ? "ai" : "manual"
@@ -938,11 +1189,12 @@ Page({
 
       this.setData({
         "form.issueDrafts": issueDrafts,
-        issueDraftCount: issueDrafts.length
+        issueDraftCount: issueDrafts.length,
+        nextActionLabel: getNextActionLabel(issueDrafts)
       });
       this.persistDraft();
       wx.showToast({
-        title: result.mode === "sentence" ? "转写完成" : "转写完成（慢路径）",
+        title: "转写完成",
         icon: "success"
       });
     } catch (error) {
@@ -955,12 +1207,16 @@ Page({
           ...item,
           isTranscribing: false,
           voiceFilePath: tempFilePath,
-          speechError:"转写失败：可以直接输入文字，录音已保留。"
+          voiceDuration: duration,
+          voiceStorageFileId: error.fileID || item.voiceStorageFileId || "",
+          voiceFileId: error.fileID || item.voiceFileId || "",
+          speechError: `${formatSpeechError(error).message}。录音已保留，可重试或直接输入。`
         };
       });
       this.setData({
         "form.issueDrafts": issueDrafts,
-        issueDraftCount: issueDrafts.length
+        issueDraftCount: issueDrafts.length,
+        nextActionLabel: getNextActionLabel(issueDrafts)
       });
       this.persistDraft();
       const speechError = formatSpeechError(error);
@@ -970,6 +1226,17 @@ Page({
         duration: 3000
       });
     }
+  },
+  retryIssueTranscription(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const item = this.data.form.issueDrafts[index];
+    if (!item || !item.voiceFilePath || item.isTranscribing || this.data.transcribingIssueId) return;
+    const issueDrafts = this.data.form.issueDrafts.map((draft, draftIndex) => draftIndex === index
+      ? { ...draft, isTranscribing: true, speechError: "" }
+      : draft);
+    this.setData({ "form.issueDrafts": issueDrafts, issueDraftCount: issueDrafts.length });
+    this.persistDraft();
+    return this.handleIssueTranscription(item.id, item.voiceFilePath, item.voiceDuration || 0, item.voiceStorageFileId || item.voiceFileId || "");
   },
   removeIssue(event) {
     wx.showModal({title:"删除这张照片？",content:"对应标注和问题也会从本次记录移除。",confirmText:"删除",success:r=>{if(r.confirm)this.removeIssueConfirmed(event);}});
@@ -983,6 +1250,7 @@ Page({
     this.setData({
       "form.issueDrafts": issueDrafts,
       issueDraftCount: issueDrafts.length,
+      nextActionLabel: getNextActionLabel(issueDrafts),
       issueExpandedStates
     });
     this.persistDraft();
@@ -1007,9 +1275,16 @@ Page({
     });
   },
   async uploadAssets() {
-    const form = await uploadDraftMedia(this.data.form, async form => {
+    const form = await uploadDraftMedia(this.data.form, async (form, progress) => {
       this.setData({form});
       if (!this.persistDraft()) throw new Error("草稿保存失败");
+      this.setData({
+        analyzeProgressLabel: "已上传",
+        analyzeCompletedPhotos: progress.completedFiles,
+        analyzeTotalPhotos: progress.totalFiles,
+        analyzeProgressPercent: progress.percent,
+        analyzeStageText: `正在保存照片与标注（${progress.completedFiles}/${progress.totalFiles} 项）`
+      });
     });
     this.setData({form});
     if (!this.persistDraft()) throw new Error("草稿保存失败");
@@ -1020,11 +1295,14 @@ Page({
       wx.showToast({title:"请先选择项目并添加照片",icon:"none"}); return;
     }
     const cached=readDraft(this.data.sessionKey);
-    if(cached.review) {
+    if(cached.review && !cached.review.stale) {
       this.suspendDraftOnHide = true;
       wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});return;
     }
-    const items=buildManualReviewItems(this.data.form.issueDrafts);
+    const photoIds=new Set(this.data.form.issueDrafts.map(p=>p.id));
+    const kept=(cached.review?.items || cached.analysis?.items || []).filter(i=>photoIds.has(i.sourcePhotoId));
+    const existingSources=new Set(kept.map(i=>i.sourcePhotoId));
+    const items=kept.concat(buildManualReviewItems(this.data.form.issueDrafts).filter(i=>!existingSources.has(i.sourcePhotoId)));
     await this.completeAnalyzeSuccess(this.data.form,{items,summary:"人工记录，请核对照片与说明；未记录问题不代表验收合格。",aiMode:"manual"});
   },
   clearAnalyzeTaskPolling() {
@@ -1057,18 +1335,18 @@ Page({
 
     if (failures > ANALYZE_POLL_MAX_FAILURES) {
       this.clearAnalyzeTaskPolling();
+      const completed = Number(this.data.analyzeCompletedPhotos) || 0;
+      const total = Number(this.data.analyzeTotalPhotos) || 0;
       this.setData({
         analyzing: false,
         analyzeStageIndex: 0,
-        analyzeStageText: "",
-        analyzeTaskId: this.data.analyzeTaskId || ""
+        analyzeStageText: total ? `已完成 ${completed}/${total} 张，进度已保存` : "分析进度已保存",
+        analyzeTaskId: this.data.analyzeTaskId || "",
+        analyzeError: "网络不稳定，暂时无法取得分析结果。可重试未完成照片，也可直接人工核对。"
       });
-      wx.showModal({
-        title: "AI 整理中断",
-        content: "网络不稳定，没能取回分析结果。照片和草稿都已保留，可以重新点「分析整理」。",
-        showCancel: false,
-        confirmText: "知道了"
-      });
+      // Keep the recovery panel visible. The actual page action is「下一步·核对内容」;
+      // there is no「分析整理」button, so a modal naming that nonexistent control
+      // leaves the user guessing and can trigger repeated taps.
       return;
     }
 
@@ -1103,16 +1381,63 @@ Page({
   },
 
   async completeAnalyzeSuccess(form, analysis) {
+    const sessionKey=this.data.sessionKey;
+    const isManual=analysis && analysis.aiMode==="manual";
+    // A request can finish after the capture page has yielded the session to
+    // annotation/review, or after a successful submission removed the draft.
+    // Such a late response must never resurrect or overwrite that session.
+    if(!sessionKey||this.ownsDraft===false||(!isManual&&!this.waitingForAnalysis))return false;
+    if(wx.getStorageSync(sessionKey+":complete")){
+      this.waitingForAnalysis=false;
+      this.clearAnalyzeTaskPolling();
+      return false;
+    }
+    // Read/check the current version BEFORE touching form or persisting the
+    // request's snapshot; otherwise a late result itself overwrites new input.
+    let draft = readDraft(sessionKey);
+    if(!draft.form){
+      this.waitingForAnalysis=false;
+      this.clearAnalyzeTaskPolling();
+      this.setData({analyzing:false,analyzeStageIndex:0,analyzeTaskId:"",analyzeError:"本次草稿已结束或无法读取，分析结果没有写入。"});
+      wx.showModal({title:"记录暂时无法继续",content:"分析已返回，但本次草稿不存在，结果没有写入其他记录。请返回项目重新打开原记录。",showCancel:false});
+      return false;
+    }
+    if(!isManual&&this.pendingInputVersion&&draft.inputVersion!==this.pendingInputVersion){
+      this.waitingForAnalysis=false;
+      this.clearAnalyzeTaskPolling();
+      this.setData({analyzing:false,analyzeStageIndex:0,analyzeError:"照片或说明已变化，请重新分析当前记录。"});
+      wx.showModal({title:"记录内容已变化",content:"分析期间照片或说明有更新，旧结果没有写入。请确认当前照片后重新分析。",showCancel:false});
+      return false;
+    }
+    const returnToCapture=draft.analysisReturn==='capture' && !isManual;
+    if(returnToCapture){
+      const recognized=new Set(draft.recognitionPhotoIds||[]);
+      form={...form,issueDrafts:normalizeIssueDrafts(form.issueDrafts.map(p=>({...p,analysisMode:'manual',organizeText:false,aiRecognized:recognized.has(p.id)||p.aiRecognized})))};
+    }
     this.setData({form});
-    if (!this.persistDraft()) throw new Error("草稿保存失败");
-    const draft = readDraft(this.data.sessionKey);
+    if (!this.persistDraft()) return false;
+    draft = readDraft(sessionKey);
     const refreshedReview = mergeReanalyzedReview(draft, analysis, form);
-    patchDraft(this.data.sessionKey,{
-      phase:"review",
-      analysis,
-      ...(refreshedReview ? {review:refreshedReview} : {})
-    });
+    const mergedObservations=mergeReanalyzedObservations(draft,analysis,form);
+    // Re-check ownership immediately before mutating the shared draft. This
+    // protects against navigation/submission state changes during async work.
+    if(this.ownsDraft===false||wx.getStorageSync(sessionKey+":complete"))return false;
+    try{
+      patchDraft(sessionKey,{
+        phase:"review",
+        analysis:{...analysis,items:refreshedReview?.originalItems || analysis.items,observations:mergedObservations},
+        analysisReturn:'',recognitionPhotoIds:[],
+        ...(refreshedReview ? {review:refreshedReview} : {})
+      });
+    }catch(error){
+      this.waitingForAnalysis=false;
+      this.clearAnalyzeTaskPolling();
+      this.setData({analyzing:false,analyzeStageIndex:0,analyzeError:error.message||"草稿保存失败"});
+      wx.showModal({title:"分析结果未保存",content:(error.message||"草稿保存失败")+"。已保留当前照片，请重新打开记录核对。",showCancel:false});
+      return false;
+    }
     this.clearAnalyzeTaskPolling();
+    this.waitingForAnalysis=false;
     this.setData({
       analyzing:false,
       analyzeStageIndex:0,
@@ -1120,24 +1445,50 @@ Page({
       analyzeError:"",
       analyzeProgressPercent:100
     });
+    if(returnToCapture){
+      const reviewItems=refreshedReview?.items || analysis.items || [];
+      this.setData({form:{...form,issueDrafts:form.issueDrafts.map(p=>({...p,aiIssues:reviewItems.filter(i=>i.sourcePhotoId===p.id).map(i=>i.description)}))},nextActionLabel:getNextActionLabel(form.issueDrafts)});
+      wx.showToast({title:'识图完成，请核对问题',icon:'none'});
+      return true;
+    }
     this.suspendDraftOnHide = true;
-    wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(this.data.sessionKey)});
+    wx.navigateTo({url:"/pages/inspection/result/index?sessionKey="+encodeURIComponent(sessionKey)});
+    return true;
   },
   async pollAnalyzeTaskStatus() {
     if (!this.data.analyzeTaskId) {
       this.clearAnalyzeTaskPolling();
       return "idle";
     }
-    const result = await readInspectionTaskStatus(this.data.analyzeTaskId);
+    const taskId=this.data.analyzeTaskId;
+    const result = await readInspectionTaskStatus(taskId);
+    if(this.data.analyzeTaskId!==taskId)return 'stale';
     if(!this.waitingForAnalysis)return "paused";
     if(this.pendingInputVersion!==readDraft(this.data.sessionKey).inputVersion){this.setData({analyzing:false});return "stale";}
     // 成功拿到一次状态就清零失败计数，避免历史上抖动的次数累积
     this.analyzePollFailureCount = 0;
     const totalPhotos = result.totalPhotos || result.totalBatches || 0;
     const completedPhotos = result.completedPhotos || result.completedBatches || 0;
+    const progressKey = `${this.data.analyzeTaskId}:${completedPhotos}`;
+    if (this.analyzeProgressKey !== progressKey) {
+      this.analyzeProgressKey = progressKey;
+      this.analyzeProgressAt = Date.now();
+    }
+    if (!['success', 'failed'].includes(result.status) &&
+        (result.status === 'cancelled' || Date.now() - this.analyzeProgressAt >= ANALYZE_NO_PROGRESS_LIMIT)) {
+      this.stopAnalyzeWaiting(result.status === 'cancelled'
+        ? '分析已停止，照片已保留，可重新选择 AI 识别或人工核对。'
+        : '分析长时间没有进展，已停止等待。照片和进度已保留，可重试或人工核对。');
+      return result.status === 'cancelled' ? 'cancelled' : 'stalled';
+    }
     const progressPercent = totalPhotos
       ? Math.min(100, Math.round((completedPhotos / totalPhotos) * 100))
       : 0;
+    const completedPhotoNumbers = this.formatAnalyzePhotoNumbers(result.completedPhotoIndexes);
+    const pendingPhotoNumbers = this.formatAnalyzePhotoNumbers(result.pendingPhotoIndexes);
+    const photoProgressText = result.status === "failed"
+      ? (pendingPhotoNumbers ? `待重试照片：${pendingPhotoNumbers}` : "")
+      : (completedPhotoNumbers ? `已完成照片：${completedPhotoNumbers}` : "");
     if (result.status === "success" && result.analysis) {
       this.setData({
         analyzeStageIndex: 3,
@@ -1151,29 +1502,34 @@ Page({
       // window must not immediately close the progress panel again.
       if (this.analyzeAdvanceInFlight) {
         this.setData({
+          analyzeProgressLabel: "进度",
           analyzing: true,
           analyzeStageText: `正在重试未完成照片（${completedPhotos}/${totalPhotos}）`,
           analyzeCompletedPhotos: completedPhotos,
           analyzeTotalPhotos: totalPhotos,
-          analyzeProgressPercent: progressPercent
+          analyzeProgressPercent: progressPercent,
+          analyzePhotoProgressText: photoProgressText
         });
         this.scheduleAnalyzeTaskPolling();
         return "running";
       }
       this.clearAnalyzeTaskPolling();
       this.setData({
+        analyzeProgressLabel: "进度",
         analyzing: false,
         analyzeStageIndex: 0,
         analyzeStageText: `已完成 ${completedPhotos}/${totalPhotos} 张`,
         analyzeCompletedPhotos: completedPhotos,
         analyzeTotalPhotos: totalPhotos,
         analyzeProgressPercent: progressPercent,
+        analyzePhotoProgressText: photoProgressText,
         analyzeError: result.errorMessage || "有照片尚未完成分析",
         analyzeTaskId: this.data.analyzeTaskId || ""
       });
       return "failed";
     }
     this.setData({
+      analyzeProgressLabel: "进度",
       analyzeStageIndex: 2,
       analyzeStageText: totalPhotos
         ? `正在逐张分析（${Math.min(completedPhotos, totalPhotos)}/${totalPhotos} 张）`
@@ -1181,18 +1537,28 @@ Page({
       analyzeCompletedPhotos: completedPhotos,
       analyzeTotalPhotos: totalPhotos,
       analyzeProgressPercent: progressPercent,
+      analyzePhotoProgressText: photoProgressText,
       analyzeError: ""
     });
     this.startAnalyzeTaskAdvancement();
     this.scheduleAnalyzeTaskPolling();
     return result.status || "running";
   },
+  formatAnalyzePhotoNumbers(indexes) {
+    if (!Array.isArray(indexes)) return "";
+    return [...new Set(indexes.map(Number).filter(index => Number.isInteger(index) && index >= 0))]
+      .sort((a,b)=>a-b)
+      .map(index=>String(index+1).padStart(2,"0"))
+      .join("、");
+  },
   startAnalyzeTaskAdvancement() {
     if (!this.data.analyzeTaskId || this.analyzeAdvanceInFlight) return;
+    const taskId = this.data.analyzeTaskId;
     this.analyzeAdvanceInFlight = true;
-    advanceInspectionTask(this.data.analyzeTaskId)
+    advanceInspectionTask(taskId)
       .catch((error) => {
         console.error("[inspection-create] advanceAnalyzeTask failed", error);
+        if (this.waitingForAnalysis && this.data.analyzeTaskId === taskId) this.stopAnalyzeWaiting(error.message || 'AI 分析未能启动，请重试或人工核对。');
       })
       .finally(() => {
         this.analyzeAdvanceInFlight = false;
@@ -1203,9 +1569,17 @@ Page({
         this.scheduleAnalyzeTaskPolling();
       });
   },
+  stopAnalyzeWaiting(message) {
+    this.waitingForAnalysis = false;
+    this.clearAnalyzeTaskPolling();
+    this.setData({analyzing:false, analyzeStageIndex:0, analyzeError:message});
+  },
   handleRetryAnalyze() {
-    if (!this.data.analyzeTaskId || this.data.analyzing) return;
+    if (this.data.analyzing) return;
+    if (!this.data.analyzeTaskId) {this.setData({analyzeError:''});return this.handleAnalyze();}
     this.waitingForAnalysis = true;
+    this.analyzeProgressKey = '';
+    this.analyzeProgressAt = Date.now();
     this.pendingInputVersion = readDraft(this.data.sessionKey).inputVersion;
     this.setData({
       analyzing: true,
@@ -1216,10 +1590,22 @@ Page({
     this.startAnalyzeTaskAdvancement();
     this.scheduleAnalyzeTaskPolling();
   },
-  handleAnalyzeManualFallback() {
+  async handleAnalyzeManualFallback() {
     this.waitingForAnalysis = false;
     this.clearAnalyzeTaskPolling();
     this.setData({analyzing:false, analyzeError:""});
+    let stopped = false;
+    if (this.data.analyzeTaskId) {
+      try {
+        const task = await cancelInspectionTask(this.data.analyzeTaskId);
+        stopped = task.status === "cancelled" || ["success", "failed"].includes(task.status);
+      } catch (error) {
+        console.warn("[inspection-create] cancelAnalyzeTask failed", error);
+      }
+    }
+    if (!stopped && this.data.analyzeTaskId) {
+      wx.showToast({title:"已转人工核对；云端当前请求可能仍在结束",icon:"none",duration:2500});
+    }
     this.handleManualReview();
   },
   async handleAnalyze() {
@@ -1277,7 +1663,7 @@ Page({
       return;
     }
 
-    if (countImageRecognitionDrafts(this.data.form.issueDrafts) === 0) {
+    if (countImageRecognitionDrafts(this.data.form.issueDrafts) + countTextOrganizationDrafts(this.data.form.issueDrafts) === 0) {
       // Every photo already has an inspector-authored statement. The user has
       // explicitly chosen the manual path, so entering review must be instant
       // and must not spend vision quota on a second opinion they did not ask for.
@@ -1287,13 +1673,17 @@ Page({
 
     this.waitingForAnalysis=true;
     this.pendingInputVersion=stored.inputVersion;
+    const analyzePanelTitle = getAnalyzePanelTitle(this.data.form.issueDrafts);
     this.setData({
       analyzing: true,
+      analyzePanelTitle,
       analyzeStageIndex: 1,
       analyzeStageText: "正在上传并校验照片",
+      analyzeProgressLabel: "已上传",
       analyzeCompletedPhotos: 0,
-      analyzeTotalPhotos: ((stored.form && stored.form.issueDrafts) || this.data.form.issueDrafts || []).length,
+      analyzeTotalPhotos: 0,
       analyzeProgressPercent: 0,
+      analyzePhotoProgressText: "",
       analyzeError: ""
     });
     let keepAnalyzing = false;
@@ -1323,10 +1713,11 @@ Page({
         patchDraft(this.data.sessionKey,{taskId:task.taskId,phase:"analyzing"});
         this.setData({
           analyzeTaskId: task.taskId || "",
-          analyzeTotalPhotos: task.totalPhotos || task.totalBatches || form.issueDrafts.length,
+          analyzeProgressLabel: "进度",
+          analyzeTotalPhotos: task.totalPhotos ?? (countImageRecognitionDrafts(form.issueDrafts) + countTextOrganizationDrafts(form.issueDrafts)),
           analyzeCompletedPhotos: task.completedPhotos || task.completedBatches || 0,
           analyzeProgressPercent: 0,
-          analyzeStageText: `正在逐张分析（0/${task.totalPhotos || task.totalBatches || form.issueDrafts.length} 张）`
+        analyzeStageText: `正在整理已选择的记录（0/${task.totalPhotos ?? (countImageRecognitionDrafts(form.issueDrafts) + countTextOrganizationDrafts(form.issueDrafts))} 张）`
         });
         this.startAnalyzeTaskAdvancement();
         this.scheduleAnalyzeTaskPolling();
@@ -1348,12 +1739,8 @@ Page({
       // 用弹窗而不是 toast：toast 会自己消失，用户很可能没看到，
       // 然后以为「点了没反应」。照片与草稿都在，说明清楚可以重试。
       console.error("[inspection-create] analyze failed", error);
-      wx.showModal({
-        title: "AI 整理失败",
-        content: `${(error && error.message) || "未知错误"}\n\n照片与草稿都已保留，可以直接重新点「分析整理」。`,
-        showCancel: false,
-        confirmText: "知道了"
-      });
+      this.waitingForAnalysis=false;
+      this.setData({analyzeError:(error&&error.message)||'整理未完成，照片与原文已保留'});
     } finally {
       if (!keepAnalyzing) {
         this.setData({

@@ -10,37 +10,48 @@
   <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
   <view class="card report-state">
     <view class="section-title">报告暂时无法打开</view>
-    <view class="section-subtitle">{{loadError}}</view><button class="secondary-button" bindtap="loadReport">重试打开</button>
+    <view class="section-subtitle">{{loadError}}</view><button class="ui-button-reset secondary-button" bindtap="loadReport">重试打开</button>
   </view>
 </view>
 
 <view class="page report-page" wx:elif="{{report}}">
   <page-nav-bar title="巡查报告" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
 
-  <!-- 报告首先是一份可交付文档：公司标识与出具人优先于产品标记。 -->
+  <!-- 报告首先是一份可交付文档：单位、项目和编号先于装饰性内容。 -->
   <view class="report-cover">
-    <view class="report-cover__top">
-      <view class="report-cover__product-kind">现场记录报告</view>
-      <view class="report-cover__no">{{report.reportNo}}</view>
-    </view>
-    <view class="report-cover__title {{reportTitleClass}}">{{report.projectName || report.title}}</view>
-    <view class="report-cover__meta">
-      <text>{{report.inspectionDateDisplay}}</text>
-      <text wx:if="{{report.inspectorName}}"> · 巡查人 {{report.inspectorName}}</text>
-    </view>
-    <view class="report-cover__issuer">
-      <image wx:if="{{report.logoFileId}}" class="report-cover__logo" src="{{report.logoFileId}}" mode="aspectFit" />
-      <view class="report-cover__issuer-copy">
-        <view class="report-cover__issuer-label">报告出具单位</view>
-        <view class="report-cover__company">{{report.companyName || '个人出具'}}</view>
-        <view class="report-cover__issuer-person">报告出具人：{{report.publisherName || report.inspectorName || '未填写'}}</view>
-        <view wx:if="{{report.companyPhone || report.publisherPhone || report.inspectorPhone}}" class="report-cover__issuer-person">联系电话：{{report.companyPhone || report.publisherPhone || report.inspectorPhone}}</view>
+    <view class="report-cover__masthead">
+      <view class="report-cover__brand">
+        <image wx:if="{{report.logoPreviewUrl}}" class="report-cover__logo" src="{{report.logoPreviewUrl}}" mode="aspectFit" binderror="handleReportLogoPreviewError" />
+        <view wx:elif="{{report.logoPreviewError}}" class="report-cover__logo-error">标识不可用<button class="ui-button-reset report-media-retry" bindtap="loadReport">重试</button></view>
+        <view class="report-cover__brand-copy"><view class="report-cover__company">{{report.companyName || '个人巡查'}}</view><view class="report-cover__issuer-label">巡查单位</view></view>
       </view>
     </view>
+    <view class="report-cover__title-block"><view class="report-cover__title {{reportTitleClass}}">{{report.projectName || report.title}}</view><view class="report-cover__meta">巡查日期　/　{{report.inspectionDateDisplay}}</view></view>
+    <view class="report-cover__meta-grid">
+      <view wx:for="{{report.identityRows}}" wx:key="label" class="report-cover__meta-item"><text class="report-cover__meta-label">{{item.label}}</text><text class="report-cover__meta-value">{{item.value}}</text></view>
+    </view>
+    <view wx:if="{{report.contactEntries.length}}" class="report-cover__contact-line"><text>联系电话</text><button wx:for="{{report.contactEntries}}" wx:key="phone" class="ui-button-reset report-cover__contact" data-phone="{{item.phone}}" bindtap="handleCallCompany">{{item.label}} {{item.phone}}</button></view>
     <view wx:if="{{!isOwner}}" class="report-cover__readonly">只读分享 · 仅此报告可见</view>
   </view>
 
-  <view class="report-summary"><view class="report-summary__conclusion">{{report.conclusion}}</view></view>
+  <view class="report-summary">
+    <view class="report-summary__kicker">01 / 巡查概览</view>
+    <view class="report-summary__conclusion">{{report.conclusion}}</view>
+    <view wx:if="{{report.severityStats.critical || report.severityStats.major || report.severityStats.normal}}" class="report-summary__stats" aria-label="问题概览">
+      <view class="report-summary__stat">
+        <text class="report-summary__stat-value">{{report.severityStats.critical}}</text>
+        <text class="report-summary__stat-label">严重</text>
+      </view>
+      <view class="report-summary__stat">
+        <text class="report-summary__stat-value">{{report.severityStats.major}}</text>
+        <text class="report-summary__stat-label">较重</text>
+      </view>
+      <view class="report-summary__stat">
+        <text class="report-summary__stat-value">{{report.severityStats.normal}}</text>
+        <text class="report-summary__stat-label">一般</text>
+      </view>
+    </view>
+  </view>
   <report-section wx:if="{{report.summary}}" title="巡查小结" content="{{report.summary}}" />
 
   <report-section wx:if="{{report.contextNote}}" title="现场补充" content="{{report.contextNote}}" />
@@ -49,100 +60,119 @@
   <view class="report-issues">
     <view class="report-issues__head">
       <view class="section-title">照片与问题</view>
-      <view class="report-issues__count">{{report.issueGroups.length}} 张 · {{report.severityStats.total}} 项问题</view>
+      <view class="report-issues__count">{{report.photoCount}} 张照片</view>
     </view>
 
     <view wx:if="{{!report.issueGroups.length}}" class="report-state">
       <view class="section-subtitle">本次巡查未记录问题项。</view>
     </view>
 
-    <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" class="issue-group">
-      <view class="issue-group__head">{{group.groupTitle}}</view>
-
-      <view wx:if="{{group.image}}" class="issue-group__media">
-        <image
-          class="issue-group__image"
-          src="{{group.image}}"
-          mode="widthFix"
-          data-src="{{group.image}}"
-          bindtap="handlePreviewImage"
-        />
-      </view>
-
-      <view wx:if="{{group.caption}}" class="precision-state">现场说明：{{group.caption}}</view>
-      <view wx:if="{{!group.issues.length}}" class="precision-state">本组未记录问题，照片保留为现场记录；不代表工程验收合格。</view>
-      <view wx:for="{{group.issues}}" wx:for-item="issue" wx:key="displayNo" class="issue">
-        <view class="issue__head">
-          <text class="issue__no">{{issue.displayNo}}</text>
-          <text class="issue__severity issue__severity--{{issue.severity}}">{{issue.severityText}}</text>
-          <text wx:if="{{issue.area}}" class="issue__area">{{issue.area}}</text>
+  <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" class="issue-group">
+      <view class="issue-group__head"><text class="issue-group__title">{{group.groupTitle}}</text><text wx:if="{{!group.issues.length}}" class="issue-group__status">未记录问题</text></view>
+      <view class="issue-group__content">
+        <view wx:if="{{group.image && !group.imagePreviewError}}" class="issue-group__media" style="height:{{group.thumbnailHeight || 360}}rpx" data-index="{{index}}" bindtap="handlePreviewImage">
+          <image class="issue-group__image" src="{{group.image}}" mode="aspectFit" data-index="{{index}}" catchtap="handlePreviewImage" binderror="handleReportImageError" />
+          <view wx:if="{{!group.annotatedImage}}" wx:for="{{group.markers}}" wx:for-item="marker" wx:key="key" class="issue-group__photo-marker" style="left:{{marker.left}};top:{{marker.top}}">{{marker.number}}</view>
+          <button class="ui-button-reset issue-group__zoom" data-index="{{index}}" catchtap="handlePreviewImage" aria-label="查看{{group.groupTitle}}大图及对应问题"><image class="issue-group__zoom-icon" src="/images/icons/annotation-zoom-in.svg" mode="aspectFit" /><text>查看大图</text></button>
         </view>
-        <view class="issue__desc">{{issue.description}}</view>
-        <view wx:if="{{issue.suggestion}}" class="issue__suggestion">建议：{{issue.suggestion}}</view>
-        <view class="issue__meta">
-          <text wx:if="{{issue.responsibleText}}">责任方 {{issue.responsibleText}}</text>
-          <text wx:if="{{issue.timeText}}">拍摄于 {{issue.timeText}}</text>
+        <view wx:elif="{{group.imagePreviewError}}" class="report-state report-state--media">照片暂时无法加载<button class="ui-button-reset report-media-retry" bindtap="loadReport">重新加载</button></view>
+
+        <view class="issue-group__details">
+          <view wx:if="{{group.caption}}" class="issue-group__caption">{{group.caption}}</view>
+          <view wx:for="{{group.issues}}" wx:for-item="issue" wx:key="displayNo" class="issue">
+            <view class="issue__head">
+              <text class="issue__no">{{issue.displayNo}}</text>
+              <text class="issue__marker">{{issue.markerLabel}}</text>
+              <text wx:if="{{issue.severity !== 'normal'}}" class="issue__severity issue__severity--{{issue.severity}}">{{issue.severityText}}</text>
+            </view>
+            <view class="issue__desc">{{issue.description}}</view>
+            <view wx:if="{{issue.suggestion}}" class="issue__suggestion">建议：{{issue.suggestion}}</view>
+            <view class="issue__meta">
+              <view wx:if="{{issue.area}}" class="report-field"><text class="report-field__label">区域</text><text>{{issue.area}}</text></view>
+              <view wx:if="{{issue.category}}" class="report-field"><text class="report-field__label">分类</text><text>{{issue.category}}</text></view>
+              <text wx:if="{{issue.responsibleText}}">责任方 {{issue.responsibleText}}</text>
+            </view>
+          </view>
         </view>
       </view>
     </view>
   </view>
 
-  <!-- 结尾区：出具信息与状态 -->
+  <!-- 结尾只补充首部未出现的出具时间；编号与分享状态不重复抄写。 -->
   <view class="report-footer">
-    <view class="report-footer__title">出具信息</view>
-    <view class="report-footer__row"><text class="report-footer__label">巡查人</text><text class="report-footer__value">{{report.inspectorName || '未填写'}}</text></view>
-    <view wx:if="{{report.inspectorPhone}}" class="report-footer__row"><text class="report-footer__label">巡查人电话</text><button class="report-footer__value report-footer__value--link report-footer__phone" data-phone="{{report.inspectorPhone}}" bindtap="handleCallCompany">{{report.inspectorPhone}}</button></view>
-    <view wx:if="{{report.publisherName}}" class="report-footer__row"><text class="report-footer__label">报告出具人</text><text class="report-footer__value">{{report.publisherName}}</text></view>
-    <view wx:if="{{report.publisherPhone && report.publisherPhone !== report.inspectorPhone}}" class="report-footer__row"><text class="report-footer__label">出具人电话</text><button class="report-footer__value report-footer__value--link report-footer__phone" data-phone="{{report.publisherPhone}}" bindtap="handleCallCompany">{{report.publisherPhone}}</button></view>
-    <view class="report-footer__row">
-      <text class="report-footer__label">出具单位</text>
-      <text class="report-footer__value">{{report.companyName || '个人出具'}}</text>
-    </view>
-    <view wx:if="{{report.companyPhone}}" class="report-footer__row">
-      <text class="report-footer__label">联系电话</text>
-      <button class="report-footer__value report-footer__value--link report-footer__phone" data-phone="{{report.companyPhone}}" bindtap="handleCallCompany">{{report.companyPhone}}</button>
-    </view>
-    <view wx:if="{{report.companyAddress}}" class="report-footer__row">
-      <text class="report-footer__label">地址</text>
-      <text class="report-footer__value">{{report.companyAddress}}</text>
-    </view>
-    <view class="report-footer__row">
-      <text class="report-footer__label">报告编号</text>
-      <text class="report-footer__value">{{report.reportNo}}</text>
-    </view>
     <view class="report-footer__row">
       <text class="report-footer__label">出具时间</text>
       <text class="report-footer__value">{{report.generatedAtDisplay || '待生成'}}</text>
     </view>
-    <button wx:if="{{isOwner}}" class="share-manage" bindtap="manageShare">{{report.shareState === 'revoked' ? '已撤销分享 · 生成新链接' : '分享设置'}}</button>
-    <view wx:if="{{isOwner && pdfStatusError}}" class="report-readonly-hint">{{pdfStatusError}}</view>
-    <view wx:if="{{isOwner && report.isPdfFailed}}" class="report-readonly-hint">PDF 生成失败，可重试。在线报告仍可阅读和转发。</view>
-    <view class="report-product-signature"><image class="report-product-signature__mark" src="/images/brand/haoli-symbol-v8.png" mode="aspectFit" /><view><view class="report-product-signature__name">毫厘智管</view><view class="report-product-signature__desc">现场记录 · 精准标注 · 清楚交付</view></view></view>
+    <button wx:if="{{isOwner}}" class="ui-button-reset share-manage" bindtap="manageShare">{{report.shareState === 'revoked' ? '已撤销分享 · 生成新链接' : '分享设置'}}</button>
   </view>
 
   <view class="footer-actions footer-actions--fixed">
-    <!-- 主操作是「把报告发出去」：报告页本身就是交付物，
-         PDF 只是可选归档，所以它降为次要操作 -->
+    <!-- 在线报告就是当前唯一主交付物；转发走微信只读报告页。 -->
     <view class="report-delivery-row">
     <button
       wx:if="{{isOwner && report.shareToken && report.shareState !== 'revoked'}}"
-      class="report-action-button report-action-button--primary report-action-button--share"
+      class="ui-button-reset report-action-button report-action-button--primary report-action-button--share"
       open-type="share"
     >转发这份报告</button>
-    <button wx:elif="{{isOwner}}" class="report-action-button report-action-button--primary" bindtap="manageShare">生成可转发链接</button>
+    <button wx:elif="{{isOwner}}" class="ui-button-reset report-action-button report-action-button--primary" bindtap="manageShare">生成可转发链接</button>
 
-    <view wx:if="{{isOwner}}" class="report-pdf-action">
-      <button wx:if="{{pdfStatusError}}" class="report-action-button report-action-button--secondary" bindtap="retryPdfStatus">重查 PDF</button>
-      <view wx:elif="{{pdfSubmitting || report.isPdfGenerating}}" class="report-action-button report-action-button--secondary report-action-button--disabled">PDF 生成中</view>
-      <button wx:elif="{{report.pdfFileId && !report.isPdfOutdated}}" class="report-action-button report-action-button--secondary" bindtap="openPdf">打开 PDF</button>
-      <button wx:elif="{{report.isPdfFailed}}" class="report-action-button report-action-button--secondary" bindtap="generatePdf">重试 PDF</button>
-      <button wx:else class="report-action-button report-action-button--secondary" bindtap="generatePdf">下载 PDF</button>
-
-    </view>
     </view>
 
     <view wx:if="{{!isOwner}}" class="report-readonly-hint">
       你正在查看他人分享的巡查报告，内容为只读。
+    </view>
+  </view>
+
+  <view wx:if="{{previewGroup}}" class="report-image-viewer">
+    <view class="report-image-viewer__status-spacer" style="height:{{viewerStatusBarHeight}}px"></view>
+    <view class="report-image-viewer__head" style="min-height:{{viewerNavHeight}}px;padding-right:{{viewerCapsuleSafeWidth}}px"><text>{{previewGroup.groupTitle}} · {{previewGroup.issues.length}} 项问题</text></view>
+    <movable-area class="report-image-viewer__stage">
+      <movable-view class="report-image-viewer__movable" direction="all" x="{{viewerX}}" y="{{viewerY}}" scale scale-min="1" scale-max="4" scale-value="{{viewerScale}}" style="width:{{previewGroup.viewerWidth}}px;height:{{previewGroup.viewerHeight}}px">
+        <view class="report-image-viewer__image-wrap">
+          <image class="report-image-viewer__image" src="{{previewGroup.image}}" mode="aspectFit" />
+          <view wx:for="{{previewGroup.issues}}" wx:for-item="issue" wx:key="viewerKey" wx:if="{{issue.markerPoint && (!previewGroup.annotatedImage || issue.viewerKey === previewGroup.activeIssueId)}}" class="report-image-viewer__focus {{previewGroup.annotatedImage ? 'is-baked' : ''}} {{issue.viewerKey === previewGroup.activeIssueId ? 'is-active' : ''}}" style="left:{{issue.markerPoint.left}};top:{{issue.markerPoint.top}}"><text wx:if="{{!previewGroup.annotatedImage}}">{{issue.markerNumber}}</text></view>
+        </view>
+      </movable-view>
+    </movable-area>
+    <scroll-view wx:if="{{previewGroup.issues.length}}" class="report-image-viewer__issues" style="height:{{viewerIssueHeight}}px" scroll-y>
+      <view wx:if="{{previewGroup.markers.length}}" class="report-image-viewer__hint">双指缩放 · 点问题查看标注</view>
+      <view wx:else class="report-image-viewer__hint">双指缩放</view>
+      <view wx:for="{{previewGroup.issues}}" wx:for-item="issue" wx:key="viewerKey" class="report-image-viewer__issue {{issue.viewerKey === previewGroup.activeIssueId ? 'is-active' : ''}}" data-id="{{issue.viewerKey}}" bindtap="handleViewerIssueTap">
+        <text class="report-image-viewer__number">{{issue.displayNo}}</text><view class="report-image-viewer__issue-copy"><text>{{issue.markerLabel}}</text><text>{{issue.description}}</text><text wx:if="{{issue.suggestion}}" class="report-image-viewer__suggestion">建议：{{issue.suggestion}}</text></view>
+      </view>
+    </scroll-view>
+    <view wx:else class="report-image-viewer__hint report-image-viewer__hint--empty">本张照片没有记录问题</view>
+    <button class="ui-button-reset report-image-viewer__close" bindtap="closeImageViewer">返回报告</button>
+  </view>
+
+  <view wx:if="{{sharePanelOpen}}" class="share-panel-scrim" catchtap="closeSharePanel">
+    <view class="share-panel" catchtap="ignoreSharePanelTap">
+      <view class="share-panel__handle"></view>
+      <view wx:if="{{sharePanelMode === 'actions'}}">
+        <view class="share-panel__title">分享这份报告</view>
+        <view class="share-panel__intro">链接只开放当前报告的只读查看。</view>
+        <button wx:for="{{shareChoices}}" wx:key="key" class="ui-button-reset share-panel__choice {{item.danger ? 'is-danger' : ''}}" data-action="{{item.key}}" bindtap="chooseShareAction">
+          <text class="share-panel__choice-title">{{item.label}}</text><text class="share-panel__choice-detail">{{item.detail}}</text>
+        </button>
+        <button class="ui-button-reset secondary-button" hover-class="is-pressed" bindtap="closeSharePanel">取消</button>
+      </view>
+      <view wx:elif="{{sharePanelMode === 'confirm'}}">
+        <view class="share-panel__title">{{shareConfirmTitle}}</view>
+        <view class="share-panel__intro">{{shareConfirmCopy}}</view>
+        <view class="share-panel__buttons">
+          <button class="ui-button-reset share-panel__button" bindtap="closeSharePanel">取消</button>
+          <button class="ui-button-reset share-panel__button {{shareConfirmDanger ? 'is-danger' : 'is-primary'}} {{shareBusy ? 'is-busy' : ''}}" bindtap="confirmShareAction" disabled="{{shareBusy}}">{{shareBusy ? '正在处理…' : shareConfirmLabel}}</button>
+        </view>
+      </view>
+      <view wx:else>
+        <view class="share-panel__title">分享设置未完成</view>
+        <view class="share-panel__error">{{shareActionError}}</view>
+        <view class="share-panel__buttons">
+          <button class="ui-button-reset share-panel__button" bindtap="closeSharePanel">稍后处理</button>
+          <button class="ui-button-reset share-panel__button is-primary" bindtap="confirmShareAction" disabled="{{shareBusy}}">重试</button>
+        </view>
+      </view>
     </view>
   </view>
 </view>

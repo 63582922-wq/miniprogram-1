@@ -1,5 +1,5 @@
 <view class="empty-state">
   <view class="empty-state__title">{{title}}</view>
   <view wx:if="{{description}}" class="empty-state__description">{{description}}</view>
-  <button wx:if="{{actionText}}" class="empty-state__action" hover-class="is-pressed" bindtap="handleAction">{{actionText}}</button>
+  <button wx:if="{{actionText}}" class="ui-button-reset empty-state__action" hover-class="is-pressed" bindtap="handleAction">{{actionText}}</button>
 </view>

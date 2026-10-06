@@ -1,6 +1,7 @@
 const { listReports, deleteReport } = require("../../../services/report");
 const { listProjects } = require("../../../services/project");
 const { formatDateTime } = require("../../../utils/format");
+const { buildReportNo } = require("../../../utils/report-identity");
 const { encodeReturnContext } = require("../../../utils/router");
 const { syncTabBar } = require("../../../utils/tab-bar");
 
@@ -29,6 +30,7 @@ Page({
     });
   },
   onShow() {
+    this.setFilterTabBarHidden(!!this.data.filterVisible);
     syncTabBar(this, "pages/report/list/index");
     if (this.applyStoredContext()) {
       this.loadReports();
@@ -89,7 +91,19 @@ Page({
       const rows=(r.list||[]).map(i=>{
         const title=`${i.title||""}`.trim();
         const projectTitle=title.replace(/巡查报告$/,"").trim();
-        return {...i,displayTitle:projectTitle||title||"未命名项目",generatedAtDisplay:formatDateTime(i.publishedAt||i.createdAt||i.generatedAt)||""};
+        const photoCount=Number.isFinite(Number(i.photoCount)) ? Number(i.photoCount) : null;
+        const issueCount=Number.isFinite(Number(i.issueCount)) ? Number(i.issueCount) : null;
+        return {...i,
+          displayTitle:projectTitle||title||"未命名项目",
+          reportNo:buildReportNo(i),
+          generatedAtDisplay:formatDateTime(i.publishedAt||i.createdAt||i.generatedAt)||"",
+          photoCountDisplay:photoCount===null ? "" : photoCount + " 张照片",
+          issueCountDisplay:issueCount===null ? "" : issueCount + " 项问题",
+          summaryDisplay:photoCount===null && issueCount===null
+            ? "打开查看详情"
+            : [photoCount===null ? "" : photoCount + " 张照片", issueCount===null ? "" : issueCount + " 项问题"].filter(Boolean).join(" · "),
+          shareState:i.shareState || "active"
+        };
       });
       this.setData({reports:append?this.data.reports.concat(rows):rows,page:r.page||1,hasMore:!!r.hasMore});
     }catch(e){if(sequence===this.sequence)this.setData({loadError:e.message||"加载失败"});}
@@ -110,10 +124,12 @@ Page({
     this.loadReports();
   },
   async chooseFilter(){
-    try{const r=await listProjects();this.setData({filterProjects:r.list||[],filterVisible:true});}
+    try{const r=await listProjects();this.setData({filterProjects:r.list||[],filterVisible:true});this.setFilterTabBarHidden(true);}
     catch(e){wx.showToast({title:e.message||"项目加载失败",icon:"none"});}
   },
-  closeFilter(){this.setData({filterVisible:false});},
+  setFilterTabBarHidden(hidden){const bar=this.getTabBar&&this.getTabBar();if(bar&&bar.setData)bar.setData({hiddenByOverlay:hidden});},
+  onHide(){this.closeFilter();},
+  closeFilter(){this.setData({filterVisible:false});this.setFilterTabBarHidden(false);},
   selectFilter(e){const id=e.currentTarget.dataset.id;const p=(this.data.filterProjects||[]).find(x=>x._id===id);this.applyProjectContext(id||"",p?p.name:"");this.closeFilter();this.loadReports();},
   handleBackTap() {
     if (this.data.entrySource === "projectDetail" && this.data.projectId) {

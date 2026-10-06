@@ -1,27 +1,11 @@
 const { getWindowInfo } = require("../../utils/system");
 const { getSettings, saveSettings } = require("../../services/settings");
 const { uploadUserFile } = require("../../services/cloud");
+const { resolveCloudFileUrls, isCloudFileId } = require("../../services/cloud-media");
 const { getCurrentUser, updateProfile } = require("../../services/user");
 const { markGuideStep } = require("../../utils/guide");
 const { isCoachStep, moveCoach, stopCoach, buildCoachTip } = require("../../utils/coach");
-
-const DEFAULT_PDF_SERVICE_URL = "https://pdf.haolizhiguan.cn";
-
-function normalizePdfServiceUrl(value) {
-  const candidate = `${value || ""}`
-    .trim()
-    .replace(/^`+|`+$/g, "");
-  if (!candidate) {
-    return DEFAULT_PDF_SERVICE_URL;
-  }
-  if (candidate === DEFAULT_PDF_SERVICE_URL) {
-    return candidate;
-  }
-  if (/^\d{1,3}(\.\d{1,3}){3}/.test(candidate) || candidate.startsWith("http://")) {
-    return DEFAULT_PDF_SERVICE_URL;
-  }
-  return candidate;
-}
+const { getInspectorName } = require("../../utils/report-identity");
 
 function getUploadExtension(filePath = "") {
   const match = filePath.toLowerCase().match(/\.([a-z0-9]+)(?:\?|$)/);
@@ -36,9 +20,7 @@ function buildCompanySettingsPayload(form = {}) {
     companyPhone: form.companyPhone || "",
     companyAddress: form.companyAddress || "",
     logoFileId: form.logoFileId || "",
-    reportTemplate: form.reportTemplate || "default",
-    reportPdfEngine: "puppeteer",
-    reportPdfServiceUrl: normalizePdfServiceUrl(form.reportPdfServiceUrl)
+    reportTemplate: form.reportTemplate || "default"
   };
 }
 
@@ -54,8 +36,6 @@ Page({
       logoFileId: "",
       logoPreview: "",
       reportTemplate: "default",
-      reportPdfEngine: "puppeteer",
-      reportPdfServiceUrl: DEFAULT_PDF_SERVICE_URL
     },
     isSaving: false,
     dirty: false,
@@ -82,7 +62,7 @@ Page({
   syncCoachTip() {
     const active = isCoachStep("settingsSave");
     const tip = buildCoachTip("settingsSave", {
-      tailHint: "基础信息会自动带入后续 PDF 报告。"
+      tailHint: "基础信息会自动带入后续在线报告。"
     });
     this.setData({
       coachTipVisible: active,
@@ -208,31 +188,44 @@ Page({
     }
   },
   async loadSettings() {
+    const generation = (this.settingsLoadGeneration || 0) + 1;
+    this.settingsLoadGeneration = generation;
     this.setData({loading:true,loadError:""});
     try {
       const [result, userInfo] = await Promise.all([
         getSettings(),
         getCurrentUser()
       ]);
+      if (generation !== this.settingsLoadGeneration) return;
       this.savedCompany = {...(result || {})};
       this.setData({
         form: {
-          inspectorName: (userInfo && userInfo.nickname) || "",
+          inspectorName: getInspectorName(userInfo),
           inspectorPhone: (userInfo && userInfo.phone) || "",
           companyName: (result && result.companyName) || "",
           companyPhone: (result && result.companyPhone) || "",
           companyAddress: (result && result.companyAddress) || "",
           logoFileId: (result && result.logoFileId) || "",
-          logoPreview: (result && result.logoFileId) || "",
-          reportTemplate: (result && result.reportTemplate) || "default",
-          reportPdfEngine: "puppeteer",
-          reportPdfServiceUrl: normalizePdfServiceUrl(result && result.reportPdfServiceUrl)
+          // cloud:// is a durable storage reference, not an <image> URL.
+          // Resolve it only for display; keep the stable ID in the saved form.
+          logoPreview: result && result.logoFileId && !isCloudFileId(result.logoFileId) ? result.logoFileId : "",
+          logoPreviewError: false,
+          reportTemplate: (result && result.reportTemplate) || "default"
         },
         dirty: false
       }, () => this.scrollToInitialSection());
       this.loadFailed=false;
       this.loaded=true;
+      if (result && result.logoFileId && isCloudFileId(result.logoFileId)) {
+        const preview = await resolveCloudFileUrls([result.logoFileId]);
+        if (generation !== this.settingsLoadGeneration) return;
+        this.setData({
+          "form.logoPreview": preview.urls[result.logoFileId] || "",
+          "form.logoPreviewError": preview.failed.includes(result.logoFileId)
+        });
+      }
     } catch (error) {
+      if (generation !== this.settingsLoadGeneration) return;
       this.loadFailed=true;
       this.setData({loadError:error.message||"资料加载失败"});
       this.setData({
@@ -244,16 +237,18 @@ Page({
           companyAddress: "",
           logoFileId: "",
           logoPreview: "",
-          reportTemplate: "default",
-          reportPdfEngine: "puppeteer",
-          reportPdfServiceUrl: DEFAULT_PDF_SERVICE_URL
+          logoPreviewError: false,
+          reportTemplate: "default"
         }
       });
       wx.showToast({
         title: "设置加载失败",
         icon: "none"
       });
-    } finally{this.setData({loading:false});}
+    } finally {
+      // A superseded request must not hide the loading state of a newer retry.
+      if (generation === this.settingsLoadGeneration) this.setData({loading:false});
+    }
   },
   handleInput(event) {
     const field = event.currentTarget.dataset.field;
@@ -302,7 +297,8 @@ Page({
       const fileId = await uploadUserFile(filePath, "logos", `logo.${ext}`);
       this.setData({
         "form.logoFileId": fileId,
-        "form.logoPreview": filePath
+        "form.logoPreview": filePath,
+        "form.logoPreviewError": false
       });
       const savedBase = this.savedCompany || {};
       const savedSettings = await saveSettings(buildCompanySettingsPayload({
@@ -340,6 +336,10 @@ Page({
         title: "请填写巡查人名称",
         icon: "none"
       });
+      return;
+    }
+    if (inspectorName === "巡查员") {
+      wx.showToast({ title: "请填写实际巡查人姓名", icon: "none" });
       return;
     }
     if (inspectorPhone && !/^[0-9+\-\s]{6,24}$/.test(inspectorPhone)) {

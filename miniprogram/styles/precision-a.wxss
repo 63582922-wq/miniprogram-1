@@ -1,32 +1,81 @@
 /*
- * 毫厘智管 · 现场记录系统
+ * 尺包 · 现场记录系统
  * Warm paper, neutral ink, vermilion action. The product mark uses the same
  * ink and vermilion pair; no retired petrol-green remains in the interface.
  */
-page{
+.page,:host,.custom-tab-bar{
   --a-type-display:60rpx;
   --a-type-title:48rpx;
   --a-type-object:36rpx;
+  --a-type-section:36rpx;
+  --a-type-callout:36rpx;
+  --a-type-project-title:48rpx;
+  --a-type-project-title-ui:48rpx;
+  --a-type-welcome:60rpx;
   --a-type-body:32rpx;
-  --a-type-action:30rpx;
-  --a-type-meta:27rpx;
+  --a-type-row:32rpx;
+  --a-type-action:32rpx;
+  --a-type-stat:32rpx;
+  --a-type-medium:30rpx;
+  --a-type-meta:28rpx;
   --a-type-caption:26rpx;
+  --a-type-micro:26rpx;
   --a-space-1:8rpx;
   --a-space-2:16rpx;
   --a-space-3:24rpx;
   --a-space-4:32rpx;
   --a-space-5:40rpx;
+  --a-space-6:48rpx;
+  --a-space-7:56rpx;
+  --a-space-8:64rpx;
+  --a-space-10:80rpx;
+  --a-space-15:120rpx;
+  --a-space-section:32rpx;
+  --a-space-headline-offset:40rpx;
+  --a-space-tab-clearance:120rpx;
+  --a-hit-tab:44px;
+  --a-space-capture-clearance:148rpx;
+  --a-space-detail-clearance:180rpx;
+  --a-space-review-clearance:176rpx;
+  --a-space-report-clearance:80px;
+  --a-space-dialog-inline:8px;
+  --a-space-dialog-block:12px;
+  --a-space-overlap-1-5:-12rpx;
+  --a-space-page-bleed:-16rpx;
   --a-page-inset:36rpx;
-  --a-radius-control:8rpx;
-  --a-radius-object:10rpx;
-  --a-icon:40rpx;
   --a-hit:44px;
+  --a-hit-compact:48px;
+  --a-hit-primary:52px;
+  --a-hit-review:56px;
+  --a-hit-voice:60px;
+  --a-hit-row:64px;
+  --a-radius-control:24rpx;
+  --a-radius-tight:4rpx;
+  --a-radius-mark:2rpx;
+  --a-radius-indicator:3rpx;
+  --a-radius-object:10rpx;
+  --a-radius-sheet:20rpx;
+  --a-radius-pill:9999rpx;
+  --a-icon-sm:32rpx;
+  --a-icon:40rpx;
+  --a-icon-lg:48rpx;
+  --a-icon-action:42rpx;
+  --a-radius-brand:25%;
+  --a-logo-company:112rpx;
+  --a-logo-report:160rpx;
   --a-motion:180ms;
+  --a-state-disabled:.42;
+  --a-state-loading:.76;
+  --a-state-pressed:.68;
   /* Two type roles only: Songti for editorial object titles, PingFang/system
      sans for every control, list, form and explanatory sentence. */
   --a-font-display:"Songti SC","STSongti-SC-Regular","STSong","Source Han Serif SC","Noto Serif CJK SC","SimSun",serif;
   --a-font-body:"PingFang SC",-apple-system,BlinkMacSystemFont,"Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+  --a-weight-regular:300;
+  --a-weight-medium:400;
+  --a-weight-emphasis:400;
   --a-ink:#191816;
+  --a-ink-inverse:#FFF9F2;
   --a-paper:#E9E4DD;
   --a-field:#F2EEE8;
   --a-muted:#706D67;
@@ -34,21 +83,46 @@ page{
   --a-accent:#DE6E3F;
   --a-accent-strong:#C75C35;
   --a-accent-text:#B74F2D;
+  --a-accent-wash:#F3D8CB;
   --a-accent-ink:#191816;
   --a-active:#191816;
   --a-photo-matte:#DDD6CC;
   --a-bronze:#8A8378;
   --a-surface:#E2DCD3;
+  --a-line-strong:#BBB1A4;
+  --a-muted-tertiary:#9A958C;
+  --a-white:#FFFFFF;
+  --a-ink-deep:#171717;
   --a-danger:#A93E2E;
+  --a-danger-surface:#F2DDD8;
   --a-warning:#946022;
+  --a-warning-surface:#F1E5D4;
+  --a-scrim:rgba(25,24,22,.45);
+  --a-photo-overlay:rgba(25,24,22,.72);
+  --a-photo-label:rgba(25,24,22,.82);
+  --a-photo-shade:rgba(25,24,22,.38);
+  --a-ink-shadow:rgba(25,24,22,.35);
+  --a-soft-ink:rgba(25,24,22,.04);
+  --a-marker-focus:rgba(222,110,63,.45);
+  --a-ai-wash:rgba(222,110,63,.08);
+  --a-ai-wash-strong:rgba(222,110,63,.09);
   background:var(--a-paper);
   color:var(--a-ink);
   font-family:var(--a-font-body);
-  font-size:32rpx;
+  font-size:var(--a-type-body);
+  font-weight:var(--a-weight-regular);
   line-height:1.6;
 }
-.precision-head{background:var(--a-paper);color:var(--a-ink);padding:28rpx 0 34rpx;margin:0}
-.precision-head__kicker{color:var(--a-active);font-size:var(--a-type-caption);letter-spacing:.12em;margin-bottom:12rpx}
-.precision-head__title{font-family:var(--a-font-body);font-size:var(--a-type-display);font-weight:600;line-height:1.14;letter-spacing:-1rpx}
-.precision-head__project{font-size:var(--a-type-meta);color:var(--a-muted);margin-top:22rpx;min-height:44px;display:flex;align-items:center;justify-content:space-between}
-.precision-state{padding:28rpx 0;border-top:1px solid var(--a-line);font-size:var(--a-type-meta);color:var(--a-muted)}
+.precision-head{background:var(--a-paper);color:var(--a-ink);padding:var(--a-space-4) 0 var(--a-space-4);margin:0}
+.precision-head__kicker{color:var(--a-active);font-size:var(--a-type-caption);letter-spacing:.12em;margin-bottom:var(--a-space-2)}
+.precision-head__title{font-family:var(--a-font-body);font-size:var(--a-type-display);font-weight:var(--a-weight-emphasis);line-height:1.14;letter-spacing:-1rpx}
+.precision-head__project{font-size:var(--a-type-meta);color:var(--a-muted);margin-top:var(--a-space-3);min-height:var(--a-hit);display:flex;align-items:center;justify-content:space-between}
+.precision-state{padding:var(--a-space-4) 0;font-size:var(--a-type-meta);color:var(--a-muted)}
+/* Imported by isolated components as well as the app. No native tag selectors. */
+.ui-button-reset{min-width:var(--a-hit);min-height:var(--a-hit);font-family:var(--a-font-body);font-weight:var(--a-weight-regular);letter-spacing:0}
+.ui-button-reset::after{border:0}
+.ui-placeholder{font-family:var(--a-font-body);font-size:var(--a-type-body);font-weight:var(--a-weight-regular);color:var(--a-muted);letter-spacing:0}
+.ui-disabled{opacity:var(--a-state-disabled)}
+.ui-loading{opacity:var(--a-state-loading)}
+.is-pressed{opacity:var(--a-state-pressed)}
+.ui-button-reset { border-radius:var(--a-radius-control) !important; }

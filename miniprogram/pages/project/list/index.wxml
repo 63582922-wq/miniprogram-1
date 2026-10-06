@@ -1,9 +1,8 @@
 <view class="page project-page">
-  <page-nav-bar title="" />
-  <product-identity />
-  <view class="root-section-heading"><view class="root-section-heading__title">全部项目</view><button class="compact-action" bindtap="goCreate" hover-class="is-pressed">新建项目</button></view>
+  <page-nav-bar root="{{true}}" />
+  <product-identity title="全部项目" />
   <view class="project-search">
-    <input class="field-input project-search__input" placeholder="搜索项目名称或地址" value="{{keyword}}" bindinput="handleKeywordInput" confirm-type="search" bindconfirm="handleSearch" />
+    <input class="field-input project-search__input" placeholder="搜索项目名称或地址" value="{{keyword}}" bindinput="handleKeywordInput" confirm-type="search" bindconfirm="handleSearch" placeholder-class="ui-placeholder" />
   </view>
   <view wx:if="{{projectList.length}}" class="list">
     <view wx:for="{{projectList}}" wx:key="_id" class="project-row">
@@ -11,15 +10,14 @@
     </view>
   </view>
 
-  <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="loadProjects">重新加载</button></view>
+  <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="ui-button-reset secondary-button" bindtap="loadProjects">重新加载</button></view>
   <view wx:elif="{{loading}}" class="precision-state">正在加载项目…</view>
   <empty-state wx:elif="{{!projectList.length && keyword}}" title="没有找到项目" description="试试其他名称或地址" />
   <empty-state
     wx:elif="{{!projectList.length}}"
     title="还没有项目"
-    description="每次巡查都要归属到一个项目。先建一个，然后就能拍照、记录问题、生成报告。"
-    actionText="创建第一个项目"
-    bindaction="goCreate"
+    description="把现场照片和记录按项目保存。"
   />
-  <button wx:if="{{hasMore && !loading && !loadError}}" class="secondary-button" bindtap="onReachBottom">加载更多</button>
+  <button wx:if="{{hasMore && !loading && !loadError}}" class="ui-button-reset secondary-button" bindtap="onReachBottom">加载更多</button>
+  <view class="project-create-dock"><button class="ui-button-reset primary-button project-create-dock__button" bindtap="goCreate" hover-class="is-pressed"><image class="list-create-action__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />新建项目</button></view>
 </view>

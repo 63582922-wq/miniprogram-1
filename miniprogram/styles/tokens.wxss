@@ -1,94 +1,58 @@
-/**
- * tokens.wxss
- * Legacy aliases retained for older components.
- * New work must use precision-a.wxss. Values mirror the approved warm-paper
- * system so an old component cannot reintroduce a second visual theme.
+/*
+ * Deprecated semantic aliases retained for older templates.
+ * The only source of visual values is precision-a.wxss.
+ * Do not add independent colors, type scales, spacing, radii or shadows here.
  */
+@import "./precision-a.wxss";
 
-page {
-  /* === Colors === */
-  --color-primary: #191816;
-  --color-accent: #DE6E3F;
-  --color-accent-soft: #F4DED2;
+.page,:host,.custom-tab-bar {
+  --color-primary: var(--a-ink);
+  --color-accent: var(--a-accent);
+  --color-accent-soft: var(--a-accent-wash);
+  --color-text: var(--a-ink);
+  --color-text-secondary: var(--a-muted);
+  --color-text-tertiary: var(--a-muted-tertiary);
+  --color-text-inverse: var(--a-paper);
+  --color-bg: var(--a-paper);
+  --color-bg-card: var(--a-paper);
+  --color-bg-elevated: var(--a-field);
+  --color-bg-sunken: var(--a-surface);
+  --color-bg-dark: var(--a-ink-deep);
+  --color-border: var(--a-line);
+  --color-border-light: var(--a-photo-matte);
+  --color-border-strong: var(--a-line-strong);
+  --color-urgent: var(--a-danger);
+  --color-urgent-bg: var(--a-danger-surface);
+  --color-active: var(--a-active);
+  --color-active-bg: var(--a-surface);
+  --color-warning: var(--a-warning);
+  --color-warning-bg: var(--a-warning-surface);
+  --color-idle: var(--a-muted-tertiary);
+  --color-idle-bg: var(--a-surface);
 
-  --color-text: #191816;
-  --color-text-secondary: #706D67;
-  --color-text-tertiary: #9A958C;
-  --color-text-inverse: #E9E4DD;
+  --font-sans: var(--a-font-body);
+  --font-display: var(--a-font-display);
+  --text-xs: var(--a-type-caption);
+  --text-sm: var(--a-type-caption);
+  --text-base: var(--a-type-body);
+  --text-md: var(--a-type-action);
+  --text-lg: var(--a-type-object);
+  --text-xl: var(--a-type-title);
+  --text-2xl: var(--a-type-display);
 
-  --color-bg: #E9E4DD;
-  --color-bg-card: #E9E4DD;
-  --color-bg-elevated: #F2EEE8;
-  --color-bg-sunken: #E2DCD3;
-  --color-bg-dark: #171717;
-
-  --color-border: #C9C1B7;
-  --color-border-light: #DDD6CC;
-  --color-border-strong: #BBB1A4;
-
-  --color-urgent: #A93E2E;
-  --color-urgent-bg: #F2DDD8;
-  --color-active: #191816;
-  --color-active-bg: #E2DCD3;
-  --color-warning: #946022;
-  --color-warning-bg: #F1E5D4;
-  --color-idle: #9A958C;
-  --color-idle-bg: #E2DCD3;
-
-  /* === Typography === */
-  --font-sans: "PingFang SC", -apple-system, BlinkMacSystemFont, "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
-  --font-mono: "SF Mono", "Menlo", monospace;
-  --font-display: "Songti SC", "STSongti-SC-Regular", "STSong", "Source Han Serif SC", "Noto Serif CJK SC", "SimSun", serif;
-
-  --text-2xs: 20rpx;
-  --text-xs: 22rpx;
-  --text-sm: 24rpx;
-  --text-base: 28rpx;
-  --text-md: 30rpx;
-  --text-lg: 36rpx;
-  --text-xl: 44rpx;
-  --text-2xl: 56rpx;
-  --text-3xl: 72rpx;
-
-  --weight-light: 300;
-  --weight-regular: 400;
-  --weight-medium: 500;
-  --weight-semibold: 600;
-  --weight-bold: 700;
-
-  --leading-tight: 1.2;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.7;
-
-  /* === Spacing === */
-  --space-2xs: 4rpx;
-  --space-xs: 8rpx;
-  --space-sm: 12rpx;
-  --space-base: 16rpx;
-  --space-md: 20rpx;
-  --space-lg: 24rpx;
-  --space-xl: 32rpx;
-  --space-2xl: 40rpx;
-  --space-3xl: 48rpx;
-  --space-4xl: 64rpx;
-
-  /* === Radius === */
-  --radius-sm: 4rpx;
-  --radius-base: 8rpx;
-  --radius-md: 12rpx;
-  --radius-lg: 16rpx;
+  --space-xs: var(--a-space-1);
+  --space-sm: var(--a-space-2);
+  --space-base: var(--a-space-2);
+  --space-lg: var(--a-space-3);
+  --space-xl: var(--a-space-4);
+  --space-2xl: var(--a-space-5);
+  --space-3xl: var(--a-space-6);
+  --radius-base: var(--a-radius-control);
+  --radius-lg: var(--a-radius-object);
   --radius-full: 9999rpx;
-
-  /* === Shadows === */
-  --shadow-sm: 0 1rpx 4rpx rgba(25, 24, 22, .04);
-  --shadow-base: 0 2rpx 12rpx rgba(25, 24, 22, .06);
-  --shadow-md: 0 4rpx 20rpx rgba(25, 24, 22, .08);
-  --shadow-lg: 0 8rpx 32rpx rgba(25, 24, 22, .12);
-  --shadow-fab: 0 6rpx 20rpx rgba(222, 110, 63, .25);
-
-  /* === Layout === */
-  --page-padding: 24rpx;
-  --card-padding: 20rpx;
-  --tabbar-height: 120rpx;
-  --safe-bottom: env(safe-area-inset-bottom);
+  --shadow-sm: none;
+  --shadow-base: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-fab: none;
 }

@@ -8,7 +8,7 @@ Page({
     inspectionList: [],loading:false,loadError:"",page:0,hasMore:false,
     projectId: "",
     projectName: "",
-    pageTitle: "巡查"
+    pageTitle: "现场记录"
   },
   onLoad(query) {
     const projectId = query.projectId || "";
@@ -16,7 +16,7 @@ Page({
     this.setData({
       projectId,
       projectName,
-      pageTitle: projectName ? `${projectName}巡查` : "巡查"
+      pageTitle: projectName ? `${projectName}记录` : "现场记录"
     });
   },
   onShow() {
@@ -25,7 +25,8 @@ Page({
   onReachBottom(){if(this.data.hasMore)this.loadInspections(true);},
   async loadInspections(append=false) {
     append = append === true;
-    if(this.data.loading)return;
+    if(append&&this.data.loading)return;
+    const sequence=this.loadSequence=(this.loadSequence||0)+1;
     this.setData({loading:true,loadError:""});
     try {
       const result = await listInspections({
@@ -38,10 +39,11 @@ Page({
           createdAtText: formatDateTime(item.createdAt),
           projectNameText: item.projectName || "未关联项目"
         }));
+      if(sequence!==this.loadSequence)return;
       this.setData({inspectionList:append?this.data.inspectionList.concat(rows):rows,page:result.page||1,hasMore:!!result.hasMore});
     } catch (error) {
-      this.setData({loadError:error.message||"巡查记录加载失败，请重试"});
-    } finally {this.setData({loading:false});}
+      if(sequence===this.loadSequence)this.setData({loadError:error.message||"现场记录加载失败，请重试"});
+    } finally {if(sequence===this.loadSequence)this.setData({loading:false});}
   },
   goCreate() {
     openRecord(this.data.projectId, this.data.projectName, "inspectionList").catch(e=>wx.showToast({title:e.message,icon:"none"}));
@@ -73,7 +75,7 @@ Page({
     try {
       const actionResult = await new Promise((resolve, reject) => {
         wx.showActionSheet({
-          itemList: ["删除巡查"],
+          itemList: ["删除记录"],
           itemColor: "#FF3B30",
           success: resolve,
           fail: reject
@@ -86,7 +88,7 @@ Page({
 
       const confirmResult = await new Promise((resolve) => {
         wx.showModal({
-          title: "删除巡查",
+          title: "删除记录",
           content: `确定删除“${inspectionTitle}”吗？关联问题项和报告也会一起移除，删除后不能恢复。`,
           confirmText: "删除",
           confirmColor: "#FF3B30",

@@ -1,3 +1,5 @@
+const { PRIVACY_CONSENT_KEY } = require("../../utils/privacy-consent");
+
 Page({
   data:{agreed:false,loading:false,error:""},
   handleAgreeChange(event){this.setData({agreed:(event.detail.value||[]).includes("agreed")});},
@@ -8,7 +10,7 @@ Page({
     this.setData({loading:true,error:""});
     try {
       await getApp().bootstrap();
-      wx.setStorageSync("welcomeAcceptedV1", true);
+      wx.setStorageSync(PRIVACY_CONSENT_KEY, true);
       wx.switchTab({url:"/pages/project/list/index"});
     } catch(e) {this.setData({error:e.message||"身份初始化失败，请重试"});}
     finally {this.setData({loading:false});}

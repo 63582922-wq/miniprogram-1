@@ -4,7 +4,7 @@ const { markGuideStep } = require("../../../utils/guide");
 const { identity } = require("../../../utils/inspection-model");
 const KEY="projectCreateDraftV2";
 Page({
-  data:{projectId:"",pageTitle:"新建项目",isSaving:false,submissionLocked:false,showOptional:false,
+  data:{projectId:"",pageTitle:"新建项目",isSaving:false,submissionLocked:false,
     projectStatusOptions:PROJECT_STATUS_OPTIONS,projectStatusIndex:0,
     form:{name:"",address:"",clientName:"",clientPhone:"",description:"",status:"active"}},
   async onLoad(query){
@@ -38,7 +38,6 @@ Page({
     try{wx.setStorageSync(this.draftKey,{requestId:this.requestId,form:this.data.form,submitted:this.data.submissionLocked});return true;}
     catch(e){wx.showModal({title:"草稿保存失败",content:"请释放本机空间后重试，请勿关闭。",showCancel:false});return false;}
   },
-  toggleOptional(){this.setData({showOptional:!this.data.showOptional});},
   handleInput(e){if(this.data.submissionLocked)return;const field=e.currentTarget.dataset.field;
     if(!["name","address","clientName","clientPhone","description"].includes(field))return;
     this.setData({["form."+field]:e.detail.value});this.saveDraft();

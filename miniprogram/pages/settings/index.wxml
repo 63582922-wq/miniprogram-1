@@ -2,21 +2,21 @@
   <page-nav-bar title="报告资料" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
   <view class="settings-intro">这些资料会写入新报告，让接收者知道谁检查、如何联系。</view>
   <view wx:if="{{loading}}" class="precision-state">正在加载已保存资料…</view>
-  <view wx:elif="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="loadSettings">重新加载</button></view>
+  <view wx:elif="{{loadError}}" class="precision-state">{{loadError}}<button class="ui-button-reset secondary-button" bindtap="loadSettings">重新加载</button></view>
   <block wx:else>
     <view id="settings-inspector" class="settings-section">
       <view class="section-title">巡查人</view>
-      <view class="field"><view class="field-label">姓名</view><input class="field-input" value="{{form.inspectorName}}" data-field="inspectorName" bindinput="handleInput" maxlength="40" placeholder="填写实际巡查人姓名" /></view>
-      <view class="field"><view class="field-label">巡查联系电话 · 选填</view><input class="field-input" value="{{form.inspectorPhone}}" data-field="inspectorPhone" bindinput="handleInput" maxlength="30" placeholder="展示在报告中的联系方式" /></view>
+      <view class="field"><view class="field-label">姓名</view><input class="field-input" value="{{form.inspectorName}}" data-field="inspectorName" bindinput="handleInput" maxlength="40" placeholder="填写实际巡查人姓名" placeholder-class="ui-placeholder" /></view>
+      <view class="field"><view class="field-label">巡查联系电话 · 选填</view><input class="field-input" value="{{form.inspectorPhone}}" data-field="inspectorPhone" bindinput="handleInput" maxlength="30" placeholder="展示在报告中的联系方式" placeholder-class="ui-placeholder" /></view>
     </view>
     <view id="settings-company" class="settings-section">
       <view class="section-title">报告抬头</view>
-      <logo-uploader value="{{form.logoPreview}}" bindchange="handleLogoChange" />
-      <view class="field"><view class="field-label">公司名称 · 选填</view><input class="field-input" value="{{form.companyName}}" data-field="companyName" bindinput="handleInput" maxlength="100" placeholder="填写出具报告的公司名称" /></view>
-      <view class="field"><view class="field-label">公司联系电话 · 选填</view><input class="field-input" value="{{form.companyPhone}}" data-field="companyPhone" bindinput="handleInput" maxlength="30" placeholder="供业主或施工方联系" /></view>
-      <view class="field"><view class="field-label">公司地址 · 选填</view><textarea class="field-textarea" auto-height value="{{form.companyAddress}}" data-field="companyAddress" bindinput="handleInput" maxlength="200" placeholder="填写公司地址" /></view>
+      <logo-uploader value="{{form.logoPreview}}" uploadedFileId="{{form.logoFileId}}" previewError="{{form.logoPreviewError}}" bindchange="handleLogoChange" />
+      <view class="field"><view class="field-label">公司名称 · 选填</view><input class="field-input" value="{{form.companyName}}" data-field="companyName" bindinput="handleInput" maxlength="100" placeholder="填写出具报告的公司名称" placeholder-class="ui-placeholder" /></view>
+      <view class="field"><view class="field-label">公司联系电话 · 选填</view><input class="field-input" value="{{form.companyPhone}}" data-field="companyPhone" bindinput="handleInput" maxlength="30" placeholder="供业主或施工方联系" placeholder-class="ui-placeholder" /></view>
+      <view class="field"><view class="field-label">公司地址 · 选填</view><textarea class="field-textarea" auto-height value="{{form.companyAddress}}" data-field="companyAddress" bindinput="handleInput" maxlength="200" placeholder="填写公司地址" placeholder-class="ui-placeholder" /></view>
       <view class="section-subtitle">以上资料将随新报告分享给接收者。保存资料不会改写已发布的报告。</view>
     </view>
-    <view class="footer-actions" id="coach-save-target"><button class="primary-button" disabled="{{isSaving || loading || logoUploading}}" loading="{{isSaving}}" bindtap="handleSubmit">{{logoUploading ? 'LOGO 上传中' : isSaving ? '正在保存' : '保存资料'}}</button></view>
+    <view class="footer-actions" id="coach-save-target"><button class="ui-button-reset primary-button {{isSaving || loading || logoUploading ? 'ui-disabled' : ''}} {{isSaving ? 'ui-loading' : ''}}" disabled="{{isSaving || loading || logoUploading}}" loading="{{isSaving}}" bindtap="handleSubmit">{{logoUploading ? 'LOGO 上传中' : isSaving ? '正在保存' : '保存资料'}}</button></view>
   </block>
 </view>

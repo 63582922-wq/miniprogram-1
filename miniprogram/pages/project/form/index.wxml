@@ -1,14 +1,13 @@
 <view class="page project-form-page">
   <page-nav-bar title="{{pageTitle}}" showBack="{{true}}" />
-  <view class="project-form-intro">先填写名称，其他资料可随后补充。</view>
-  <view class="field"><view class="field-label">项目名称 · 必填</view><input class="field-input" value="{{form.name}}" disabled="{{submissionLocked}}" data-field="name" bindinput="handleInput" maxlength="80" placeholder="例如：湖畔新城 · 6 栋 1201" /></view>
-  <view class="field"><view class="field-label">项目地址 · 选填</view><input class="field-input" value="{{form.address}}" disabled="{{submissionLocked}}" data-field="address" bindinput="handleInput" maxlength="200" placeholder="便于现场人员找到这里" /></view>
-  <button class="form-expand" bindtap="toggleOptional">{{showOptional ? '收起更多资料' : '更多资料（选填）'}}</button>
-  <view wx:if="{{showOptional}}" class="form-optional">
-    <view class="field"><view class="field-label">联系人</view><input class="field-input" value="{{form.clientName}}" disabled="{{submissionLocked}}" data-field="clientName" bindinput="handleInput" maxlength="50" /></view>
-    <view class="field"><view class="field-label">联系电话</view><input class="field-input" value="{{form.clientPhone}}" disabled="{{submissionLocked}}" data-field="clientPhone" bindinput="handleInput" type="text" maxlength="30" /></view>
-    <view class="field"><view class="field-label">项目说明</view><textarea class="field-textarea" value="{{form.description}}" disabled="{{submissionLocked}}" data-field="description" bindinput="handleInput" maxlength="2000" auto-height /></view>
+  <view wx:if="{{!projectId}}" class="project-form-intro">先填写名称，其他资料可随后补充。</view>
+  <view class="field"><view class="field-label">项目名称 · 必填</view><input class="field-input" value="{{form.name}}" disabled="{{submissionLocked}}" data-field="name" bindinput="handleInput" maxlength="80" placeholder="例如：湖畔新城 · 6 栋 1201" placeholder-class="ui-placeholder" /></view>
+  <view class="field"><view class="field-label">项目地址 · 选填</view><input class="field-input" value="{{form.address}}" disabled="{{submissionLocked}}" data-field="address" bindinput="handleInput" maxlength="200" placeholder="便于现场人员找到这里" placeholder-class="ui-placeholder" /></view>
+  <view class="form-optional">
+    <view class="field"><view class="field-label">联系人</view><input class="field-input" value="{{form.clientName}}" disabled="{{submissionLocked}}" data-field="clientName" bindinput="handleInput" maxlength="50" placeholder-class="ui-placeholder" /></view>
+    <view class="field"><view class="field-label">联系电话</view><input class="field-input" value="{{form.clientPhone}}" disabled="{{submissionLocked}}" data-field="clientPhone" bindinput="handleInput" type="text" maxlength="30" placeholder-class="ui-placeholder" /></view>
+    <view class="field"><view class="field-label">项目说明</view><textarea class="field-textarea" value="{{form.description}}" disabled="{{submissionLocked}}" data-field="description" bindinput="handleInput" maxlength="2000" auto-height placeholder-class="ui-placeholder" /></view>
   </view>
   <view wx:if="{{submissionLocked}}" class="precision-state">提交内容已保留。请继续保存以确认结果，避免创建重复项目。</view>
-  <view class="footer-actions"><button class="primary-button" loading="{{isSaving}}" disabled="{{isSaving}}" bindtap="handleSubmit">{{submissionLocked ? '继续保存' : '保存项目'}}</button></view>
+  <view class="footer-actions"><button class="ui-button-reset primary-button {{isSaving ? 'ui-disabled ui-loading' : ''}}" loading="{{isSaving}}" disabled="{{isSaving}}" bindtap="handleSubmit">{{submissionLocked ? '继续保存' : '保存项目'}}</button></view>
 </view>

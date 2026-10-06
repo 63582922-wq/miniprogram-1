@@ -1,23 +1,23 @@
 <view class="page inspection-page">
-  <page-nav-bar title="巡查记录" showBack="{{true}}" />
-  <view class="page-heading"><view class="page-heading__title">{{pageTitle}}</view><button class="compact-action" hover-class="is-pressed" bindtap="goCreate">开始记录</button></view>
+  <page-nav-bar title="{{pageTitle || '现场记录'}}" showBack="{{true}}" />
+  <view class="page-heading"><button class="ui-button-reset list-create-action" hover-class="is-pressed" bindtap="goCreate"><image class="list-create-action__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />新建记录</button></view>
 
   <view wx:if="{{inspectionList.length}}" class="list">
-    <button wx:for="{{inspectionList}}" wx:key="_id" class="inspection-row" data-inspection-id="{{item._id}}" data-inspection-title="{{item.title}}" bindtap="openDetail" bindlongpress="handleInspectionLongPress" hover-class="is-pressed">
+    <button wx:for="{{inspectionList}}" wx:key="_id" class="ui-button-reset inspection-row" data-inspection-id="{{item._id}}" data-inspection-title="{{item.title}}" bindtap="openDetail" bindlongpress="handleInspectionLongPress" hover-class="is-pressed">
       <view class="inspection-row__title">{{item.title}}</view>
       <view class="inspection-row__desc">{{item.projectNameText}}</view>
       <view class="inspection-row__desc">{{item.createdAtText}}</view>
     </button>
   </view>
 
-  <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="loadInspections">重新加载</button></view>
-  <view wx:elif="{{loading}}" class="precision-state">正在加载巡查记录…</view>
+  <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="ui-button-reset secondary-button" bindtap="loadInspections">重新加载</button></view>
+  <view wx:elif="{{loading}}" class="precision-state">正在加载现场记录…</view>
   <empty-state
     wx:elif="{{!inspectionList.length}}"
-    title="暂无巡查记录"
-    description="从这里开始新建巡查，拍照、标注、整理问题并生成报告"
-    actionText="发起巡查"
+    title="暂无现场记录"
+    description="从项目开始拍照、标注、整理问题并生成报告"
+    actionText="新建记录"
     bindaction="goCreate"
   />
-  <button wx:if="{{hasMore && !loading && !loadError}}" class="secondary-button" bindtap="onReachBottom">加载更多</button>
+  <button wx:if="{{hasMore && !loading && !loadError}}" class="ui-button-reset secondary-button" bindtap="onReachBottom">加载更多</button>
 </view>

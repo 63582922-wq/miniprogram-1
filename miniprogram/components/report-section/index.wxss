@@ -1,15 +1,17 @@
-.report-section{padding:24rpx 0;border-bottom:1px solid var(--a-line);display:flex;flex-direction:column;gap:10rpx;background:transparent;border-radius:0;box-shadow:none;font-family:var(--a-font-body,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",sans-serif)}
+.report-section{padding:var(--a-space-3) 0;display:flex;flex-direction:column;gap:var(--a-space-1);background:transparent;border-radius:0;box-shadow:none;font-family:var(--a-font-body)}
 
 .report-section__title {
-  font-size: 30rpx;
-  font-weight: 400;
-  color: var(--a-ink, #191816);
-  letter-spacing: 0.04em;
+  font-size: var(--a-type-object);
+  font-weight:var(--a-weight-regular);
+  color: var(--a-ink);
+  line-height: 1.35;
 }
 
 .report-section__content {
-  font-size: 26rpx;
-  color: var(--a-muted, #706D67);
+  font-size: var(--a-type-body);
+  color: var(--a-ink);
   line-height: 1.7;
   white-space: pre-wrap;
+  word-break: break-word;
 }
+@import "../../styles/precision-a.wxss";

@@ -1,72 +1,42 @@
 <view class="item-card">
   <view class="item-card__header">
     <view class="item-card__header-main">
-      <view wx:if="{{showLeadingIndex}}" class="item-card__index">{{displayIndex || (index + 1)}}.</view>
-      <view>
-        <view wx:if="{{!hideTitle}}" class="item-card__title">{{resolvedTitle}}</view>
-      </view>
+      <view wx:if="{{showLeadingIndex && (item.description || item.markerNumber)}}" class="item-card__index">{{item.description ? (displayIndex || (index + 1))+'.' : '标注 '+item.markerNumber}}</view>
+      <view wx:if="{{!hideTitle}}" class="item-card__title">{{resolvedTitle}}</view>
+      <text wx:if="{{editable && item.needsReview}}" class="item-card__review-flag">{{item.textOrganized ? '文字整理 · 待核对' : item.evidenceSource === 'image' || item.evidenceSource === 'image+note' ? 'AI识图 · 待核对' : 'AI建议 · 待核对'}}</text>
     </view>
+    <button wx:if="{{editable}}" class="ui-button-reset item-card__action item-card__edit" bindtap="toggleEditing">{{editing ? '完成' : '修改'}}</button>
   </view>
-  <button wx:if="{{editable}}" class="item-card__edit" bindtap="toggleEditing">{{editing ? '完成修改' : '修改内容'}}</button>
-  <view wx:if="{{editable && item.needsReview}}" class="item-card__review-flag">AI 建议 · {{item.confidence === 'low' ? '把握较低，请重点核对' : '请结合现场核对'}}</view>
   <view wx:if="{{!editable || !editing}}" class="item-card__read">
-    <view class="item-card__description">{{item.description || '尚未填写描述，请点击修改内容'}}</view>
-    <view wx:if="{{item.suggestion}}" class="item-card__suggestion"><text class="item-card__label">建议</text> {{item.suggestion}}</view>
-    <view class="item-card__summary-meta">{{severityText}} · {{responsiblePartyOptions[responsiblePartyIndex].label}} {{item.area}} {{item.category}}</view>
+    <view class="item-card__description">{{item.description || '补充这处标注的说明'}}</view>
+    <view wx:if="{{showSourceQuote}}" class="item-card__source">
+      <button class="ui-button-reset item-card__source-toggle" aria-expanded="{{sourceQuoteExpanded}}" bindtap="toggleSourceQuote">{{sourceQuoteExpanded ? '收起原话' : '查看原话'}}</button>
+      <view wx:if="{{sourceQuoteExpanded}}" class="item-card__source-quote">{{item.sourceQuote}}</view>
+    </view>
+    <view wx:if="{{item.suggestion}}" class="item-card__suggestion"><text class="item-card__label">处理建议</text> {{item.suggestion}}</view>
+    <view wx:if="{{item.visualEvidence && !item.hideVisualEvidence}}" class="item-card__ai-evidence"><text class="item-card__ai-label">AI 观察</text><text>{{item.visualEvidence}}</text></view>
+    <view wx:if="{{item.area || item.category || item.responsiblePartyName || (item.severity && item.severity !== 'normal') || (item.responsibleParty && item.responsibleParty !== 'pending')}}" class="item-card__summary-meta">
+      <view wx:if="{{item.area}}" class="item-card__field-line"><text class="item-card__field-name">区域</text><text class="item-card__field-value">{{item.area}}</text></view>
+      <view wx:if="{{item.category}}" class="item-card__field-line"><text class="item-card__field-name">分类</text><text class="item-card__field-value">{{item.category}}</text></view>
+      <view wx:if="{{item.responsiblePartyName || (item.responsibleParty && item.responsibleParty !== 'pending')}}" class="item-card__field-line"><text class="item-card__field-name">责任方</text><text class="item-card__field-value">{{item.responsiblePartyName || responsiblePartyOptions[responsiblePartyIndex].label}}</text></view>
+      <view wx:if="{{item.severity && item.severity !== 'normal'}}" class="item-card__field-line"><text class="item-card__field-name">等级</text><text class="item-card__field-value">{{severityText}}</text></view>
+    </view>
   </view>
   <block wx:if="{{editable && editing}}">
-  <view class="item-card__field-grid">
-    <view class="item-card__row">
-      <text class="item-card__label">严重级</text>
-      <picker wx:if="{{editable}}" mode="selector" range="{{severityOptions}}" range-key="label" value="{{severityIndex}}" bindchange="handleSeverityChange">
-        <view class="item-card__picker">{{severityOptions[severityIndex].label}}</view>
-      </picker>
-      <view wx:else class="item-card__text">{{severityText}}</view>
-    </view>
-    <view class="item-card__row">
-      <text class="item-card__label">责任方</text>
-      <picker wx:if="{{editable}}" mode="selector" range="{{responsiblePartyOptions}}" range-key="label" value="{{responsiblePartyIndex}}" bindchange="handleResponsiblePartyChange">
-        <view class="item-card__picker">{{responsiblePartyOptions[responsiblePartyIndex].label}}</view>
-      </picker>
-      <view wx:else class="item-card__text">{{responsiblePartyOptions[responsiblePartyIndex].label}}</view>
-    </view>
-    <view class="item-card__row">
-      <text class="item-card__label">区域</text>
-      <input class="item-card__input" value="{{item.area}}" data-field="area" disabled="{{!editable}}" bindinput="handleChange" />
-    </view>
-    <view class="item-card__row">
-      <text class="item-card__label">分类</text>
-      <input class="item-card__input" value="{{item.category}}" data-field="category" disabled="{{!editable}}" bindinput="handleChange" />
-    </view>
-  </view>
-  <view class="item-card__section">
-    <view class="item-card__section-title">问题描述</view>
-    <textarea auto-height maxlength="5000" class="item-card__textarea" value="{{item.description}}" data-field="description" disabled="{{!editable}}" bindinput="handleChange" />
-  </view>
-  <view class="item-card__section">
-    <view class="item-card__section-title">整改建议</view>
-    <textarea auto-height maxlength="5000" class="item-card__textarea" value="{{item.suggestion}}" data-field="suggestion" disabled="{{!editable}}" bindinput="handleChange" />
-  </view>
-  </block>
-  <view wx:if="{{editable && editing && item.visualEvidence}}" class="item-card__row">
-    <text class="item-card__label">识别参考</text>
-    <view class="item-card__text">{{item.visualEvidence}}</view>
-  </view>
-  <view wx:if="{{editable && editing && item.evidenceSource}}" class="item-card__meta">
-    <view class="item-card__badge">{{item.evidenceSource === 'image+note' ? '图片 + 现场补充' : (item.evidenceSource === 'note' ? '现场补充' : '图片识别')}}</view>
-  </view>
-  <view wx:if="{{editable && editing && item.voiceText}}" class="item-card__row">
-    <text class="item-card__label">语音备注</text>
-    <view class="item-card__text">{{item.voiceText}}</view>
-  </view>
-  <view wx:if="{{showImages && item.images && item.images.length}}" class="item-card__row">
-    <text class="item-card__label">巡查照片</text>
-    <scroll-view class="item-card__image-scroll" scroll-x>
-      <view class="item-card__image-list">
-        <view wx:for="{{item.images}}" wx:key="*this" class="item-card__image-wrap">
-          <image class="item-card__image" src="{{item}}" mode="aspectFill" />
-        </view>
+    <textarea auto-height maxlength="5000" class="item-card__textarea" value="{{item.description}}" data-field="description" bindinput="handleChange" placeholder="这处有什么问题？" placeholder-class="ui-placeholder" />
+    <button class="ui-button-reset item-card__action item-card__more" bindtap="toggleMetadata">{{metadataExpanded ? '收起补充信息' : '处理建议、位置等（选填）'}}</button>
+    <view wx:if="{{metadataExpanded}}">
+      <view class="item-card__section"><view class="item-card__label">处理建议</view><textarea auto-height maxlength="5000" class="item-card__textarea" value="{{item.suggestion}}" data-field="suggestion" bindinput="handleChange" placeholder="未填写则不在报告显示" placeholder-class="ui-placeholder" /></view>
+      <view class="item-card__field-grid">
+        <view class="item-card__row"><text class="item-card__label">严重级</text><picker mode="selector" range="{{severityOptions}}" range-key="label" value="{{severityIndex}}" bindchange="handleSeverityChange"><view class="item-card__picker">{{severityOptions[severityIndex].label}}</view></picker></view>
+        <view class="item-card__row"><text class="item-card__label">责任方</text><input class="item-card__input" maxlength="120" value="{{item.responsiblePartyName || (item.responsibleParty !== 'pending' ? responsiblePartyOptions[responsiblePartyIndex].label : '')}}" data-field="responsiblePartyName" bindinput="handleChange" placeholder="原话未提及则留空" placeholder-class="ui-placeholder" /></view>
+        <view class="item-card__row"><text class="item-card__label">区域</text><input class="item-card__input" value="{{item.area}}" data-field="area" bindinput="handleChange" placeholder-class="ui-placeholder" /></view>
+        <view class="item-card__row"><text class="item-card__label">分类</text><input class="item-card__input" value="{{item.category}}" data-field="category" bindinput="handleChange" placeholder-class="ui-placeholder" /></view>
       </view>
-    </scroll-view>
-  </view>
+      <view wx:if="{{item.visualEvidence}}" class="item-card__summary-meta">识别参考：{{item.visualEvidence}}</view>
+      <view wx:if="{{item.originalText}}" class="item-card__summary-meta">原话：{{item.originalText}}</view>
+    </view>
+    <button class="ui-button-reset item-card__action item-card__delete" bindtap="deleteItem">删除这条</button>
+  </block>
+  <scroll-view wx:if="{{showImages && displayImages.length}}" class="item-card__image-scroll" scroll-x><view class="item-card__image-list"><image wx:for="{{displayImages}}" wx:key="*this" class="item-card__image" src="{{item}}" mode="aspectFill" /></view></scroll-view>
 </view>

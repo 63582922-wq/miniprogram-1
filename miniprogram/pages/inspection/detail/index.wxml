@@ -1,17 +1,30 @@
 <view class="page inspection-detail-page">
-  <page-nav-bar title="巡查详情" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-  <view class="inspection-detail__head">
-    <view class="section-title">{{inspection.title}}</view>
-    <view class="section-subtitle">{{inspection.projectNameText}}</view>
-    <view class="section-subtitle">{{inspection.createdAtText}}</view>
-    <view class="section-subtitle">{{items.length}} 条问题</view>
-  </view>
+  <page-nav-bar title="现场记录" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
+  <view wx:if="{{loading}}" class="precision-state">正在加载现场记录…</view>
+  <view wx:elif="{{loadError}}" class="precision-state">{{loadError}}<button class="ui-button-reset secondary-button" bindtap="loadDetail">重新加载</button></view>
+  <block wx:else>
+    <view class="inspection-detail__head">
+      <view class="inspection-detail__eyebrow">历史记录</view>
+      <view class="section-title">{{inspection.title || '现场记录'}}</view>
+      <view class="section-subtitle">{{inspection.projectNameText}}</view>
+      <view class="inspection-detail__meta"><text>{{inspection.createdAtText}}</text><text>{{items.length}} 条问题</text></view>
+    </view>
 
-  <view class="list">
-    <inspection-item-card wx:for="{{items}}" wx:key="_id" item="{{item}}" index="{{index}}" />
-  </view>
+    <view wx:if="{{!items.length && photos.length}}" class="inspection-detail__photos">
+      <view wx:for="{{photos}}" wx:key="id" class="inspection-detail__photo">
+        <image wx:if="{{item.previewUrl}}" class="inspection-detail__image" src="{{item.previewUrl}}" mode="widthFix" data-index="{{index}}" bindtap="previewPhoto" />
+        <view wx:else class="precision-state">照片 {{item.number}} 暂时无法加载<button class="ui-button-reset secondary-button" bindtap="loadDetail">重试</button></view>
+        <view wx:if="{{item.caption || item.voiceText}}" class="section-subtitle">{{item.caption || item.voiceText}}</view>
+      </view>
+    </view>
+    <view wx:if="{{items.length}}" class="list">
+      <inspection-item-card wx:for="{{items}}" wx:key="_id" item="{{item}}" index="{{index}}" />
+    </view>
+    <view wx:else class="precision-state">未记录问题</view>
 
-  <view class="footer-actions footer-actions--fixed">
-    <button class="primary-button" bindtap="goReport">{{reportId ? '查看已生成报告' : '生成巡查报告'}}</button>
-  </view>
+    <view class="inspection-detail__note">{{reportId ? '报告已发布，打开后可直接阅读或转发。' : '这次记录还没有报告，可继续整理后发布。'}}</view>
+    <view class="footer-actions footer-actions--fixed">
+      <button class="ui-button-reset primary-button" bindtap="goReport">{{reportId ? '查看报告' : '整理并生成报告'}}</button>
+    </view>
+  </block>
 </view>

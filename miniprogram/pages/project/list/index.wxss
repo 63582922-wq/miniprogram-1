@@ -4,15 +4,21 @@
   /* The page is one continuous surface. Flex gap used to create paper-colour
      seams between the dark hero, search field and project list. */
   gap: 0;
-  padding-bottom: calc(150rpx + env(safe-area-inset-bottom));
+  /* The custom tab bar is fixed above the viewport. Leave a full tab-bar
+     rhythm plus the safe area so the last project row can be read and tapped
+     without scrolling it under the navigation. */
+  padding-bottom: calc(var(--a-hit-tab) + var(--a-hit-primary) + var(--a-space-4) + env(safe-area-inset-bottom));
 }
 
 .project-page .precision-head {
   margin-bottom: 0;
 }
 
+.project-create-dock{position:fixed;left:0;right:0;bottom:calc(var(--a-hit-tab) + env(safe-area-inset-bottom));z-index:35;display:flex;justify-content:center;padding:var(--a-space-2) var(--a-page-inset);background:var(--a-paper)}
+.project-create-dock__button{min-height:var(--a-hit-primary);margin:0!important;max-width:560rpx}
+
 .project-search {
-  padding: 16rpx 0 10rpx;
+  padding: var(--a-space-2) 0 var(--a-space-1);
   background: var(--a-paper);
 }
 

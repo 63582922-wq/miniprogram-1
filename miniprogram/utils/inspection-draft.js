@@ -147,7 +147,8 @@ function photoInputSignature(photo = {}) {
     revision: photo.mediaRevision || 1,
     annotations: photo.annotations || [],
     voiceText: photo.voiceText || "",
-    analysisMode: photo.analysisMode || "auto"
+    analysisMode: photo.analysisMode || "auto",
+    organizeText: photo.organizeText === true
   });
 }
 
@@ -181,6 +182,14 @@ function finishDraft(sessionKey) {
   if (latest && latest.sessionKey === sessionKey) wx.removeStorageSync("latestInspectionDraftMeta");
 }
 
+function discardDraft(sessionKey, projectId) {
+  const draft=readDraft(sessionKey);
+  if(!currentOwner() || !draft.form || draft.form.projectId!==projectId)throw new Error('无法删除该记录');
+  if(draft.submission?.requestId)throw new Error('记录已发起提交，请先完成报告');
+  // Completion tombstone prevents a late AI response from resurrecting this draft.
+  finishDraft(sessionKey);
+}
+
 /**
  * 局部更新某一条问题草稿，返回更新后的完整 form。
  * 标注页回写走这个接口，避免它自己拼一份形状不对的数据。
@@ -210,5 +219,5 @@ module.exports = {
   readDraft,
   writeDraft,
   updateIssueDraft,
-  patchDraft, finishDraft, inputSignature, listDrafts, currentOwner, claimLegacyDraft
+  patchDraft, finishDraft, discardDraft, inputSignature, listDrafts, currentOwner, claimLegacyDraft
 };

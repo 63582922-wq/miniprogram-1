@@ -1,8 +1,11 @@
-<view class="page-nav-bar" style="padding-top: {{statusBarHeight}}px;">
-  <view class="page-nav-bar__content" style="min-height: {{navContentHeight}}px; padding-right: {{capsuleSafeWidth}}px;">
-    <button wx:if="{{showBack}}" class="page-nav-bar__back" bindtap="handleBackTap"><image class="page-nav-bar__icon" src="/images/icons/nav-back.svg" mode="aspectFit" /><text>返回</text></button>
-    <button wx:elif="{{rightText}}" class="page-nav-bar__back" bindtap="handleRightTap"><image class="page-nav-bar__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" /><text>{{rightText}}</text></button>
-    <text class="page-nav-bar__title {{brandTitle ? 'page-nav-bar__title--brand' : ''}}">{{title}}</text>
+<view class="page-nav-bar {{root ? 'page-nav-bar--root' : ''}}" style="padding-top: {{statusBarHeight}}px;">
+  <view class="page-nav-bar__content" style="min-height: {{navContentHeight}}px;">
+    <button wx:if="{{showBack}}" class="ui-button-reset page-nav-bar__back" bindtap="handleBackTap" hover-class="is-pressed" aria-label="返回上一页"><image class="page-nav-bar__icon" src="/images/icons/nav-back.svg" mode="aspectFit" /><text>返回</text></button>
+    <button wx:elif="{{rightText}}" class="ui-button-reset page-nav-bar__back" bindtap="handleRightTap"><image class="page-nav-bar__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" /><text>{{rightText}}</text></button>
+    <view class="page-nav-bar__heading" style="left:{{capsuleSafeWidth}}px;right:{{capsuleSafeWidth}}px">
+      <image wx:if="{{brandTitle}}" class="page-nav-bar__brand-mark" src="/images/brand/chibao-icon-v1.png" mode="aspectFit" aria-label="尺包" />
+      <text class="page-nav-bar__title {{brandTitle ? 'page-nav-bar__title--brand' : ''}}">{{title}}</text>
+    </view>
   </view>
 </view>
-<view wx:if="{{privacyVisible}}" class="privacy-mask"><view class="privacy-dialog"><view class="privacy-title">使用前，请阅读隐私指引</view><view class="privacy-copy">照片用于现场记录与报告，录音用于语音说明。不同意仍可输入文字。</view><button class="privacy-link" bindtap="openPrivacy">查看隐私保护指引</button><button id="haoli-privacy-agree" class="privacy-agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agreePrivacy">同意并继续</button><button class="privacy-link" bindtap="rejectPrivacy">暂不同意</button></view></view>
+<view wx:if="{{privacyVisible}}" class="privacy-mask"><view class="privacy-dialog"><view class="privacy-title">使用前，请阅读隐私指引</view><view class="privacy-copy">照片用于现场记录与报告，录音用于语音说明。不同意仍可输入文字。</view><button class="ui-button-reset privacy-link" bindtap="openPrivacy">查看隐私保护指引</button><button id="haoli-privacy-agree" class="ui-button-reset privacy-agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agreePrivacy">同意并继续</button><button class="ui-button-reset privacy-link" bindtap="rejectPrivacy">暂不同意</button></view></view>

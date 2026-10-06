@@ -1,18 +1,18 @@
 <view class="page report-list-page">
-  <page-nav-bar title="" />
-  <product-identity />
-  <view class="root-section-heading"><view class="root-section-heading__title">全部报告</view></view>
-  <button class="report-filter" bindtap="chooseFilter" hover-class="is-pressed"><text>{{projectName || '全部项目'}}</text><view><text>{{projectId ? '更换项目' : '选择项目'}}</text><image src="/images/icons/icon-arrow-right.svg" /></view></button>
+  <page-nav-bar root="{{true}}" />
+  <product-identity title="全部报告" />
+  <button class="ui-button-reset report-filter" bindtap="chooseFilter" hover-class="is-pressed"><text>{{projectName || '全部项目'}}</text><view class="report-filter__aside"><text>{{projectId ? '更换项目' : '选择项目'}}</text><image class="report-filter__icon" src="/images/icons/icon-arrow-right.svg" /></view></button>
   <view class="list">
-    <button wx:for="{{reports}}" wx:key="_id" class="report-row" data-report-id="{{item._id}}" data-report-title="{{item.title}}" bindtap="openReport" bindlongpress="handleReportLongPress" hover-class="is-pressed">
-      <view class="report-row__title">{{item.displayTitle}}</view><view class="report-row__desc">{{item.generatedAtDisplay}}</view>
-      <view class="report-row__foot"><text>已发布 · 在线报告</text><image src="/images/icons/icon-arrow-right.svg" /></view>
+    <button wx:for="{{reports}}" wx:key="_id" class="ui-button-reset report-row" data-report-id="{{item._id}}" data-report-title="{{item.title}}" bindtap="openReport" bindlongpress="handleReportLongPress" hover-class="is-pressed">
+      <view class="report-row__title object-list-title">{{item.displayTitle}}</view>
+      <view class="report-row__meta"><text>{{item.reportNo}}</text><text wx:if="{{item.generatedAtDisplay}}" class="report-row__separator">·</text><text wx:if="{{item.generatedAtDisplay}}">{{item.generatedAtDisplay}}</text></view>
+      <view class="report-row__foot"><view class="report-row__metrics">{{item.summaryDisplay}}</view><view class="report-row__status"><text wx:if="{{item.shareState === 'revoked'}}">分享已撤销</text><image class="report-row__icon" src="/images/icons/icon-arrow-right.svg" /></view></view>
     </button>
   </view>
-  <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="secondary-button" bindtap="retryLoad">重新加载</button></view>
+  <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="ui-button-reset secondary-button" bindtap="retryLoad">重新加载</button></view>
   <view wx:elif="{{loading}}" class="precision-state">正在加载报告…</view>
   <empty-state wx:elif="{{!reports.length}}" title="暂无报告" description="现场记录经人工核对后，报告会显示在这里" />
-  <button wx:if="{{hasMore && !loading && !loadError}}" class="secondary-button" bindtap="onReachBottom">加载更多</button>
+  <button wx:if="{{hasMore && !loading && !loadError}}" class="ui-button-reset secondary-button" bindtap="onReachBottom">加载更多</button>
   <view wx:if="{{filterVisible}}" class="filter-mask" bindtap="closeFilter"></view>
-  <view wx:if="{{filterVisible}}" class="filter-sheet"><view class="section-title">按项目查看</view><scroll-view scroll-y class="filter-options"><button bindtap="selectFilter" data-id="">全部项目</button><button wx:for="{{filterProjects}}" wx:key="_id" data-id="{{item._id}}" bindtap="selectFilter">{{item.name}}</button></scroll-view><button class="secondary-button" bindtap="closeFilter">取消</button></view>
+  <view wx:if="{{filterVisible}}" class="filter-sheet"><view class="section-title filter-sheet__title">按项目查看</view><scroll-view scroll-y class="filter-options"><button class="ui-button-reset filter-option" bindtap="selectFilter" data-id="">全部项目</button><button class="ui-button-reset filter-option" wx:for="{{filterProjects}}" wx:key="_id" data-id="{{item._id}}" bindtap="selectFilter">{{item.name}}</button></scroll-view><button class="ui-button-reset secondary-button" bindtap="closeFilter">取消</button></view>
 </view>

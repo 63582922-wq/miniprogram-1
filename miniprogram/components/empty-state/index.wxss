@@ -1,24 +1,24 @@
 .empty-state {
-  padding: 56rpx 24rpx;
-  border-radius: 4rpx;
+  padding: var(--a-space-7) var(--a-space-3);
+  border-radius: var(--a-radius-tight);
   background: transparent;
   text-align: center;
   border: none;
-  font-family: var(--a-font-body, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif);
+  font-family: var(--a-font-body);
 }
 
 .empty-state__title {
-  font-family: var(--a-font-body, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Helvetica Neue", sans-serif);
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--a-ink, #191816);
+  font-family: var(--a-font-body);
+  font-size:var(--a-type-action);
+  font-weight:var(--a-weight-emphasis);
+  color: var(--a-ink);
   letter-spacing: 0.04em;
 }
 
 .empty-state__description {
-  margin-top: 14rpx;
-  font-size: 26rpx;
-  color: var(--a-muted, #706D67);
+  margin-top: var(--a-space-2);
+  font-size:var(--a-type-caption);
+  color: var(--a-muted);
   line-height: 1.6;
 }
 
@@ -28,13 +28,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin: 28rpx auto 0;
-  padding: 0 56rpx;
-  height: 84rpx;
+  margin: var(--a-space-4) auto 0;
+  padding: 0 var(--a-space-7);
+  min-height: var(--a-hit-primary);
   background: var(--a-accent);
   color: var(--a-accent-ink);
-  font-size: 26rpx;
-  letter-spacing: 0.16em;
+  font-size:var(--a-type-action);
+  letter-spacing: 0;
 }
 
 .empty-state__action::after {
@@ -44,3 +44,4 @@
 .empty-state__action:active {
   opacity: 0.85;
 }
+@import "../../styles/precision-a.wxss";

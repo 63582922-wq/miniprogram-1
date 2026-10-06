@@ -1,56 +1,46 @@
 <view class="page inspection-result-page">
   <page-nav-bar title="人工核对" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
-  <view class="page-heading"><view><view class="page-heading__title">确认内容</view><view class="section-subtitle">{{summary.projectName}} · {{summary.issueCount}} 条问题</view></view></view>
-  <view wx:if="{{submissionLocked}}" class="precision-state">内容已锁定，重试将继续同一份报告，不会重复创建。</view>
+  <view class="review-context"><text>{{summary.projectName}}</text><text class="review-context__count">{{form.issueDrafts.length}} 张照片 · {{summary.issueCount}} 条问题</text></view>
+  <view wx:if="{{submissionLocked}}" class="precision-state">保存尚未完成，请重试。</view>
   <view wx:if="{{reviewNeedsAttention && !submissionLocked}}" class="review-change-notice">照片或说明已变化，请逐张核对后再生成报告。</view>
+  <view wx:if="{{summary.visionRequested && summary.aiIssueCount > 0}}" class="ai-review-notice"><text class="ai-review-notice__title">AI 识图完成 · 待你核对</text><view class="ai-review-notice__counts"><text>{{summary.aiIssueCount}} 项待核对问题</text></view></view>
+  <view wx:if="{{summary.textOrganizationRequested && !summary.visionRequested && summary.aiHasOutput}}" class="ai-review-notice"><text class="ai-review-notice__title">文字整理结果 · 待核对</text></view>
+  <view wx:if="{{(summary.visionRequested && !summary.aiIssueCount) || summary.aiMode === 'empty'}}" class="ai-review-notice ai-review-notice--empty">
+    <text class="ai-review-notice__title">{{summary.visionRequested ? 'AI 未识别到明确问题' : summary.textOrganizationRequested ? 'AI 未从文字中整理出可核对内容' : 'AI 未提取到明确问题'}}</text>
+    <text>{{summary.visionRequested ? '照片仍在，可手动添加问题；这不代表现场验收合格。' : summary.textOrganizationRequested ? '原始说明仍保留，可直接手动填写；不会据此自动生成问题。' : '照片仍已保留。请结合现场情况核对；没有识别结果不代表现场验收合格。'}}</text>
+    <button wx:if="{{summary.visionRequested && !submissionLocked}}" class="ui-button-reset ai-review-retry" bindtap="retryAiRecognition">重新识图</button>
+  </view>
+  <view wx:if="{{mediaLoadError}}" class="precision-state">{{mediaLoadError}}<button class="ui-button-reset review-identity__retry" bindtap="retryReviewMedia">重新加载照片</button></view>
   <view class="review-identity">
-    <image wx:if="{{reportIdentity.logoFileId}}" class="review-identity__logo" src="{{reportIdentity.logoFileId}}" mode="aspectFit" />
-    <view class="review-identity__copy"><view class="field-label">本次报告出具信息</view><view class="review-identity__company">{{reportIdentity.companyName || '公司名称未填写'}}</view><view class="section-subtitle">{{reportIdentity.inspectorName || '巡查人未填写'}}{{reportIdentity.inspectorPhone ? ' · ' + reportIdentity.inspectorPhone : ' · 联系电话未填写'}}</view><view wx:if="{{identityError}}" class="section-subtitle">{{identityError}}</view><view class="review-identity__freeze">确认后随当前报告固定，不会被后续资料修改覆盖</view></view>
-    <button class="review-identity__edit" bindtap="editReportIdentity">完善资料</button>
+    <image wx:if="{{reportIdentity.logoPreviewUrl}}" class="review-identity__logo" src="{{reportIdentity.logoPreviewUrl}}" mode="aspectFit" binderror="handleIdentityLogoError" />
+    <view wx:elif="{{identityLogoError}}" class="review-identity__logo-error">标识暂不可用<button class="ui-button-reset review-identity__retry" bindtap="retryIdentityLoad">重新加载</button></view>
+    <view class="review-identity__copy"><view class="review-identity__company">{{reportIdentity.companyName || '巡查单位未填写'}}</view><view class="section-subtitle">{{reportIdentity.inspectorName || '巡查人未填写'}}<text wx:if="{{reportIdentity.inspectorPhone || reportIdentity.companyPhone}}"> · {{reportIdentity.inspectorPhone || reportIdentity.companyPhone}}</text></view><view wx:if="{{identityError}}" class="section-subtitle">{{identityError}}<button class="ui-button-reset review-identity__retry" bindtap="retryIdentityLoad">重新加载</button></view></view>
+    <button class="ui-button-reset review-identity__edit" bindtap="editReportIdentity">资料</button>
   </view>
-  <view class="result-guide">
-    <view class="result-guide__head">
-      <view class="section-title">本次小结</view>
-      <button wx:if="{{!submissionLocked}}" class="result-edit-link" bindtap="toggleSummaryEditing">{{summaryEditing ? '完成' : '修改'}}</button>
-    </view>
-    <textarea wx:if="{{summaryEditing}}" class="field-textarea" auto-height focus maxlength="5000" value="{{summary.aiSummary}}" disabled="{{submissionLocked}}" bindinput="handleSummaryInput" />
-    <view wx:else class="result-guide__content">{{summary.aiSummary}}</view>
-  </view>
-
-  <view wx:if="{{summary.memoryHint}}" class="result-memory">
-    <view class="result-memory__label">历史提示</view>
-    <view class="result-memory__text">{{summary.memoryHint}}</view>
-    <view wx:if="{{summary.memoryAlerts && summary.memoryAlerts.length}}" class="result-memory__list">
+  <view wx:if="{{summary.memoryAlerts && summary.memoryAlerts.length}}" class="result-memory">
+    <view class="result-memory__label">核对提醒</view>
+    <view class="result-memory__list">
       <view wx:for="{{summary.memoryAlerts}}" wx:key="*this" class="result-memory__item">{{item}}</view>
     </view>
   </view>
 
   <view wx:if="{{summary.contextNote}}" class="result-guide">
-    <view class="result-guide__head">
-      <view class="section-title">现场补充</view>
-    </view>
+    <view class="section-title">现场补充说明</view>
     <view class="detail-text">{{summary.contextNote}}</view>
   </view>
 
-  <view class="result-list-heading"><view class="section-title">照片与问题</view><view class="section-subtitle">按照片核对，允许修改、删除或手动新增问题。</view></view>
   <view class="list">
     <view wx:for="{{issueGroups}}" wx:for-item="group" wx:for-index="groupIndex" wx:key="key" class="result-group">
       <view class="result-group__head">
         <view class="result-group__title">{{group.displayTitle}}</view>
-      <view class="result-group__count">{{group.issues.length}} 条</view>
+      <view class="result-group__count">{{group.statusText}}</view>
       </view>
       <view wx:if="{{group.image}}" class="result-group__media">
-        <image class="result-group__image" src="{{group.image}}" mode="aspectFit" />
+        <image class="result-group__image" src="{{group.image}}" mode="widthFix" />
       </view>
-      <view class="field result-caption">
-        <view class="result-caption__head"><view class="field-label">现场说明</view><button wx:if="{{!submissionLocked}}" class="result-edit-link" data-index="{{group.sourceIndex}}" bindtap="toggleCaptionEditing">{{captionEditingIndex === group.sourceIndex ? '完成' : (group.caption ? '修改' : '添加说明')}}</button></view>
-        <textarea wx:if="{{captionEditingIndex === group.sourceIndex}}" class="field-textarea" auto-height focus maxlength="5000" disabled="{{submissionLocked}}" placeholder="补充照片说明，不会自动创建问题" value="{{group.caption}}" data-index="{{group.sourceIndex}}" bindinput="handleCaptionInput" />
-        <view wx:elif="{{group.caption}}" class="detail-text">{{group.caption}}</view>
-        <view wx:else class="section-subtitle">未添加现场说明</view>
-      </view>
+      <view wx:if="{{group.aiEmpty}}" class="ai-observation-empty"><text class="ai-observation-empty__title">未获得识别结果，可手动添加问题。</text></view>
+      <view wx:if="{{group.caption}}" class="legacy-photo-note"><text class="legacy-photo-note__label">现场说明</text><text class="detail-text">{{group.caption}}</text></view>
       <view class="result-group__issues">
-        <button class="result-add-issue" disabled="{{submissionLocked}}" data-index="{{group.sourceIndex}}" bindtap="handleAddIssue">新增问题</button>
-        <view wx:if="{{!group.issues.length}}" class="section-subtitle">本组未记录问题，照片仍保留。未记录问题不代表验收合格。</view>
         <view
           wx:for="{{group.issues}}"
           wx:for-item="subIssue"
@@ -61,23 +51,20 @@
           <inspection-item-card
             item="{{subIssue}}"
             index="{{subIssue.originalIndex}}"
-            displayIndex="{{subIssue.markerNumber || subIndex + 1}}"
+            displayIndex="{{subIssue.reviewNumber}}"
             hideTitle="{{true}}"
             showImages="{{false}}"
             editable="{{!submissionLocked}}"
             bindchange="handleItemChange"
+            binddelete="handleDeleteIssue"
           />
-          <button
-            wx:if="{{!submissionLocked}}" class="issue-entry__delete"
-            data-index="{{subIssue.originalIndex}}"
-            bindtap="handleDeleteIssue"
-          >删除这条</button>
         </view>
       </view>
+      <view wx:if="{{!submissionLocked}}" class="result-photo-actions"><button class="ui-button-reset result-add-issue" data-index="{{group.sourceIndex}}" bindtap="handleAddIssue">添加问题</button></view>
     </view>
   </view>
 
   <view class="footer-actions footer-actions--fixed">
-    <button class="primary-button" loading="{{submitting}}" disabled="{{submitting}}" bindtap="handleAcceptAllAndSubmit">确认内容并生成报告</button>
+    <button class="ui-button-reset primary-button review-submit {{submitting ? 'ui-disabled ui-loading' : ''}}" loading="{{submitting}}" disabled="{{submitting}}" hover-class="is-pressed" aria-label="确认当前核对内容并生成微信报告" bindtap="handleAcceptAllAndSubmit">{{submitting ? '正在保存并生成报告…' : '确认内容并生成报告'}}</button>
   </view>
 </view>

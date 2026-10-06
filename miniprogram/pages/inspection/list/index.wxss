@@ -4,17 +4,17 @@
   gap: 0;
 }
 
-.inspection-row{width:100%;box-sizing:border-box;padding:24rpx 0;margin:0;border:0;border-bottom:1px solid var(--a-line);background:transparent;border-radius:0;box-shadow:none;text-align:left;line-height:normal;color:inherit}
+.inspection-row{width:100%;box-sizing:border-box;padding:var(--a-space-3) 0;margin:0;border:0;background:transparent;border-radius:0;box-shadow:none;text-align:left;line-height:normal;color:inherit}
 .inspection-row::after{border:0}
 
 .inspection-row__title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--a-ink, #191816);
+  font-size:var(--a-type-body);
+  font-weight:var(--a-weight-emphasis);
+  color: var(--a-ink);
 }
 
 .inspection-row__desc {
-  margin-top: 8rpx;
-  font-size: 26rpx;
-  color: var(--a-muted, #706D67);
+  margin-top: var(--a-space-1);
+  font-size:var(--a-type-caption);
+  color: var(--a-muted);
 }

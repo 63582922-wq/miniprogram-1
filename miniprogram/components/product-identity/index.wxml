@@ -1,7 +1,8 @@
-<view class="product-identity">
-  <image class="product-identity__mark" src="/images/brand/haoli-symbol-v8.png" mode="aspectFit" />
+<view class="product-identity-spacer" aria-hidden="true"></view>
+<view class="product-identity" style="padding-top:{{statusBarHeight}}px;padding-right:{{capsuleSafeWidth}}px">
+  <image class="product-identity__mark" src="/images/brand/chibao-icon-v1.png" mode="aspectFit" aria-label="尺包" />
   <view class="product-identity__copy">
-    <view class="product-identity__name">毫厘智管</view>
-    <view class="product-identity__desc">现场记录 · 精准标注 · 清楚交付</view>
+    <view class="product-identity__name">尺包</view>
   </view>
+  <view wx:if="{{title}}" class="product-identity__title" style="top:{{statusBarHeight}}px;left:{{capsuleSafeWidth}}px;right:{{capsuleSafeWidth}}px">{{title}}</view>
 </view>

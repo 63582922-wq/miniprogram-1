@@ -1,5 +1,6 @@
 <view class="logo-card">
-  <image wx:if="{{value}}" class="logo-preview" src="{{value}}" mode="aspectFit" />
-  <view class="logo-copy"><view class="logo-title">公司 LOGO</view><view class="logo-hint">用于报告抬头</view></view>
-  <button class="logo-button" aria-label="{{value ? '更换公司 LOGO' : '上传公司 LOGO'}}" bindtap="chooseLogo">{{value ? '更换' : '上传'}}</button>
+  <image wx:if="{{value}}" class="logo-preview" src="{{value}}" mode="aspectFit" binderror="handlePreviewError" />
+  <view wx:elif="{{uploadedFileId}}" class="logo-preview logo-preview--unavailable">LOGO</view>
+  <view class="logo-copy"><view class="logo-title">公司 LOGO</view><view class="logo-hint">{{uploadedFileId ? (previewError ? '已上传 · 预览失败，可重试' : value ? '已上传' : '已上传 · 正在加载预览') : '用于报告抬头'}}</view></view>
+  <button class="ui-button-reset logo-button" aria-label="{{uploadedFileId ? '更换公司 LOGO' : '上传公司 LOGO'}}" bindtap="chooseLogo">{{uploadedFileId ? '更换' : '上传'}}</button>
 </view>

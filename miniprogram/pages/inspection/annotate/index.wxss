@@ -1,12 +1,21 @@
-.annotate-page{min-height:100vh;padding-bottom:0;display:flex;flex-direction:column}.annotate-page .footer-actions{margin-top:auto;padding-left:0;padding-right:0}
+.annotate-page{height:100vh;min-height:0;box-sizing:border-box;padding-bottom:0;display:flex;flex-direction:column}.annotate-page .annotate-canvas{display:block;width:100%;min-width:0;min-height:0;flex:1 1 auto;overflow:hidden}.annotate-page .footer-actions{margin-top:0;padding-left:0;padding-right:0}
+
+.annotation-exit{position:fixed;z-index:999;top:0;right:0;bottom:0;left:0;background:var(--a-scrim);}
+.annotation-exit__sheet{position:absolute;right:0;bottom:0;left:0;box-sizing:border-box;padding:var(--a-space-3) var(--a-page-inset) calc(var(--a-space-3) + env(safe-area-inset-bottom));border:1px solid var(--a-line);border-bottom:0;border-radius:var(--a-radius-sheet) var(--a-radius-sheet) 0 0;background:var(--a-paper);color:var(--a-ink);}
+.annotation-exit__grabber{width:var(--a-space-8);height:var(--a-space-1);margin:0 auto var(--a-space-3);border-radius:var(--a-radius-pill);background:var(--a-line-strong);}
+.annotation-exit__title{font-size:var(--a-type-section);font-weight:var(--a-weight-emphasis);line-height:1.35;text-align:center;}
+.annotation-exit__hint{margin:var(--a-space-1) 0 var(--a-space-3);color:var(--a-muted);font-size:var(--a-type-caption);line-height:1.45;text-align:center;}
+.annotation-exit__action{display:flex;min-height:var(--a-hit-primary);align-items:center;justify-content:center;color:var(--a-ink);font-size:var(--a-type-action);font-weight:var(--a-weight-medium);}
+.annotation-exit__action--primary{margin-bottom:var(--a-space-1);border:0;border-radius:var(--a-radius-control);background:var(--a-accent);color:var(--a-accent-ink);}
+.annotation-exit__action--danger{color:var(--a-danger);}
 
 .annotate-hint {
-  padding: 18rpx 22rpx;
+  padding: var(--a-space-2) var(--a-space-3);
   border-radius: 0;
-  background: var(--a-surface, #E2DCD3);
-  border: 0.5px solid var(--a-line, #C9C1B7);
-  font-size: 26rpx;
-  color: var(--a-muted, #706D67);
+  background: var(--a-surface);
+  border: 0.5px solid var(--a-line);
+  font-size:var(--a-type-caption);
+  color: var(--a-muted);
   text-align: center;
   line-height: 1.6;
 }

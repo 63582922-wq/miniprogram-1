@@ -19,8 +19,18 @@ async function updateProfile(payload) {
   });
 }
 
+async function submitPrivacyRequest(payload) {
+  return callCloud("auth", {action:"submitPrivacyRequest",payload});
+}
+
+async function listPrivacyRequests() {
+  return callCloud("auth", {action:"listPrivacyRequests"});
+}
+
 module.exports = {
   loginAndBootstrapUser,
   getCurrentUser,
-  updateProfile
+  updateProfile,
+  submitPrivacyRequest,
+  listPrivacyRequests
 };

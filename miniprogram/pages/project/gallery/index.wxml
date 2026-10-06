@@ -1,5 +1,8 @@
 <view class="page project-gallery-page">
   <page-nav-bar title="照片与标注" showBack="{{true}}" />
+  <view wx:if="{{loading}}" class="precision-state">正在加载项目照片…</view>
+  <view wx:elif="{{loadError}}" class="precision-state">{{loadError}}<button class="ui-button-reset secondary-button" bindtap="loadGallery">重新加载</button></view>
+  <block wx:else>
   <view class="card gallery-summary">
     <view class="section-title">{{project.nameText}}</view>
     <view class="section-subtitle">累计巡查 {{stats.inspectionsTotal}} 次 · 累计照片 {{stats.total}} 张</view>
@@ -7,16 +10,18 @@
 
   <view wx:if="{{photos.length}}" class="gallery-grid">
     <view wx:for="{{photos}}" wx:key="id" class="gallery-card">
-      <button class="gallery-card__preview" aria-label="预览 {{item.inspectionTitle}} 的现场照片" data-current="{{item.imageUrl}}" bindtap="previewPhoto"><image class="gallery-card__image" src="{{item.imageUrl}}" mode="aspectFill" /></button>
+      <button wx:if="{{item.imageUrl}}" class="ui-button-reset gallery-card__preview" aria-label="预览 {{item.inspectionTitle}} 的现场照片" data-current="{{item.imageUrl}}" bindtap="previewPhoto"><image class="gallery-card__image" src="{{item.imageUrl}}" mode="aspectFill" binderror="handlePhotoError" data-index="{{index}}" /></button>
+      <view wx:else class="gallery-card__image-fallback">照片暂时无法显示<text wx:if="{{item.imageError}}">，可重新加载</text></view>
       <view class="gallery-card__meta">
         <view class="gallery-card__title">{{item.inspectionTitle}}</view>
         <view class="gallery-card__desc">{{item.areaText}}</view>
         <view class="gallery-card__desc">{{item.createdAtText}}</view>
         <view wx:if="{{item.voiceText}}" class="gallery-card__desc">{{item.voiceText}}</view>
-        <button class="gallery-card__link" data-inspection-id="{{item.inspectionId}}" bindtap="openInspection">查看对应巡查</button>
+        <button class="ui-button-reset gallery-card__link" data-inspection-id="{{item.inspectionId}}" bindtap="openInspection">查看对应巡查</button>
       </view>
     </view>
   </view>
 
   <empty-state wx:else title="暂无巡查照片" description="完成一次巡查并提交后，这里会自动汇总该项目所有历史照片" />
+  </block>
 </view>

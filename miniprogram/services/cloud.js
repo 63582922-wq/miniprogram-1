@@ -145,7 +145,11 @@ function getCurrentOpenId() {
  * 只要 fileID 外泄（日志、分享、他人提交的载荷），就能读走别人的工地照片和录音。
  * 因此所有上传都必须落到 user/{openId}/ 下面，云端再做归属校验。
  */
-function buildUserScopedPath(folder, fileName) {
+function sanitizeCloudPathPart(value) {
+  return `${value || ""}`.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "file";
+}
+
+function buildUserScopedPath(folder, fileName, options = {}) {
   const openId = getCurrentOpenId();
   if (!openId) {
     throw createCloudError("尚未完成登录，请稍后重试", {
@@ -155,17 +159,25 @@ function buildUserScopedPath(folder, fileName) {
   }
 
   const safeFolder = `${folder || "files"}`.replace(/^\/+|\/+$/g, "");
-  return `${safeFolder}/user/${openId}/${Date.now()}-${fileName}`;
+  // File names are assembled from internal IDs, but legacy IDs may contain
+  // slashes. Keep the user-scoped boundary flat so an ID can never create a
+  // second path segment or escape the intended media namespace.
+  const safeFileName = sanitizeCloudPathPart(fileName);
+  const stableKey = options && options.stableKey
+    ? `${sanitizeCloudPathPart(options.stableKey)}-`
+    : `${Date.now()}-`;
+  return `${safeFolder}/user/${openId}/${stableKey}${safeFileName}`;
 }
 
 /** 上传到当前用户专属目录，返回 fileID */
-function uploadUserFile(filePath, folder, fileName) {
-  return uploadToCloud(filePath, buildUserScopedPath(folder, fileName));
+function uploadUserFile(filePath, folder, fileName, options = {}) {
+  return uploadToCloud(filePath, buildUserScopedPath(folder, fileName, options));
 }
 
 module.exports = {
   callCloud,
   uploadToCloud,
+  sanitizeCloudPathPart,
   buildUserScopedPath,
   uploadUserFile,
   getCurrentOpenId

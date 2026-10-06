@@ -3,7 +3,7 @@
 
   <view class="card onboarding-summary">
     <view class="onboarding-summary__title">首次使用建议按以下流程完成</view>
-    <view class="onboarding-summary__desc">已完成 {{completedCount}} / {{steps.length}} 步，完成后你就可以独立使用全流程。</view>
+    <view class="onboarding-summary__desc">已完成 {{completedCount}} / {{steps.length}} 步</view>
   </view>
 
   <view class="onboarding-steps">
@@ -13,21 +13,21 @@
         <view class="onboarding-step__status">{{item.statusText}}</view>
       </view>
       <view class="onboarding-step__desc">{{item.desc}}</view>
-      <button class="onboarding-step__tip-trigger" data-step="{{item.key}}" bindtap="handleStepTip">说明</button>
-      <button wx:if="{{item.showAction}}" class="primary-button onboarding-step__action" data-step="{{item.key}}" bindtap="handleStepAction">{{item.actionText}}</button>
+      <button class="ui-button-reset onboarding-step__tip-trigger" data-step="{{item.key}}" bindtap="handleStepTip">说明</button>
+      <button wx:if="{{item.showAction}}" class="ui-button-reset primary-button onboarding-step__action" data-step="{{item.key}}" bindtap="handleStepAction">{{item.actionText}}</button>
     </view>
   </view>
 
   <view class="onboarding-actions">
-    <button class="secondary-button" bindtap="finishAndExit">稍后再做</button>
-    <button class="primary-button" bindtap="handleCompleteTap">我已完成，开始使用</button>
+    <button wx:if="{{completedCount < steps.length}}" class="ui-button-reset secondary-button" bindtap="finishAndExit">稍后再做</button>
+    <button class="ui-button-reset primary-button" bindtap="handleCompleteTap">开始使用</button>
   </view>
 
   <view wx:if="{{tipVisible}}" class="guide-tip-mask" bindtap="closeStepTip">
     <view class="guide-tip-panel" catchtap="noop">
       <view class="guide-tip-title">{{tipTitle}}</view>
       <view class="guide-tip-content">{{tipContent}}</view>
-      <button class="guide-tip-button" bindtap="closeStepTip">我知道了</button>
+      <button class="ui-button-reset guide-tip-button" bindtap="closeStepTip">我知道了</button>
     </view>
   </view>
 </view>

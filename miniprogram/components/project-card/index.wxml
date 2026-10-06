@@ -1,8 +1,8 @@
-<button class="project-card" bindtap="handleTap" bindlongpress="handleLongPress" hover-class="project-card--pressed">
+<button class="ui-button-reset project-card" bindtap="handleTap" bindlongpress="handleLongPress" hover-class="project-card--pressed">
   <view class="project-card__header">
     <view class="project-card__header-main">
-      <view class="project-card__name">{{project.name}}</view>
-      <view class="project-card__meta">{{project.address}}</view>
+      <view class="project-card__name-line"><view class="project-card__name object-list-title">{{project.name}}</view><text wx:if="{{isTestProject}}" class="project-card__test-label">测试</text></view>
+      <view class="project-card__meta">{{displayAddress}}</view>
     </view>
     <view class="project-card__arrow"></view>
   </view>

@@ -1,1 +1,3 @@
-.inspection-detail-page{display:flex;flex-direction:column;gap:0;padding-bottom:180rpx}.inspection-detail__head{padding:28rpx 0 24rpx;border-bottom:1px solid var(--a-line)}
+.inspection-detail-page{display:flex;flex-direction:column;gap:0;padding-bottom:calc(var(--a-space-detail-clearance) + env(safe-area-inset-bottom))}.inspection-detail__head{padding:var(--a-space-4) 0 var(--a-space-3);}.inspection-detail__eyebrow{margin-bottom:var(--a-space-2);color:var(--a-muted);font-size:var(--a-type-caption);letter-spacing:.08em}.inspection-detail__meta{display:flex;gap:var(--a-space-3);margin-top:var(--a-space-1);color:var(--a-muted);font-size:var(--a-type-caption)}.inspection-detail__note{padding:var(--a-space-3) 0;color:var(--a-muted);font-size:var(--a-type-caption);line-height:1.6;}
+.inspection-detail__photos{display:flex;flex-direction:column;gap:var(--a-space-3)}
+.inspection-detail__image{display:block;width:100%}

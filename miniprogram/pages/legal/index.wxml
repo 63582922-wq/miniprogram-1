@@ -11,22 +11,36 @@
     <view class="legal-text sub">- 相机/相册权限：用于拍摄或选取巡查照片</view>
     <view class="legal-text sub">- 麦克风权限：用于录制语音备注</view>
     <view class="legal-text">6. 你可以在微信设置中随时关闭上述权限，关闭后对应功能将无法继续使用，但不影响其他功能。</view>
-    <view class="legal-text">7. 你可以通过删除项目、巡查记录或报告来清除相关数据。删除操作不可恢复，请谨慎操作。</view>
+    <view class="legal-text">7. 删除项目、巡查记录或报告后，该内容会从常规列表中隐藏；目前删除采用后台标记方式，不代表关联数据已从云端彻底擦除，也不能作为账号注销或个人信息删除的替代。</view>
   </view>
 
   <view class="card legal-card">
     <view class="legal-title">信息存储与安全</view>
     <view class="legal-text">1. 业务数据保存于微信云开发，未完成草稿同时保存在当前设备；本机草稿不承诺跨设备同步。</view>
-    <view class="legal-text">2. 业务接口校验账号及项目归属。请勿公开原始文件地址、分享凭据或设备存储内容。</view>
+    <view class="legal-text">2. 项目与记录按账号保存。请妥善保管账号，只向可信接收者分享报告。</view>
     <view class="legal-text">3. 有效报告链接允许接收者只读查看该份报告及其照片；录音不默认包含在分享内容中。</view>
-    <view class="legal-text">4. 作者可撤销在线分享链接。已下载的 PDF、照片或截图无法远程收回；后续修改个人或公司资料不会改写已发布报告。</view>
+    <view class="legal-text">4. 作者可撤销在线分享链接；接收者已保存的照片、截图或复制内容无法远程收回。后续修改个人或公司资料不会改写已发布的在线报告。</view>
   </view>
 
   <view class="card legal-card">
     <view class="legal-title">第三方服务说明</view>
-    <view class="legal-text">1. 微信云开发：用于账号会话管理、数据存储与云函数处理。</view>
-    <view class="legal-text">2. 选择 AI 整理或语音转写时，相关照片、说明或录音将发送至对应服务处理；你也可以选择手动填写和核对。服务商及处理规则以当前后台隐私保护指引披露内容为准，本说明不承诺第三方零留存。</view>
-    <view class="legal-text">3. PDF 生成服务：用于巡查报告的 PDF 导出与下载，由独立部署的服务端处理，不对外公开接口。</view>
+    <view class="legal-text">1. 微信云开发：用于识别账号、保存记录和报告。</view>
+    <view class="legal-text">2. 选择 AI 辅助识别或语音转文字时，相关照片、说明或录音将发送至对应服务处理；你也可以选择手动填写和核对。</view>
+  </view>
+
+  <view class="card legal-card">
+    <view class="legal-title">个人信息权利申请</view>
+    <view class="legal-text">你可以提交查阅、复制、更正、删除个人信息、注销账号或撤回同意的申请。提交后由运营者核验并处理；页面显示“已受理”不代表资料已删除或账号已注销。</view>
+    <view class="legal-text">注销账号不会自动撤销已发布报告的分享链接。为继续交付已分享报告，报告快照及其中展示的巡查/单位信息和照片可能继续由持有效链接的人查看；若你申请删除相关信息，运营者需逐项评估并回复处理结果。</view>
+    <picker mode="selector" range="{{requestTypes}}" value="{{requestTypeIndex}}" bindchange="handleRequestTypeChange">
+      <view class="request-picker">申请事项 <text class="request-picker__value">{{requestTypes[requestTypeIndex]}}</text></view>
+    </picker>
+    <textarea class="request-details" value="{{requestDetails}}" maxlength="500" placeholder="补充说明（选填，最多500字）" bindinput="handleRequestDetailsInput" placeholder-class="ui-placeholder" />
+    <button class="ui-button-reset request-submit" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submitRequest">提交申请</button>
+    <view wx:if="{{requestMessage}}" class="legal-text request-message">{{requestMessage}}</view>
+    <view wx:if="{{requests.length}}" class="request-list">
+      <view class="legal-request-row" wx:for="{{requests}}" wx:key="_id"><text class="legal-text">{{item.requestType}} · {{item.statusText}} · {{item.dateText}}</text><text wx:if="{{item.response}}" class="legal-text">{{item.response}}</text></view>
+    </view>
   </view>
 
   <view class="card legal-card">
@@ -35,6 +49,6 @@
     <view class="legal-text">2. 本小程序提供的巡查记录、AI 分析和报告生成均为辅助工具，分析结果和建议仅供参考，不构成专业监理意见。</view>
     <view class="legal-text">3. 你应当对上传内容的真实性和合法性负责，不得上传违法违规或侵犯他人权益的内容。</view>
     <view class="legal-text">4. 处理目的、范围等发生重要变化时，应更新说明并按平台要求重新征求同意。</view>
-    <view class="legal-text">5. 如你有合规审计要求或需要删除个人数据，可联系管理员获取完整数据流与存储说明。</view>
+    <view class="legal-text">5. 权利申请提交后由运营者人工核验处理，你可以在本页查看申请状态和回复。</view>
   </view>
 </view>

@@ -30,6 +30,11 @@ Component({
     rightText: {
       type: String,
       value: ""
+    },
+    /** 一级 tab 页只需要安全区，不需要再占一条空标题栏。 */
+    root: {
+      type: Boolean,
+      value: false
     }
   },
   data: {

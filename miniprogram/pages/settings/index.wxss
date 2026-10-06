@@ -1,6 +1,6 @@
-.settings-page{display:flex;flex-direction:column;gap:0;padding-bottom:calc(40rpx + env(safe-area-inset-bottom))}
-.settings-intro{padding:24rpx 0 20rpx;border-bottom:1px solid var(--a-line);font-size:26rpx;line-height:1.65;color:var(--a-muted)}
-.settings-section{padding:26rpx 0;border-bottom:1px solid var(--a-line);scroll-margin-top:120rpx}
-.settings-section>.section-title{margin-bottom:24rpx}
-.settings-page .footer-actions{margin-top:20rpx}
+.settings-page{display:flex;flex-direction:column;gap:0;padding-bottom:calc(var(--a-space-5) + env(safe-area-inset-bottom))}
+.settings-intro{padding:var(--a-space-3) 0 var(--a-space-2);font-size:var(--a-type-caption);line-height:1.65;color:var(--a-muted)}
+.settings-section{padding:var(--a-space-3) 0;scroll-margin-top:var(--a-space-15)}
+.settings-section>.section-title{margin-bottom:var(--a-space-3)}
+.settings-page .footer-actions{margin-top:var(--a-space-2)}
 .settings-page .field-textarea{min-height:100rpx}
