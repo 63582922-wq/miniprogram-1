@@ -1,15 +1,31 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {harness}=require('./cloud-harness.cjs');
-function fixture(post){const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
- const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test'},modules:{axios:{post},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},console:{log(){},warn(){},error(){}}});return {h,fn};}
+function fixture(post, DateOverride=Date){const h=harness(),logs=[];h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test'},modules:{axios:{post},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},console:{log(){},warn(){},error(){},info(...args){logs.push(args)}},Date:DateOverride});return {h,fn,logs};}
+function fixtureWithParallelLimit(post, limit, DateOverride=Date){const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test',AI_BATCH_PARALLEL_LIMIT:String(limit)},modules:{axios:{post},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},console:{log(){},warn(){},error(){},info(){}},Date:DateOverride});return {h,fn};}
 const response=items=>({data:{choices:[{message:{content:JSON.stringify({items})}}]}});
+const responseWithObservations=(items,observations)=>({data:{choices:[{message:{content:JSON.stringify({items,observations})}}]}});
 function input(count=1){return {requestId:'ai-1',inputVersion:1,projectId:'p',issueDrafts:Array.from({length:count},(_,i)=>({id:'p'+i,imagePath:'cloud://env/inspection-images/user/owner/p'+i+'.png'}))};}
+test('four photos with one explicit AI choice schedule and count only one photo',async()=>{
+ let calls=0;const {fn}=fixture(async()=>{calls++;return responseWithObservations([{sourceIndex:0,description:'收口存在明显缺口',visualEvidence:'接缝可见空隙'}],[{sourceIndex:0,text:'可见接缝'}]);});
+ const payload=input(4);payload.issueDrafts.forEach((photo,index)=>photo.analysisMode=index===0?'ai':'manual');
+ const task=await fn({action:'createInspectionTask',payload});assert.equal(task.data.totalPhotos,1);
+ await fn({action:'advanceInspectionTask',payload:{taskId:task.data.taskId}});
+ const state=await fn({action:'readInspectionTaskStatus',payload:{taskId:task.data.taskId}});
+ assert.equal(state.data.totalPhotos,1);assert.equal(state.data.completedPhotos,1);assert.equal(calls,1);
+});
 test('runtime status exposes capability but never credentials',async()=>{
  const {fn}=fixture(async()=>response([]));
  const result=await fn({action:'getRuntimeStatus'});
  assert.equal(result.success,true);assert.equal(result.data.visionEnabled,true);assert.equal(result.data.model,'test');
  assert.equal(result.data.batchSize,1);assert.equal(result.data.parallelLimit,3);assert.equal(result.data.maxPhotos,20);
  assert.equal(JSON.stringify(result.data).includes('isolated-test'),false);
+});
+test('AI parallelism cannot be raised above the product safety ceiling',async()=>{
+ const {fn}=fixtureWithParallelLimit(async()=>response([]),99);
+ const result=await fn({action:'getRuntimeStatus'});
+ assert.equal(result.data.parallelLimit,3);
 });
 test('AI create/read are free of model calls; completed empty result is durable; concurrent advance is leased',async()=>{
  let calls=0;const {h,fn}=fixture(async()=>{calls++;await new Promise(r=>setTimeout(r,10));return response([]);});
@@ -21,6 +37,107 @@ test('AI create/read are free of model calls; completed empty result is durable;
  await fn({action:'advanceInspectionTask',payload:{taskId:id}});assert.equal(calls,1);
  h.as('someone-else');assert.equal((await fn({action:'readInspectionTaskStatus',payload:{taskId:id}})).success,false);
 });
+test('manual fallback cancels future AI batches but does not claim to stop in-flight provider calls',async()=>{
+ const gates=[];let calls=0,started;
+ const allStarted=new Promise(resolve=>{started=resolve;});
+ const {fn}=fixtureWithParallelLimit(async()=>{
+  calls++;gates.push(()=>{});
+  if(calls===3)started();
+  await new Promise(resolve=>{gates[calls-1]=resolve;});
+  return response([]);
+ },3);
+ const created=await fn({action:'createInspectionTask',payload:input(5)}),id=created.data.taskId;
+ const advancing=fn({action:'advanceInspectionTask',payload:{taskId:id}});
+ await allStarted;
+ const cancelled=await fn({action:'cancelInspectionTask',payload:{taskId:id}});
+ assert.equal(cancelled.data.status,'cancelled');
+ gates.slice().forEach(release=>release());
+ const finished=await advancing;
+ assert.equal(finished.data.status,'cancelled');
+ assert.equal(finished.data.completedPhotos,0,'results from calls finishing after cancellation are not checkpointed');
+ await fn({action:'advanceInspectionTask',payload:{taskId:id}});
+ assert.equal(calls,3,'no later batch is sent after cancellation');
+});
+
+test('only the analysis task owner can cancel it',async()=>{
+ const {h,fn}=fixture(async()=>response([]));
+ const created=await fn({action:'createInspectionTask',payload:input()});
+ h.as('someone-else');
+ const denied=await fn({action:'cancelInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(denied.success,false);
+ h.as('owner');
+ assert.equal((await fn({action:'readInspectionTaskStatus',payload:{taskId:created.data.taskId}})).data.status,'queued');
+});
+test('cancelling an in-flight transient failure prevents its automatic paid retry',async()=>{
+ let calls=0,started,rejectRequest;
+ const requestStarted=new Promise(resolve=>{started=resolve;});
+ const {fn}=fixture(()=>{
+  calls++;started();
+  return new Promise((_,reject)=>{rejectRequest=reject;});
+ });
+ const created=await fn({action:'createInspectionTask',payload:input()}),id=created.data.taskId;
+ const advancing=fn({action:'advanceInspectionTask',payload:{taskId:id}});
+ await requestStarted;
+ await fn({action:'cancelInspectionTask',payload:{taskId:id}});
+ const transient=Error('temporary upstream failure');transient.response={status:503};rejectRequest(transient);
+ assert.equal((await advancing).data.status,'cancelled');
+ assert.equal(calls,1,'the bounded automatic retry is not launched after cancellation');
+});
+test('vision diagnostics distinguish model-empty from server-filtered results without logging user content',async()=>{
+ const run=async candidates=>{
+  const {fn,logs}=fixture(async()=>response(candidates));
+  const payload=input();payload.issueDrafts[0].analysisMode='ai';payload.issueDrafts[0].voiceText='私人现场描述不应进入诊断日志';
+  const created=await fn({action:'createInspectionTask',payload});
+  const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+  assert.equal(done.data.status,'success');assert.equal(done.data.analysis.items.length,0);
+  const entry=logs.find(args=>args[0]==='inspection_ai_candidate_counts');assert.ok(entry,'one count-only diagnostic is emitted');
+  const diagnostic=JSON.parse(entry[1]);
+  assert.equal(diagnostic.candidateCount,candidates.length);assert.equal(diagnostic.acceptedCount,0);
+  assert.equal(diagnostic.filteredCount,candidates.length);assert.equal(diagnostic.photoCount,1);
+  assert.equal(diagnostic.observationCount,0);
+  assert.doesNotMatch(JSON.stringify(logs),/私人现场描述|p0\.png|cloud:\/\//);
+  return diagnostic;
+ };
+ const empty=await run([]);assert.equal(empty.candidateCount,0);assert.equal(empty.filteredCount,0);
+ const filtered=await run([{sourceIndex:0,description:'具体问题候选，但没有可见依据'}]);
+ assert.equal(filtered.candidateCount,1);assert.equal(filtered.filteredCount,1);
+});
+test('neutral visual observations are returned per photo separately from issue candidates and survive task completion',async()=>{
+ let systemPrompt='';
+ const {fn,logs}=fixture(async(_url,body)=>{
+  systemPrompt=body.messages.find(message=>message.role==='system')?.content||'';
+  const text=JSON.stringify(body),index=text.includes('p1.png')?1:0;
+  return responseWithObservations([], [{sourceIndex:0,text:index===0?'画面中可见一扇窗和相邻墙面':'画面中可见门洞及墙面'}]);
+ });
+ const created=await fn({action:'createInspectionTask',payload:input(2)});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');
+ assert.equal(done.data.analysis.items.length,0,'observations are not problem entries');
+ assert.equal(JSON.stringify(done.data.analysis.observations.map(({sourceIndex,sourcePhotoId,text})=>[sourceIndex,sourcePhotoId,text])),JSON.stringify([
+  [0,'p0','画面中可见一扇窗和相邻墙面'],[1,'p1','画面中可见门洞及墙面']
+ ]));
+ const diagnostics=logs.filter(args=>args[0]==='inspection_ai_candidate_counts').map(args=>JSON.parse(args[1]));
+ assert.deepEqual(diagnostics.map(item=>item.observationCount),[1,1]);
+ assert.doesNotMatch(JSON.stringify(diagnostics),/一扇窗|门洞|可见/,'diagnostics must record counts only, never observation text');
+ assert.match(systemPrompt,/observations 可返回空数组/);
+ assert.match(systemPrompt,/description 只写具体位置与看到的问题，不提供处理建议/);
+ assert.match(systemPrompt,/禁止泛泛写‘已识别\/未发现问题\/画面正常’/);
+});
+test('valid visual observations survive when a compatible model omits its empty items array',async()=>{
+ const {fn}=fixture(async()=>({data:{choices:[{message:{content:JSON.stringify({observations:[{sourceIndex:0,text:'画面中可见窗边墙面与木饰面交界'}]})}}]}}));
+ const created=await fn({action:'createInspectionTask',payload:input()});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');
+ assert.equal(done.data.analysis.items.length,0);
+ assert.equal(done.data.analysis.observations[0].text,'画面中可见窗边墙面与木饰面交界');
+});
+test('AI response with neither result array remains a recoverable structure failure',async()=>{
+ const {fn}=fixture(async()=>({data:{choices:[{message:{content:JSON.stringify({summary:'已分析'})}}]}}));
+ const created=await fn({action:'createInspectionTask',payload:input()});
+ const failed=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(failed.data.status,'failed');
+ assert.match(failed.data.errorMessage,/返回结构不完整/);
+});
 test('AI partial success is checkpointed; retry only reprocesses failed input',async()=>{
  const counts=[0,0,0];let fail=true;
  const {h,fn}=fixture(async(_url,body)=>{const txt=JSON.stringify(body),i=[0,1,2].find(i=>txt.includes('p'+i+'.png'));counts[i]++;
@@ -29,6 +146,47 @@ test('AI partial success is checkpointed; retry only reprocesses failed input',a
  const failed=await fn({action:'advanceInspectionTask',payload:{taskId:id}});assert.equal(failed.data.status,'failed');assert.equal(failed.data.completedBatches,2);
  const done=await fn({action:'advanceInspectionTask',payload:{taskId:id}});assert.equal(done.data.status,'success');assert.deepEqual(counts,[1,2,1]);
  assert.equal(done.data.analysis.items.length,3);assert.equal(new Set(done.data.analysis.items.map(i=>i.sourcePhotoId)).size,3);
+});
+
+test('a transient provider failure gets one bounded automatic retry for that photo',async()=>{
+ let calls=0;
+ const {fn}=fixture(async()=>{
+  calls++;
+  if(calls===1){const error=Error('temporary upstream failure');error.response={status:503};throw error;}
+  return response([{sourceIndex:0,description:'收口待核对',visualEvidence:'照片可见收口缝隙',evidenceSource:'image'}]);
+ });
+ const created=await fn({action:'createInspectionTask',payload:input()});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');
+ assert.equal(done.data.completedPhotos,1);
+ assert.equal(calls,2,'one failed transient request and one automatic retry');
+});
+
+test('late transient failure skips auto-retry when the task budget cannot cover another 30s request, then remains user-resumable',async()=>{
+ let now=100000,calls=0;
+ class ClockDate extends Date { static now(){return now;} }
+ const {fn}=fixture(async()=>{
+  calls++;
+  if(calls===1){now+=11000;const late=Error('temporary upstream failure');late.response={status:503};throw late;}
+  return response([]);
+ },ClockDate);
+ const created=await fn({action:'createInspectionTask',payload:input()});
+ const first=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(first.data.status,'failed');
+ assert.equal(calls,1,'do not start a second 30s request with only 34s left in a 45s invocation budget');
+ const resumed=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(resumed.data.status,'success','explicit resume can continue the persisted task');
+ assert.equal(calls,2,'the resumed user action gets its own bounded attempt');
+});
+
+test('a transient photo gets at most one automatic retry across task resumes',async()=>{
+ let calls=0;
+ const {fn}=fixture(async()=>{calls++;const error=Error('upstream unavailable');error.response={status:503};throw error;});
+ const created=await fn({action:'createInspectionTask',payload:input()});
+ const first=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(first.data.status,'failed');assert.equal(calls,2);
+ const resumed=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(resumed.data.status,'failed');assert.equal(calls,3,'resume performs one user-requested retry, without another automatic retry');
 });
 
 test('transcribed or typed findings skip duplicate image recognition by default',async()=>{
@@ -46,6 +204,21 @@ test('transcribed or typed findings skip duplicate image recognition by default'
  assert.equal(done.data.analysis.items[0].evidenceSource,'note');
 });
 
+test('AI task progress maps filtered batch positions back to original photo numbers',async()=>{
+ const {fn}=fixture(async()=>response([]));
+ const payload=input(3);
+ payload.issueDrafts[0].analysisMode='manual';payload.issueDrafts[0].voiceText='人工说明照片一';
+ payload.issueDrafts[2].analysisMode='manual';payload.issueDrafts[2].voiceText='人工说明照片三';
+ payload.issueDrafts[1].analysisMode='ai';
+ const created=await fn({action:'createInspectionTask',payload});
+ assert.equal(created.data.totalPhotos,1);
+ assert.deepEqual(Array.from(created.data.pendingPhotoIndexes),[1]);
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');
+ assert.deepEqual(Array.from(done.data.completedPhotoIndexes),[1]);
+ assert.deepEqual(Array.from(done.data.pendingPhotoIndexes),[]);
+});
+
 test('the user can explicitly request AI image recognition even when a note exists',async()=>{
  let requestBody;
  const {fn}=fixture(async(_url,body)=>{requestBody=body;return response([{sourceIndex:0,description:'吊顶板边缘存在待核对缝隙',visualEvidence:'板材边缘可见连续缝隙',evidenceSource:'image+note',confidence:'low',needsReview:true}]);});
@@ -54,7 +227,191 @@ test('the user can explicitly request AI image recognition even when a note exis
  const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
  const userContent=requestBody.messages.find(message=>message.role==='user').content;
  assert.equal(userContent.some(part=>part.type==='image_url'),true);
- assert.equal(done.data.analysis.items[0].evidenceSource,'image+note');
+  assert.equal(done.data.analysis.items[0].evidenceSource,'image+note');
+});
+
+test('AI image results inherit explicitly labelled fields from the same photo note',async()=>{
+ const note='墙面收口不平整。区域：次卧窗台；责任方：木作班组（待现场确认）；处理建议：补胶后复查。';
+ const {fn}=fixture(async()=>response([{
+  sourceIndex:0,subIssueIndex:1,description:'墙面收口不平整',visualEvidence:'窗台收口处可见缝隙',
+  evidenceSource:'image+note',confidence:'low',needsReview:true
+ }]));
+ const payload=input();Object.assign(payload.issueDrafts[0],{voiceText:note,analysisMode:'ai'});
+ const created=await fn({action:'createInspectionTask',payload});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');
+ const [item]=done.data.analysis.items;
+ assert.equal(item.area,'次卧窗台');assert.equal(item.responsiblePartyName,'木作班组');
+ assert.equal(item.suggestion,'补胶后复查');assert.equal(item.responsibleParty,'pending');
+ assert.equal(item.fieldEvidence.responsiblePartyName,'责任方：木作班组（待现场确认）');
+});
+
+test('explicitly spoken issues keep labelled fields when image AI returns no supported issue',async()=>{
+ const note='次卧窗台收口不平整。区域：次卧窗台；责任方：木作班组（待现场确认）。';
+ const {fn}=fixture(async()=>response([]));
+ const payload=input();Object.assign(payload.issueDrafts[0],{voiceText:note,analysisMode:'ai'});
+ const created=await fn({action:'createInspectionTask',payload});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');assert.equal(done.data.analysis.items.length,1);
+ const [item]=done.data.analysis.items;
+ assert.equal(item.description,'次卧窗台收口不平整');
+ assert.equal(item.area,'次卧窗台');assert.equal(item.responsiblePartyName,'木作班组');
+ assert.equal(item.evidenceSource,'note');assert.equal(item.needsReview,true);
+});
+
+test('photo-wide labelled fields are not copied across multiple AI issues in one photo',async()=>{
+ const note='问题一窗台收口不平整，问题二墙角有磕碰。区域：次卧；责任方：木作班组。';
+ const {fn}=fixture(async()=>response([
+  {sourceIndex:0,subIssueIndex:1,description:'窗台收口不平整',visualEvidence:'窗台处可见缝隙',evidenceSource:'image+note',confidence:'low'},
+  {sourceIndex:0,subIssueIndex:2,description:'墙角有磕碰',visualEvidence:'墙角可见缺损',evidenceSource:'image+note',confidence:'low'}
+ ]));
+ const payload=input();Object.assign(payload.issueDrafts[0],{voiceText:note,analysisMode:'ai'});
+ const created=await fn({action:'createInspectionTask',payload});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');assert.equal(done.data.analysis.items.length,2);
+ assert.equal(JSON.stringify(done.data.analysis.items.map(item=>item.area)),JSON.stringify(['','']));
+ assert.equal(JSON.stringify(done.data.analysis.items.map(item=>item.responsiblePartyName||'')),JSON.stringify(['','']));
+});
+
+test('AI never turns an unresolvable photo into a successful empty result',async()=>{
+ let modelCalls=0;
+ const {h,fn}=fixture(async()=>{modelCalls++;return response([]);});
+ // 别名/嵌套路径必须在创建阶段就被拒绝。旧 assertMedia 用 includes("/user/owner/")
+ // 子串匹配，会把 archive/inspection-images/user/owner/... 判成合法归属——
+ // 归属边界一旦退化成子串匹配，就等于给伪造层级留了门。
+ const aliased=input();
+ aliased.issueDrafts[0].imagePath='cloud://env/archive/inspection-images/user/owner/photo.png';
+ aliased.issueDrafts[0].analysisMode='ai';
+ const rejected=await fn({action:'createInspectionTask',payload:aliased});
+ assert.equal(rejected.success,false);
+ assert.match(rejected.message,/不属于当前用户/);
+ assert.equal(h.table('ai_tasks').size,0,'a rejected request must not leave a task behind');
+
+ // 通过归属校验、却不在图片目录下的引用，仍不能悄悄降级成「空结果成功」。
+ const unresolvable=input();
+ unresolvable.requestId='ai-2';
+ unresolvable.issueDrafts[0].imagePath='cloud://env/speech-input/user/owner/voice.mp3';
+ unresolvable.issueDrafts[0].analysisMode='ai';
+ const created=await fn({action:'createInspectionTask',payload:unresolvable});
+ assert.equal(created.success,true);
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'failed');
+ assert.match(done.data.errorMessage,/照片暂时无法提供给 AI 识图/);
+ assert.equal(modelCalls,0,'the model must not be called without the requested image');
+ assert.deepEqual(h.calls.tempFileUrls,[]);
+});
+
+test('text organization autofills only source-grounded fields without sending any photo',async()=>{
+ const note='次卧窗台收口不平整，由王工负责补胶。';
+ let sent,calls=0;
+ const {fn}=fixture(async(_url,body)=>{calls++;sent=body;return response([{
+  sourceQuote:note,description:'次卧窗台收口不平整',area:'次卧',responsiblePartyName:'王工',suggestion:'补胶',category:'木工工程',
+  evidence:{area:'次卧窗台收口不平整',responsiblePartyName:'由王工负责补胶',suggestion:'由王工负责补胶',category:'木工工程'}
+ }]);});
+ const payload=input();Object.assign(payload.issueDrafts[0],{voiceText:note,analysisMode:'manual',organizeText:true});
+ const created=await fn({action:'createInspectionTask',payload});
+ assert.equal(created.data.totalPhotos,1);
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ assert.equal(done.data.status,'success');assert.equal(calls,1);
+ assert.doesNotMatch(JSON.stringify(sent),/image_url|cloud:\/\/|p0\.png/);
+ const item=done.data.analysis.items[0];
+ assert.equal(item.description,note,'the text model must not paraphrase the inspector\'s original words');assert.equal(item.area,'次卧');assert.equal(item.responsiblePartyName,'王工');
+ assert.equal(item.category,'');assert.equal(item.suggestion,'','text organization must not produce remediation advice');assert.equal(item.originalText,note);
+ assert.equal(item.needsReview,true);assert.equal(item.sourcePhotoId,'p0');assert.equal(item.evidenceSource,'note');
+ await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});assert.equal(calls,1);
+});
+
+test('text normalization preserves uncertainty and omitted words; cannot borrow another issue responsibility',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ const a='次卧疑似开裂，责任方待确认。',b='客厅胶缝缺失，由李工负责补胶。';
+ const items=normalizeTextItems({id:'p',voiceText:a+b},[
+  {sourceQuote:a,description:'开裂',area:'次卧',responsiblePartyName:'李工',evidence:{area:'次卧',responsiblePartyName:'由李工负责补胶'}},
+  {sourceQuote:b,responsiblePartyName:'李工',evidence:{responsiblePartyName:'由李工负责补胶'}}
+ ]);
+ assert.equal(items[0].description,a);assert.equal(items[0].responsiblePartyName,'');assert.equal(items[1].responsiblePartyName,'李工');
+ const omitted=normalizeTextItems({voiceText:a+b},[{sourceQuote:b}]);
+ assert.equal(omitted.length,1);assert.equal(omitted[0].description,a+b);assert.equal(omitted[0].textExtractionFallback,true);
+ const inferred=normalizeTextItems({voiceText:'木工在现场，疑似需要他负责。'},[{sourceQuote:'木工在现场，疑似需要他负责。',responsiblePartyName:'木工',evidence:{responsiblePartyName:'木工在现场，疑似需要他负责。'}}]);
+ assert.equal(inferred[0].responsiblePartyName,'');
+ for(const negative of ['王工不负责补胶。','补胶不由王工处理。','不是开裂，无需王工处理。']) {
+  const item=normalizeTextItems({voiceText:negative},[{sourceQuote:negative,description:'开裂',responsiblePartyName:'王工',evidence:{responsiblePartyName:negative}}])[0];
+  assert.equal(item.responsiblePartyName,'');assert.equal(item.description,negative);
+ }
+});
+
+test('text normalization extracts a named explicitly labelled but still unconfirmed responsibility party',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ const quote='问题在墙面中部。区域：客厅墙面；责任方：木作班组（待现场确认）。';
+ const [item]=normalizeTextItems({id:'p',voiceText:quote},[{
+  sourceQuote:quote,
+  responsiblePartyName:'木作班组',
+  evidence:{responsiblePartyName:'责任方：木作班组（待现场确认）'}
+ }]);
+ assert.equal(item.responsiblePartyName,'木作班组');
+ assert.equal(item.sourceQuote,quote,'uncertainty remains visible in the quoted source');
+ const [unknown]=normalizeTextItems({voiceText:'责任方：待现场确认。'},[{
+  sourceQuote:'责任方：待现场确认。',responsiblePartyName:'待现场确认',
+  evidence:{responsiblePartyName:'责任方：待现场确认'}
+ }]);
+ assert.equal(unknown.responsiblePartyName,'','a placeholder is not a named party');
+});
+
+test('explicitly labelled note fields fill missing model fields while preserving the original quote',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ const quote='墙面中部有收口问题。区域：客厅墙面；分类：木作；责任方：木作班组（待现场确认）；处理建议：补胶后复查。';
+ const [item]=normalizeTextItems({id:'p',voiceText:quote},[{sourceQuote:quote}]);
+ assert.equal(item.area,'客厅墙面');assert.equal(item.category,'木作');
+ assert.equal(item.responsiblePartyName,'木作班组');assert.equal(item.suggestion,'','text extraction deliberately leaves treatment suggestions empty');
+ assert.equal(item.description,'墙面中部有收口问题');
+ assert.equal(item.sourceQuote,quote);assert.equal(item.originalText,quote);
+ assert.equal(item.fieldEvidence.area,'区域：客厅墙面');
+ assert.equal(item.fieldEvidence.responsiblePartyName,'责任方：木作班组（待现场确认）');
+});
+
+test('explicit field fallback rejects placeholders and negated parties',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ for(const quote of ['墙面有问题。责任方：待确认。','墙面有问题。责任方：不是木作班组。']) {
+  const [item]=normalizeTextItems({voiceText:quote},[{sourceQuote:quote}]);
+  assert.equal(item.responsiblePartyName,'');
+ }
+});
+
+test('voice field labels without dictation punctuation are separated into readable review fields',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ const quote='收口未平。区域 客厅电视背景墙；分类 木作；责任方 木作班组；处理建议 补胶后复查。';
+ const [item]=normalizeTextItems({id:'voice-fields',voiceText:quote},[{sourceQuote:quote}]);
+ assert.equal(item.area,'客厅电视背景墙');
+ assert.equal(item.category,'木作');
+ assert.equal(item.responsiblePartyName,'木作班组');
+ assert.equal(item.suggestion,'');
+ assert.equal(item.description,'收口未平');
+ assert.equal(item.sourceQuote,quote,'the complete transcript remains available for verification');
+ assert.equal(item.fieldEvidence.area,'区域 客厅电视背景墙');
+});
+
+test('text items retain source order and point IDs and never make a new number by model array order',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ const p={id:'p',voiceText:'窗台收口不平整；客厅胶缝缺失',annotations:[{id:'m1',type:'point'},{id:'m2',type:'point'}]};
+ const items=normalizeTextItems(p,[{sourceQuote:'客厅胶缝缺失',markerNumber:1},{sourceQuote:'窗台收口不平整',markerNumber:2},{sourceQuote:'窗台收口不平整'}]);
+ assert.deepEqual(items.map(i=>[i.description,i.annotationId,i.markerNumber]),[['窗台收口不平整','m1',1],['客厅胶缝缺失','m2',2]]);
+});
+
+test('eight mixed text and photo inputs checkpoint all possible successes and retry only failures',async()=>{
+ const counts=Array(8).fill(0);
+ const {fn}=fixture(async(_url,body)=>{
+  const s=JSON.stringify(body),i=Array.from({length:8},(_,i)=>i).find(i=>s.includes('现场编号'+i)||s.includes('p'+i+'.png'));
+  counts[i]++;
+  if([2,5].includes(i)&&counts[i]===1)throw Error('isolated temporary failure');
+  return i%2 ? response([{sourceIndex:0,description:'缺陷'+i,visualEvidence:'照片可见缝隙',evidenceSource:'image'}]) : response([{sourceQuote:'现场编号'+i+'：窗台收口不平整。'}]);
+ });
+ const payload=input(8);payload.issueDrafts.forEach((p,i)=>{if(i%2===0)Object.assign(p,{voiceText:'现场编号'+i+'：窗台收口不平整。',analysisMode:'manual',organizeText:true});});
+ const created=await fn({action:'createInspectionTask',payload}),taskId=created.data.taskId;
+ const failed=await fn({action:'advanceInspectionTask',payload:{taskId}});
+ assert.equal(failed.data.status,'failed');assert.equal(failed.data.completedPhotos,6);assert.deepEqual(counts,Array(8).fill(1));
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId}});
+ assert.equal(done.data.status,'success');assert.equal(done.data.analysis.items.length,8);
+ assert.deepEqual(counts,[1,1,2,1,1,2,1,1]);
+ assert.deepEqual(Array.from(done.data.analysis.items,i=>i.sourcePhotoId),Array.from({length:8},(_,i)=>'p'+i));
 });
 
 test('inspection questions do not become defects and image claims without evidence are discarded',async()=>{
@@ -99,13 +456,14 @@ test('a text-only fallback cannot pretend it inspected a photo when vision is no
 });
 
 test('provider billing errors become actionable Chinese copy without leaking transport details',async()=>{
- const billingError=Error('Request failed with status code 402');billingError.response={status:402};
- const {fn}=fixture(async()=>{throw billingError;});
+ const billingError=Error('Request failed with status code 402');billingError.response={status:402};let calls=0;
+ const {fn}=fixture(async()=>{calls++;throw billingError;});
  const created=await fn({action:'createInspectionTask',payload:input()});
  const failed=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
  assert.equal(failed.data.status,'failed');
  assert.match(failed.data.errorMessage,/额度暂时不足/);
  assert.doesNotMatch(failed.data.errorMessage,/402|Request failed/);
+ assert.equal(calls,1,'billing failures are not automatically retried');
 });
 
 test('parallel multi-photo analysis checkpoints each finished photo for read-only live progress',async()=>{
@@ -124,8 +482,44 @@ test('parallel multi-photo analysis checkpoints each finished photo for read-onl
  const live=await fn({action:'readInspectionTaskStatus',payload:{taskId:id}});
  assert.equal(live.data.totalPhotos,3);
  assert.equal(live.data.completedPhotos,1,'the first photo is visible before the slowest parallel request finishes');
+ assert.deepEqual(Array.from(live.data.completedPhotoIndexes),[0]);
+ assert.deepEqual(Array.from(live.data.pendingPhotoIndexes),[1,2]);
  releaseSlow();
  const done=await advancing;
  assert.equal(done.data.status,'success');
- assert.equal(done.data.completedPhotos,3);
+  assert.equal(done.data.completedPhotos,3);
+});
+
+test('out-of-order parallel completion reports exact completed and pending batches',async()=>{
+ const release0=[];let calls=0;
+ const gates=[0,1,2].map(()=>new Promise(resolve=>release0.push(resolve)));
+ const {h,fn}=fixtureWithParallelLimit(async(_url,body)=>{
+   const text=JSON.stringify(body),index=[0,1,2].find(i=>text.includes('p'+i+'.png'));
+   calls+=1;
+   await gates[index];
+   return response([{sourceIndex:0,description:'问题'+index,visualEvidence:'照片可见问题'+index,confidence:'high'}]);
+ },3);
+ const created=await fn({action:'createInspectionTask',payload:input(3)}),id=created.data.taskId;
+ const advancing=fn({action:'advanceInspectionTask',payload:{taskId:id}});
+ for(let attempt=0;attempt<20&&calls<3;attempt++)await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(calls,3,'all parallel model requests must have started before releasing one out of order');
+ release0[2]();
+ let live;
+ for(let attempt=0;attempt<20;attempt++){
+  await new Promise(resolve=>setImmediate(resolve));
+  live=await fn({action:'readInspectionTaskStatus',payload:{taskId:id}});
+  if(live.data.completedPhotos===1)break;
+ }
+ assert.equal(live.data.completedPhotos,1);
+ assert.deepEqual(live.data.completedBatchIndexes,[2]);
+ assert.deepEqual(live.data.pendingBatchIndexes,[0,1]);
+ assert.deepEqual(Array.from(live.data.completedPhotoIndexes),[2]);
+ assert.deepEqual(Array.from(live.data.pendingPhotoIndexes),[0,1]);
+ assert.equal(live.data.currentBatchIndex,0);
+ release0[0]();release0[1]();
+ const done=await advancing;
+ assert.equal(done.data.status,'success');
+ assert.deepEqual(done.data.completedBatchIndexes,[0,1,2]);
+ assert.deepEqual(done.data.pendingBatchIndexes,[]);
+ assert.equal(calls,3);
 });

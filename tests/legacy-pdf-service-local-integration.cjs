@@ -50,7 +50,7 @@ async function readJson(response) {
   return { response, body };
 }
 
-test("local PDF service authenticates, deduplicates, completes and downloads one immutable task", { timeout: 60_000 }, async () => {
+test("legacy local PDF service authenticates, deduplicates, completes and downloads one immutable task", { timeout: 60_000 }, async () => {
   const port = await reservePort();
   const apiKey = `local-test-${crypto.randomBytes(16).toString("hex")}`;
   const jobId = `pdf-${crypto.createHash("sha1").update(`local-pdf-${port}`).digest("hex")}`;

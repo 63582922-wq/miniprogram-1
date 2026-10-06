@@ -4,6 +4,20 @@ const cache = new Map();
 global.wx = {getStorageSync:k=>cache.get(k),setStorageSync:(k,v)=>cache.set(k,structuredClone(v)),removeStorageSync:k=>cache.delete(k)};
 const D = require('../miniprogram/utils/inspection-draft');
 const M = require('../miniprogram/utils/inspection-model');
+test('discard removes only owned unsubmitted draft and protects other projects and submissions',()=>{
+ cache.clear();let owner='owner-a';global.getApp=()=>({globalData:{userInfo:{openId:owner}}});
+ D.writeDraft('discard-a',{projectId:'A',issueDrafts:[]});
+ D.writeDraft('keep-b',{projectId:'B',issueDrafts:[]});
+ assert.throws(()=>D.discardDraft('discard-a','B'),/无法删除/);
+ owner='owner-b';assert.throws(()=>D.discardDraft('discard-a','A'),/无法删除/);
+ owner='owner-a';D.discardDraft('discard-a','A');
+ assert.equal(D.readDraft('discard-a').form,null);assert.equal(cache.get('discard-a:complete'),true);
+ assert.equal(D.readDraft('keep-b').form.projectId,'B');
+ D.patchDraft('keep-b',{submission:{requestId:'save-once'}});
+ assert.throws(()=>D.discardDraft('keep-b','B'),/已发起提交/);
+ assert.equal(D.readDraft('keep-b').form.projectId,'B');
+ delete global.getApp;
+});
 test('legacy and v2 preserve metadata, invalidate edited inputs, retain upload receipts',()=>{
  cache.clear(); const form={projectId:'p',issueDrafts:[{id:'photo',imagePath:'tmp',voiceText:'a'}]};
  D.writeDraft('s',form); D.patchDraft('s',{phase:'review',taskId:'t',review:{items:[]}});
@@ -17,6 +31,9 @@ test('stable photo binding survives reorder and resolves cloud images',()=>{
  const photos=[{id:'b',imagePath:'cloud://b'},{id:'a',imagePath:'cloud://a',annotatedImagePath:'cloud://marked'}];
  const rows=M.resolveIssueMedia([{id:'i',sourcePhotoId:'a',sourceIndex:0}],photos);
  assert.equal(rows[0].sourceIndex,1);assert.equal(rows[0].images[0],'cloud://a');assert.equal(rows[0].annotatedImages[0],'cloud://marked');
+ assert.equal(M.getPhotoDisplayPath(photos[1]),'cloud://marked');
+ assert.equal(M.getPhotoDisplayPath({...photos[1],localImagePath:'wxfile://local-a',localAnnotatedImagePath:'wxfile://local-marked'}),'wxfile://local-marked');
+ assert.equal(M.getPhotoDisplayPath({...photos[1],localImagePath:'wxfile://local-a'}),'cloud://marked','the marked rendition stays canonical even when the original is available locally');
  assert.throws(()=>M.resolveIssueMedia([{sourcePhotoId:'missing',sourceIndex:0}],photos));
 });
 test('annotation changes retain human edits, submitted payload cannot silently change',()=>{
