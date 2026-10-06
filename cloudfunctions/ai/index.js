@@ -2,6 +2,7 @@ const cloud = require("wx-server-sdk");
 const {hash,requestKey,reserve,assertMedia} = require("./reliable");
 const tencentcloud = require("tencentcloud-sdk-nodejs");
 const axios = require("axios");
+const { wantsTextOrganization, textMessages, normalizeTextItems, extractExplicitField } = require('./text-organizer');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -32,7 +33,10 @@ const AI_BATCH_SIZE = 1;
 // One photo per request keeps source mapping and retries precise. The small,
 // configurable concurrency cap controls latency without turning a 20-photo
 // submission into a single oversized model request.
-const AI_BATCH_PARALLEL_LIMIT = Math.min(4, Math.max(1, Number(process.env.AI_BATCH_PARALLEL_LIMIT || 3)));
+// Keep the hard ceiling at three requests. A deployment may lower the limit
+// for quota or provider pressure, but must not raise it into an unbounded
+// fan-out for a 20-photo field record.
+const AI_BATCH_PARALLEL_LIMIT = Math.min(3, Math.max(1, Number(process.env.AI_BATCH_PARALLEL_LIMIT || 3)));
 
 /**
  * AI 任务记录的保留时长。
@@ -46,6 +50,12 @@ const AI_TASK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * 留足余量给最终写入与响应——云函数上限是 60 秒，这里给 45 秒。
  */
 const AI_TASK_TIME_BUDGET_MS = 45 * 1000;
+// Each compatible-model request may occupy 30s. Reserve that full timeout
+// plus a small checkpoint/finalization margin before starting an automatic
+// retry; otherwise a late first failure can push the invocation past its own
+// 45s task budget (and the cloud-function hard timeout) before it records the
+// failure or releases the task lease.
+const AI_TASK_AUTOMATIC_RETRY_RESERVE_MS = 35 * 1000;
 
 /**
  * 校验调用者是否有权访问某个项目。
@@ -86,7 +96,7 @@ function hasMeaningfulVoiceText(text = "") {
 function shouldSkipImageRecognitionForDraft(draft = {}) {
   if (draft.skipImageRecognition === true || !draft.imagePath) return true;
   if (draft.analysisMode === "ai") return false;
-  if (draft.analysisMode === "manual") return true;
+  if (["manual", "pending"].includes(draft.analysisMode)) return true;
   // Backward-compatible default: a successful transcription or typed field
   // statement is already the inspector's conclusion. Do not spend time and
   // quota guessing the same photo unless the user explicitly chooses AI.
@@ -262,10 +272,9 @@ async function loadInspectionItemsByInspectionIds(inspectionIds = []) {
     return [];
   }
   const result = await db.collection("inspection_items").where({
-    inspectionId: _.in(inspectionIds),
-    deleted: false
+    inspectionId: _.in(inspectionIds)
   }).get();
-  return result.data || [];
+  return (result.data || []).filter((item) => item.deleted !== true);
 }
 
 async function buildUserPreferenceMemory(openId) {
@@ -277,11 +286,11 @@ async function buildUserPreferenceMemory(openId) {
   }
 
   try {
-    const inspections = await db.collection("inspections").where({
-      inspectorOpenId: openId,
-      deleted: false
+    const inspectionsResult = await db.collection("inspections").where({
+      inspectorOpenId: openId
     }).orderBy("createdAt", "desc").limit(8).get();
-    const inspectionIds = (inspections.data || []).map((item) => item._id).filter(Boolean);
+    const inspectionList = (inspectionsResult.data || []).filter((item) => item.deleted !== true);
+    const inspectionIds = inspectionList.map((item) => item._id).filter(Boolean);
     const items = await loadInspectionItemsByInspectionIds(inspectionIds);
 
     const severityCorrections = {};
@@ -363,11 +372,10 @@ async function buildProjectHistoryMemory(projectId) {
   }
 
   try {
-    const inspections = await db.collection("inspections").where({
-      projectId,
-      deleted: false
+    const inspectionsResult = await db.collection("inspections").where({
+      projectId
     }).orderBy("createdAt", "desc").limit(3).get();
-    const inspectionList = inspections.data || [];
+    const inspectionList = (inspectionsResult.data || []).filter((item) => item.deleted !== true);
     const inspectionIds = inspectionList.map((item) => item._id).filter(Boolean);
     const items = await loadInspectionItemsByInspectionIds(inspectionIds);
 
@@ -493,6 +501,7 @@ async function enrichPayloadWithMemory(payload = {}) {
 
 function getInspectionAiJsonSchema() {
   return JSON.stringify({
+    observations: [{ sourceIndex: 0, text: "照片中可直接辨认的客观外观；不作质量结论" }],
     items: [
       {
         sourceIndex: 0,
@@ -522,7 +531,7 @@ function getInspectionAiJsonSchema() {
 
 function getInspectionAiSystemPrompt() {
   return [
-    "你是装修巡查问题结构化整理引擎，不是聊天助手。你的输出将直接用于巡查结果确认、报告分组和 PDF 生成。",
+    "你是装修巡查问题结构化整理引擎，不是聊天助手。你的输出将用于现场巡查结果人工确认和在线报告分组。",
     "",
     "你的任务分为五层：",
     "1. 以每张现场照片为独立分析单元，绝不跨照片合并问题。",
@@ -543,10 +552,19 @@ function getInspectionAiSystemPrompt() {
     "- 不允许为了凑数量而机械拆分同义描述。",
     "",
     "输出规则：",
+    "- 在内部先判断照片所处施工阶段，再按构件检查异常：瓷砖与美缝看崩边、接缝空缺、明显不连续；木作看破损、拼缝错位与收口缺口；墙顶看裂缝、起皮与明显边界破损；安装构件看可见破损、松脱和缺件。只输出照片确实支持的具体问题，不罗列检查清单。",
+    "- 示例：仅看到‘瓷砖地面与灰色美缝’不是问题，items 为空；若清楚看到‘第三排砖缝局部断开，缝内存在空缺’，才写成问题。不能把颜色、材质、物体数量或施工阶段的介绍包装成问题。不得凭照片推断不可测的平整度、强度或规范合格与否。",
+    "- 面向装修现场巡查，不做通用图片介绍：逐项检查构件边缘、接缝、表面及安装位置，仅将清楚可见的异常写成问题。description 只写具体位置与看到的问题，不提供处理建议、整改方案或泛泛评价。",
+    "- 正例：‘门洞右侧收口边缘存在连续缺口，局部基层外露。’‘木饰面板拼接处上下边缘错位。’反例：‘画面中有门洞和墙面。’‘建议重新修补。’不能凭裸露基层或施工未完成状态认定缺陷。",
+    "- AI 识图的首要任务是判断可见质量问题，而不是只描述画面。先检查可见裂缝、破损、拼接错位、收口缺口、污染及明显安装缺陷；有清楚依据时必须写入 items，不能仅放在 observations 后遗漏问题。",
+    "- 每个图片问题的 description 按‘具体位置或构件 + 可见异常’表述；不编造测量值、责任结论、隐蔽原因或推测影响。疑似情况标明待现场复核，不把施工未完成本身判为缺陷。不输出处理建议。",
     "- 返回严格 JSON，不要输出 Markdown、解释、注释或额外文字。",
+    "- observations 可返回空数组，不需要为了证明识图成功而介绍画面；没有明确问题就返回空 items，不用对象清单填充结果。",
+    "- observations 只写看得见的对象、位置或状态，不判断合格与否、不推断缺陷；禁止泛泛写‘已识别/未发现问题/画面正常’。只有照片模糊、严重遮挡或画面确实无法辨认时才允许返回空数组。",
+    "- observations 的每项必须包含 sourceIndex 和简短 text；它们只用于人工核对，不是问题，不计入问题数量，也不会直接进入报告。",
     "- items 是扁平数组，但同一张照片的多个问题必须拥有相同 sourceIndex，并使用 subIssueIndex 表示该照片下的第几个子问题。",
     "- 照片允许没有问题项。未识别到问题不等于工程合格，不生成占位缺陷。",
-    "- 当某条问题主要依据语音转写整理时，description 必须润色成书面化、可直接用于巡查确认和 PDF 的问题描述，不能直接照抄口语原文。",
+    "- 当某条问题主要依据语音转写整理时，description 必须润色成书面化、可直接用于巡查确认和在线报告的问题描述，不能直接照抄口语原文。",
     "- 需要把“这个、那里、有点、好像、然后、就是”等口语化表达整理成正式巡查表述，并去掉语气词、重复词和填充词。",
     "- visualEvidence 必须写你从图片或标注中真正观察到的证据，不能只复述语音文字。",
     "- 不得从单张照片推断真实尺寸、垂直度、强度、隐蔽层做法或规范结论，除非照片中存在可信量尺、清晰标注或现场文字依据。",
@@ -667,19 +685,19 @@ function buildDraftBackedIssueItem(draft, itemIndex, sourceIndex, subIssueIndex,
   const confidence = ["high", "medium", "low"].includes(overrides.confidence)
     ? overrides.confidence
     : "low";
-  const numberedMarkers = (draft.annotations || []).filter(annotation => annotation.type === "point");
+  const numberedMarkers = (draft.annotations || []).filter(annotation => annotation.type === "point" || ((annotation.type === "box" || annotation.type === "ellipse") && annotation.numbered === true));
   const numberedMarker = numberedMarkers[Math.max(0, subIssueIndex - 1)] || null;
   return {
     sourceIndex,
     subIssueIndex,
     annotationId: numberedMarker ? numberedMarker.id || "" : "",
     markerNumber: numberedMarker ? subIssueIndex : 0,
-    area: overrides.area || `现场问题 ${itemIndex + 1}`,
-    category: overrides.category || "施工",
-    severity: ["critical", "major", "normal"].includes(overrides.severity) ? overrides.severity : ((draft.annotations || []).length ? "major" : "normal"),
+    area: overrides.area || "",
+    category: overrides.category || "",
+    severity: ["critical", "major", "normal"].includes(overrides.severity) ? overrides.severity : "normal",
     responsibleParty: overrides.responsibleParty || "pending",
     description: resolveIssueDescription(overrides.description, draft, itemIndex),
-    suggestion: overrides.suggestion || "请结合现场实际情况整改后复检。",
+    suggestion: overrides.suggestion || "",
     // Do not synthesize a generic visual claim when the model did not return
     // one. Empty evidence is safer and visibly reviewable than fake certainty.
     visualEvidence: `${overrides.visualEvidence || ""}`.trim(),
@@ -728,6 +746,10 @@ function ensureVoiceIssueCoverage(payload, normalizedItems = []) {
       .sort((left, right) => (left.subIssueIndex || 1) - (right.subIssueIndex || 1));
 
     const clauses = extractAssertedIssueClauses(draft.voiceText || "");
+    if (sourceItems.some(item => item.textOrganized)) {
+      nextItems.push(...sourceItems);
+      return;
+    }
     if (!clauses.length) {
       nextItems.push(...sourceItems);
       return;
@@ -756,7 +778,7 @@ function ensureVoiceIssueCoverage(payload, normalizedItems = []) {
         severity: seed.severity,
         responsibleParty: seed.responsibleParty,
         description: clause,
-        suggestion: seed.suggestion || "请针对该子问题分别整改并复检。",
+        suggestion: seed.suggestion || "",
         visualEvidence: seed.visualEvidence,
         evidenceSource: seed.visualEvidence ? seed.evidenceSource : "note",
         confidence: seed.visualEvidence ? seed.confidence : "low",
@@ -876,6 +898,34 @@ function getNormalizedSourceIndex(drafts=[],item={}) {
   throw new Error("AI 返回的问题缺少可靠照片来源，请重试或手动整理");
 }
 
+function applyExplicitNoteFields(payload, items = []) {
+  const drafts = payload.issueDrafts || [];
+  const issueCountBySource = new Map();
+  items.forEach(item => issueCountBySource.set(item.sourceIndex, (issueCountBySource.get(item.sourceIndex) || 0) + 1));
+  return items.map(item => {
+    // Explicitly labelled details in the user's note outrank model guesses,
+    // but only apply photo-wide fields when that photo produced one issue.
+    // With multiple issues there is no reliable source-to-field association.
+    if (issueCountBySource.get(item.sourceIndex) !== 1) return item;
+    const note = drafts[item.sourceIndex]?.voiceText || '';
+    const fieldEvidence = {};
+    const result = { ...item };
+    (item.textOrganized
+      ? ['area', 'category', 'responsiblePartyName']
+      : ['area', 'category', 'responsiblePartyName', 'suggestion']).forEach(field => {
+      const explicit = extractExplicitField(note, field);
+      if (!explicit) return;
+      result[field] = explicit.value;
+      fieldEvidence[field] = explicit.evidence;
+    });
+    // Text organization is an extraction aid, not a remediation recommender.
+    if (item.textOrganized) result.suggestion = '';
+    return Object.keys(fieldEvidence).length
+      ? { ...result, fieldEvidence: { ...(item.fieldEvidence || {}), ...fieldEvidence } }
+      : item;
+  });
+}
+
 function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
   const drafts = payload.issueDrafts || [];
   const normalized = [];
@@ -914,7 +964,9 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
         severity: ["critical", "major", "normal"].includes(item.severity) ? item.severity : "normal",
         responsibleParty: item.responsibleParty || "pending",
         description: item.description,
-        suggestion: item.suggestion,
+        // AI must not generate treatment advice; explicit inspector input is
+        // handled separately by applyExplicitNoteFields.
+        suggestion: "",
         visualEvidence,
         evidenceSource,
         confidence,
@@ -941,6 +993,25 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
   });
 }
 
+function logInspectionAiCandidateCounts(payload, candidates, acceptedItems, stage, observationCount = 0) {
+  // Operational telemetry deliberately excludes photos, notes, issue text,
+  // project/session identifiers, and provider responses. It only distinguishes
+  // a model returning no candidates from server-side evidence filtering.
+  const runtime = getAiRuntimeConfig();
+  const candidateCount = Array.isArray(candidates) ? candidates.length : 0;
+  const acceptedCount = Array.isArray(acceptedItems) ? acceptedItems.length : 0;
+  console.info("inspection_ai_candidate_counts", JSON.stringify({
+    stage,
+    provider: runtime.provider || "unknown",
+    model: runtime.model || "unknown",
+    photoCount: Array.isArray(payload && payload.issueDrafts) ? payload.issueDrafts.length : 0,
+    candidateCount,
+    acceptedCount,
+    filteredCount: Math.max(0, candidateCount - acceptedCount),
+    observationCount: Number.isFinite(Number(observationCount)) ? Math.max(0, Number(observationCount)) : 0
+  }));
+}
+
 function formatAnnotations(annotations = []) {
   let markerNumber = 0;
   return annotations.map((item, index) => {
@@ -948,7 +1019,7 @@ function formatAnnotations(annotations = []) {
     const start = item.a || item.start || {};
     const end = item.b || item.end || start;
     const percent = value => Math.round((Number(value) || 0) * (Math.abs(Number(value) || 0) <= 1 ? 100 : 1));
-    if (type === "point") {
+    if (type === "point" || ((type === "box" || type === "ellipse") && item.numbered === true)) {
       markerNumber += 1;
       return `编号 ${markerNumber}：中心(${percent(start.x)}%,${percent(start.y)}%)，外圈控制点(${percent(end.x)}%,${percent(end.y)}%)；该区域对应第 ${markerNumber} 条子问题`;
     }
@@ -967,7 +1038,19 @@ function isFileOwnedByOpenId(fileID, openId) {
   if (!fileID || !openId) {
     return false;
   }
-  return extractCloudPath(fileID).includes(`/user/${openId}/`);
+  const parts = extractCloudPath(fileID).split("/");
+  const allowedFolders = new Set([
+    "inspection-originals",
+    "inspection-images",
+    "inspection-annotated-images"
+  ]);
+  return parts.length === 4
+    && allowedFolders.has(parts[0])
+    && parts[1] === "user"
+    && parts[2] === `${openId}`
+    && Boolean(parts[3])
+    && parts[3] !== "."
+    && parts[3] !== "..";
 }
 
 /**
@@ -1014,6 +1097,14 @@ async function buildMultimodalMessages(payload) {
     note: draft.voiceText || "",
     annotationText: formatAnnotations(draft.annotations || [])
   })));
+
+  // Never downgrade an explicitly requested vision analysis to text-only.
+  // Otherwise an inaccessible cloud file can masquerade as a successful
+  // model run with zero findings.
+  const missingVisionImage = draftContexts.find(draft => draft.useImage && !draft.imageUrl);
+  if (missingVisionImage) {
+    throw new Error(`第 ${missingVisionImage.index + 1} 张照片暂时无法提供给 AI 识图，请重新上传后重试或直接人工核对`);
+  }
 
   const userContent = [
     {
@@ -1091,12 +1182,44 @@ async function analyzeInspectionWithOpenAiCompatible(payload) {
   const choice = (((response || {}).data || {}).choices || [])[0] || {};
   const message = choice.message || {};
   const parsed = safeJsonParse(message.content || "");
-  if(!Array.isArray(parsed.items))throw new Error("AI 返回结构不完整，请重试或手动整理");
-  const items = parsed.items;
+  const modelResult = readInspectionAiResultArrays(parsed);
+  const items = modelResult.items;
+  const normalizedItems = normalizeInspectionAiItems(payload, items);
+  const observations = normalizeVisualObservations(payload, modelResult.observations);
+  logInspectionAiCandidateCounts(payload, items, normalizedItems, "vision_batch", observations.length);
 
   return {
-    items: normalizeInspectionAiItems(payload, items),
+    items: normalizedItems,
+    observations,
     summary: parsed.summary || ""
+  };
+}
+
+function normalizeVisualObservations(payload = {}, values = []) {
+  if (!Array.isArray(values)) return [];
+  const drafts = payload.issueDrafts || [];
+  const counts=new Map(), seen=new Set();
+  return values.slice(0, drafts.length * 3).flatMap((item) => {
+    const sourceIndex = Number(item && item.sourceIndex);
+    const text = `${item && item.text || ""}`.trim().replace(/\s+/g, " ").slice(0, 240);
+    const key=`${sourceIndex}:${text}`;
+    if (!Number.isInteger(sourceIndex) || sourceIndex < 0 || sourceIndex >= drafts.length || !text || seen.has(key) || (counts.get(sourceIndex)||0)>=3) return [];
+    seen.add(key);counts.set(sourceIndex,(counts.get(sourceIndex)||0)+1);
+    return [{sourceIndex, sourcePhotoId: drafts[sourceIndex].id || "", text}];
+  });
+}
+
+function readInspectionAiResultArrays(parsed = {}) {
+  const hasItems = Array.isArray(parsed && parsed.items);
+  const hasObservations = Array.isArray(parsed && parsed.observations);
+  if (!hasItems && !hasObservations) {
+    throw new Error("AI 返回结构不完整，请重试或手动整理");
+  }
+  // Preserve a valid per-photo observation when a compatible model omits the
+  // empty `items` array; malformed responses with neither array still fail.
+  return {
+    items: hasItems ? parsed.items : [],
+    observations: hasObservations ? parsed.observations : []
   };
 }
 
@@ -1136,24 +1259,43 @@ async function analyzeSingleDraftWithOpenAiCompatible(payload, draft, originalIn
   const choice = (((response || {}).data || {}).choices || [])[0] || {};
   const message = choice.message || {};
   const parsed = safeJsonParse(message.content || "");
-  const items = normalizeInspectionAiItems(singlePayload, Array.isArray(parsed.items) ? parsed.items : [], {
+  const candidates = Array.isArray(parsed.items) ? parsed.items : [];
+  const items = normalizeInspectionAiItems(singlePayload, candidates, {
     fillMissingDrafts: false
   }).map((item) => ({
     ...item,
     sourceIndex: originalIndex
   }));
+  logInspectionAiCandidateCounts(singlePayload, candidates, items, "vision_single");
 
   return items;
 }
 
 async function analyzeDraftBatchWithOpenAiCompatible(payload, draftIndexes = []) {
   const batchPayload = createBatchPayload(payload, draftIndexes);
+  if (batchPayload.issueDrafts.every(draft => shouldSkipImageRecognitionForDraft(draft) && wantsTextOrganization(draft))) {
+    const runtime = getAiRuntimeConfig();
+    const rows = await Promise.all(batchPayload.issueDrafts.map(async (draft, index) => {
+      const body = { model: runtime.model, temperature: 0.1, response_format: { type: 'json_object' }, messages: textMessages(draft) };
+      if (runtime.provider === 'zhipu' || runtime.model.startsWith('glm-4.6v')) body.thinking = { type: 'disabled' };
+      const response = await axios.post(`${runtime.baseUrl.replace(/\/$/, '')}/chat/completions`, body, {
+        headers: { Authorization: `Bearer ${runtime.apiKey}`, 'Content-Type': 'application/json' }, timeout: 30000
+      });
+      const parsed = safeJsonParse(response?.data?.choices?.[0]?.message?.content || '');
+      return normalizeTextItems(draft, parsed.items, draftIndexes[index]);
+    }));
+    return {items: rows.flat(), observations: []};
+  }
   const batchResult = await analyzeInspectionWithOpenAiCompatible(batchPayload);
   const batchItems = (batchResult.items || []).map((item) => ({
     ...item,
     sourceIndex: draftIndexes[item.sourceIndex] !== undefined ? draftIndexes[item.sourceIndex] : draftIndexes[0] || 0
   }));
-  return batchItems;
+  const observations = (batchResult.observations || []).map((item) => {
+    const sourceIndex = draftIndexes[item.sourceIndex] !== undefined ? draftIndexes[item.sourceIndex] : draftIndexes[0] || 0;
+    return {...item, sourceIndex, sourcePhotoId: (payload.issueDrafts || [])[sourceIndex]?.id || ""};
+  });
+  return {items: batchItems, observations};
 }
 
 async function analyzeInspectionBatch(payload, draftIndexes = []) {
@@ -1163,16 +1305,21 @@ async function analyzeInspectionBatch(payload, draftIndexes = []) {
   if (isOpenAiCompatibleEnabled(runtimeConfig)) {
     return analyzeDraftBatchWithOpenAiCompatible(payload, draftIndexes);
   }
+  if (batchPayload.issueDrafts.some(wantsTextOrganization)) throw new Error('文字整理服务暂未配置，可按原文直接核对');
   const batchResult = await analyzeInspectionWithModel(batchPayload);
-  return (batchResult.items || []).map((item) => ({
+  return {items: (batchResult.items || []).map((item) => ({
     ...item,
     sourceIndex: draftIndexes[item.sourceIndex] !== undefined ? draftIndexes[item.sourceIndex] : draftIndexes[0] || 0
-  }));
+  })), observations: (batchResult.observations || []).map((item) => {
+    const sourceIndex = draftIndexes[item.sourceIndex] !== undefined ? draftIndexes[item.sourceIndex] : draftIndexes[0] || 0;
+    return {...item, sourceIndex, sourcePhotoId: (payload.issueDrafts || [])[sourceIndex]?.id || ""};
+  })};
 }
 
 async function finalizeTaskItems(payload, mergedItems = []) {
-  const normalized = normalizeInspectionAiItems(payload, mergedItems, {fillMissingDrafts:false});
-  return ensureVoiceIssueCoverage(payload, normalized).map((item,index)=>({
+  const textItems = mergedItems.filter(item => item.textOrganized === true);
+  const normalized = normalizeInspectionAiItems(payload, mergedItems.filter(item => !item.textOrganized), {fillMissingDrafts:false});
+  return applyExplicitNoteFields(payload, ensureVoiceIssueCoverage(payload, normalized.concat(textItems))).map((item,index)=>({
     ...item, id:item.id || "ai-"+item.sourceIndex+"-"+index,
     sourcePhotoId:(payload.issueDrafts || [])[item.sourceIndex]?.id || ""
   }));
@@ -1180,11 +1327,32 @@ async function finalizeTaskItems(payload, mergedItems = []) {
 
 function buildTaskDraftIndexes(payload = {}) {
   return (payload.issueDrafts || []).map((draft, index) => ({draft,index}))
-    .filter(({draft}) => !shouldSkipImageRecognitionForDraft(draft))
+    .filter(({draft}) => !shouldSkipImageRecognitionForDraft(draft) || wantsTextOrganization(draft))
     .map(({index}) => index);
 }
 
+function mapTaskBatchIndexesToPhotoIndexes(task = {}, batchIndexes = []) {
+  const batches = Array.isArray(task.batches) ? task.batches : [];
+  const photoCount = ((task.payload && task.payload.issueDrafts) || []).length;
+  return [...new Set(batchIndexes.flatMap(batchIndex => {
+    const batch = batches[batchIndex];
+    if (Array.isArray(batch)) return batch;
+    if (Number.isInteger(batch)) return [batch];
+    return [batchIndex];
+  }).filter(index => Number.isInteger(index) && index >= 0 && index < photoCount))].sort((a,b)=>a-b);
+}
+
 function buildAiTaskStatus(task = {}, analysis = null) {
+  const completedBatchIndexes = Array.isArray(task.completedBatchIndexes)
+    ? task.completedBatchIndexes
+    : Object.keys(task.batchResults || {})
+      .map(Number)
+      .filter(Number.isInteger)
+      .sort((left, right) => left - right);
+  const pendingBatchIndexes = Array.isArray(task.pendingBatchIndexes)
+    ? task.pendingBatchIndexes
+    : Array.from({length: task.totalBatches || 0}, (_, index) => index)
+      .filter(index => !completedBatchIndexes.includes(index));
   return {
     taskId: task._id || "",
     status: task.status || "queued",
@@ -1193,6 +1361,10 @@ function buildAiTaskStatus(task = {}, analysis = null) {
     totalPhotos: task.totalPhotos || task.totalBatches || 0,
     completedPhotos: task.completedPhotos || task.completedBatches || 0,
     currentBatchIndex: task.currentBatchIndex || 0,
+    completedBatchIndexes,
+    pendingBatchIndexes,
+    completedPhotoIndexes: Array.isArray(task.completedPhotoIndexes) ? task.completedPhotoIndexes : mapTaskBatchIndexesToPhotoIndexes(task, completedBatchIndexes),
+    pendingPhotoIndexes: Array.isArray(task.pendingPhotoIndexes) ? task.pendingPhotoIndexes : mapTaskBatchIndexesToPhotoIndexes(task, pendingBatchIndexes),
     errorMessage: task.errorMessage || "",
     startedAt: task.startedAt || 0,
     completedAt: task.completedAt || 0,
@@ -1204,13 +1376,22 @@ function toUserFacingAiTaskError(error) {
   const status = Number(error && error.response && error.response.status) || 0;
   const code = `${(error && error.code) || ""}`.toUpperCase();
   const raw = `${(error && error.message) || ""}`;
-  if (status === 402) return "AI 图片分析额度暂时不足，请联系管理员补充服务额度或直接进入人工核对";
-  if (status === 401 || status === 403) return "AI 图片分析服务的授权已失效，请联系管理员检查配置或直接进入人工核对";
-  if (status === 429) return "AI 图片分析服务当前繁忙，请稍后重试未完成照片或直接进入人工核对";
-  if (status >= 500) return "AI 图片分析服务暂时不可用，请稍后重试未完成照片或直接进入人工核对";
-  if (code === "ECONNABORTED" || /timeout|timed out|超时/i.test(raw)) return "AI 图片分析等待超时，请重试未完成照片";
-  if (/未配置支持图片分析的模型|AI 返回结构不完整|照片尚未上传/.test(raw)) return raw;
-  return "AI 图片分析未完成，请稍后重试未完成照片；也可以直接进入人工核对";
+  if (status === 402) return "AI 服务额度暂时不足，可直接按原文核对";
+  if (status === 401 || status === 403) return "AI 服务授权已失效，可直接按原文核对";
+  if (status === 429) return "AI 服务繁忙，请稍后重试未完成记录或直接核对";
+  if (status >= 500) return "AI 服务暂时不可用，请重试未完成记录或直接核对";
+  if (code === "ECONNABORTED" || /timeout|timed out|超时/i.test(raw)) return "AI 整理超时，请重试未完成记录或直接核对";
+  if (/未配置支持图片分析的模型|文字整理服务暂未配置|AI 返回结构不完整|照片尚未上传|照片暂时无法提供给 AI 识图/.test(raw)) return raw;
+  return "AI 整理未完成，请重试未完成记录或直接核对";
+}
+
+function isTransientAiTaskError(error) {
+  const status = Number(error && error.response && error.response.status) || 0;
+  const code = `${(error && error.code) || ""}`.toUpperCase();
+  const message = `${(error && error.message) || ""}`;
+  return status >= 500
+    || ["ECONNABORTED", "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN"].includes(code)
+    || /timeout|timed out|socket hang up|network error/i.test(message);
 }
 
 async function createAnalysisTask(payload, openId) {
@@ -1231,11 +1412,16 @@ async function createAnalysisTask(payload, openId) {
       payload: enhancedPayload,
       batches,
       partialItems: [],
+      batchObservations: {},
       totalBatches: batches.length,
       completedBatches: 0,
       totalPhotos: draftIndexes.length,
       completedPhotos: 0,
+      completedPhotoIndexes: [],
+      pendingPhotoIndexes: draftIndexes.slice(),
       currentBatchIndex: 0,
+      completedBatchIndexes: [],
+      pendingBatchIndexes: batches.map((_, index) => index),
       errorMessage: "",
       model: getAiRuntimeConfig().model,
       startedAt: 0,
@@ -1249,7 +1435,7 @@ async function createAnalysisTask(payload, openId) {
 }
 
 async function processAnalysisTask(task) {
-  if (!task || task.status === "success" || task.status === "failed") {
+  if (!task || ["success", "failed", "cancelled"].includes(task.status)) {
     return task;
   }
   const payload = task.payload || {};
@@ -1261,6 +1447,7 @@ async function processAnalysisTask(task) {
     const items = await finalizeTaskItems(payload, []);
     const analysis = {
       items,
+      observations: [],
       summary: buildInspectionSummary(payload, items),
       aiMode: items.length ? "manual" : "empty",
       memoryHint: payload.memoryHint || "",
@@ -1292,13 +1479,38 @@ async function processAnalysisTask(task) {
   // 现在按时间预算循环，每轮并发处理 AI_BATCH_PARALLEL_LIMIT 批。
   let cursor = task.currentBatchIndex || 0;
   const completed={...(task.batchResults||{})};
+  const observationResults={...(task.batchObservations||{})};
   const legacyItems=!task.batchResults?(task.partialItems||[]):[];
   if(!task.batchResults)for(let i=0;i<cursor;i++)completed[i]=[];
   let mergedItems=legacyItems.slice();
+  const getCompletedBatchIndexes = () => Object.keys(completed)
+    .map(Number)
+    .filter(Number.isInteger)
+    .sort((left, right) => left - right);
+  const getPendingBatchIndexes = () => batches.map((_, index) => index)
+    .filter(index => !Object.prototype.hasOwnProperty.call(completed, index));
+  const checkpointState = () => {
+    const completedBatchIndexes = getCompletedBatchIndexes();
+    const pendingBatchIndexes = getPendingBatchIndexes();
+    return {
+      completedBatchIndexes,
+      pendingBatchIndexes,
+      completedPhotoIndexes: mapTaskBatchIndexesToPhotoIndexes(task, completedBatchIndexes),
+      pendingPhotoIndexes: mapTaskBatchIndexesToPhotoIndexes(task, pendingBatchIndexes),
+      completedBatches: completedBatchIndexes.length,
+      completedPhotos: completedBatchIndexes.length,
+      // This is the next real pending batch, not the number of completed
+      // batches. It remains correct when parallel requests finish out of order.
+      currentBatchIndex: pendingBatchIndexes.length ? pendingBatchIndexes[0] : batches.length
+    };
+  };
   const deadline=Date.now()+AI_TASK_TIME_BUDGET_MS;
+  const failedThisAdvance = new Set();
+  let firstFailure = null;
   try {
     while(true){
-      const pending=batches.map((_,i)=>i).filter(i=>!Object.prototype.hasOwnProperty.call(completed,i));
+      if (await isAnalysisTaskCancelled(task._id)) return await getAnalysisTask(task._id);
+      const pending=batches.map((_,i)=>i).filter(i=>!Object.prototype.hasOwnProperty.call(completed,i) && !failedThisAdvance.has(i));
       if(!pending.length)break;
       if(deadline-Date.now()<31000)break;
       const indices=pending.slice(0,AI_BATCH_PARALLEL_LIMIT);
@@ -1308,76 +1520,108 @@ async function processAnalysisTask(task) {
       let checkpointChain=Promise.resolve();
       const results=await Promise.all(indices.map(async i=>{
         try {
-          const items=await analyzeInspectionBatch(payload,batches[i]);
+          let batchResult;
+          try {
+            batchResult=await analyzeInspectionBatch(payload,batches[i]);
+          } catch(firstError) {
+            if (await isAnalysisTaskCancelled(task._id)) return {i,error:firstError};
+            const retryKey=`automaticRetryCount_${i}`;
+            const automaticRetryCount=Number(task[retryKey])||0;
+            if(automaticRetryCount>=1 || !isTransientAiTaskError(firstError) || deadline-Date.now()<AI_TASK_AUTOMATIC_RETRY_RESERVE_MS) throw firstError;
+            // Bound automatic recovery to one retry per photo for transient
+            // transport/provider failures. Persist before retry so a function
+            // restart cannot create an unbounded paid retry loop.
+            await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{[retryKey]:automaticRetryCount+1,updatedAt:Date.now()}});
+            await new Promise(resolve=>setTimeout(resolve,350));
+            batchResult=await analyzeInspectionBatch(payload,batches[i]);
+          }
           checkpointChain=checkpointChain.then(async()=>{
-            completed[i]=items||[];
-            cursor=Object.keys(completed).length;
+            if (await isAnalysisTaskCancelled(task._id)) return;
+            completed[i]=batchResult.items||[];
+            observationResults[i]=batchResult.observations||[];
+            const checkpoint=checkpointState();
+            cursor=checkpoint.completedBatches;
             mergedItems=legacyItems.concat(...Object.keys(completed).sort((a,b)=>Number(a)-Number(b)).map(key=>completed[key]));
             await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{
               batchResults:completed,
-              completedBatches:cursor,
-              completedPhotos:cursor,
-              currentBatchIndex:cursor,
+              batchObservations:observationResults,
+              ...checkpoint,
               partialItems:mergedItems,
               updatedAt:Date.now()
             }});
           });
           await checkpointChain;
-          return {i,items};
+          return {i,batchResult};
         } catch(error) {
           return {i,error};
         }
       }));
-      const failure=results.find(r=>r.error);if(failure)throw failure.error;
+      const failures=results.filter(r=>r.error);
+      if (await isAnalysisTaskCancelled(task._id)) return await getAnalysisTask(task._id);
+      failures.forEach(failure=>{failedThisAdvance.add(failure.i);if(!firstFailure)firstFailure=failure.error;});
+      // A single failed photo must not prevent later photos being attempted.
+      // Account-wide failures, in contrast, stop new paid calls immediately.
+      const unavailable=failures.find(failure=>[401,402,403,429].includes(Number(failure.error?.response?.status)));
+      if(unavailable)throw unavailable.error;
     }
-    cursor=Object.keys(completed).length;
+    if(firstFailure)throw firstFailure;
+    const finalCheckpoint=checkpointState();
+    cursor=finalCheckpoint.completedBatches;
     mergedItems=legacyItems.concat(...Object.keys(completed).sort((a,b)=>Number(a)-Number(b)).map(i=>completed[i]));
 
     if (cursor >= batches.length) {
       const finalItems = await finalizeTaskItems(payload, mergedItems);
+      const observations = Object.keys(observationResults).sort((a,b)=>Number(a)-Number(b))
+        .flatMap(key => observationResults[key] || []);
       const finalAnalysis = {
         items: finalItems,
+        observations,
         summary: buildInspectionSummary(payload, finalItems),
         aiMode: "model",
         memoryHint: payload.memoryHint || "",
         memoryAlerts: buildMemoryAlerts(payload, finalItems)
       };
-      await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
+      const finalized = await db.collection(AI_TASK_COLLECTION).where(_.and([
+        {_id:task._id}, {cancelRequestedAt:_.exists(false)}
+      ])).update({
         data: {
           status: "success",
           analysis: finalAnalysis,
           completedBatches: cursor,
-          completedPhotos: cursor,
-          currentBatchIndex: cursor,
+          ...finalCheckpoint,
           completedAt: Date.now(),
           partialItems: _.remove(),
           batchResults: _.remove(),
+          batchObservations: _.remove(),
           payload: _.remove(),
           batches: _.remove(),
           updatedAt: Date.now()
         }
       });
+      if (!finalized.stats || !finalized.stats.updated) return await getAnalysisTask(task._id);
       const done = await db.collection(AI_TASK_COLLECTION).doc(task._id).get();
       return Object.assign({}, done.data, { runtimeAnalysis: finalAnalysis });
     }
 
-    await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
+    if (await isAnalysisTaskCancelled(task._id)) return await getAnalysisTask(task._id);
+    await db.collection(AI_TASK_COLLECTION).where(_.and([
+      {_id:task._id}, {cancelRequestedAt:_.exists(false)}
+    ])).update({
       data: {
         status: "running",
-        completedBatches: cursor,
-        completedPhotos: cursor,
-        currentBatchIndex: cursor,
+        ...checkpointState(),
         partialItems: mergedItems,
         updatedAt: Date.now()
       }
     });
   } catch (error) {
     console.error("processAnalysisTask failed", error);
+    if (await isAnalysisTaskCancelled(task._id)) return await getAnalysisTask(task._id);
     await db.collection(AI_TASK_COLLECTION).doc(task._id).update({
       data: {
         status: "failed",
         errorMessage: toUserFacingAiTaskError(error),
-        completedPhotos: Object.keys(completed).length,
+        ...checkpointState(),
         failedAt: Date.now(),
         updatedAt: Date.now()
       }
@@ -1399,6 +1643,11 @@ async function getAnalysisTask(taskId) {
   }
 }
 
+async function isAnalysisTaskCancelled(taskId) {
+  const task = await getAnalysisTask(taskId);
+  return !task || task.status === "cancelled" || !!task.cancelRequestedAt;
+}
+
 async function analyzeInspectionWithModel(payload) {
   const runtimeConfig = getAiRuntimeConfig();
   assertVisionRuntimeAvailable(payload, runtimeConfig);
@@ -1417,13 +1666,12 @@ async function analyzeInspectionWithModel(payload) {
       batches.map((batchIndexes) => async () => analyzeDraftBatchWithOpenAiCompatible(payload, batchIndexes)),
       AI_BATCH_PARALLEL_LIMIT
     );
-    const mergedItems = batchResults.flat();
+    const mergedItems = batchResults.flatMap(result => result.items || []);
+    const observations = batchResults.flatMap(result => result.observations || []);
 
-    const normalizedItems = normalizeInspectionAiItems(payload, mergedItems, {
-      fillMissingDrafts: false
-    });
     return {
-      items: ensureVoiceIssueCoverage(payload, normalizedItems),
+      items: await finalizeTaskItems(payload, mergedItems),
+      observations,
       summary: ""
     };
   }
@@ -1453,10 +1701,13 @@ async function analyzeInspectionWithModel(payload) {
 
   const text = extractAssistantText(response);
   const parsed = safeJsonParse(text);
-  if(!Array.isArray(parsed.items))throw new Error("AI 返回结构不完整，请重试或手动整理");
-  const items = parsed.items;
+  const modelResult = readInspectionAiResultArrays(parsed);
+  const items = modelResult.items;
 
-  const normalizedItems = ensureVoiceIssueCoverage(payload, normalizeInspectionAiItems(payload, items));
+  const normalizedCandidates = normalizeInspectionAiItems(payload, items);
+  const observations = normalizeVisualObservations(payload, modelResult.observations);
+  logInspectionAiCandidateCounts(payload, items, normalizedCandidates, "hunyuan_vision", observations.length);
+  const normalizedItems = applyExplicitNoteFields(payload, ensureVoiceIssueCoverage(payload, normalizedCandidates));
   return {
     items: normalizedItems.map((item) => {
       const sourceDraft = (payload.issueDrafts || [])[item.sourceIndex] || {};
@@ -1472,6 +1723,7 @@ async function analyzeInspectionWithModel(payload) {
               : []
       };
     }),
+    observations,
     summary: parsed.summary || ""
   };
 }
@@ -1505,6 +1757,7 @@ exports.main = async (event) => {
             success: true,
             data: {
               items: modelResult.items,
+              observations: modelResult.observations || [],
               summary: modelResult.summary || buildInspectionSummary(enhancedPayload, modelResult.items),
               aiMode: "model",
               memoryHint: enhancedPayload.memoryHint || "",
@@ -1550,6 +1803,7 @@ exports.main = async (event) => {
 
       case "readInspectionTaskStatus":
       case "advanceInspectionTask":
+      case "cancelInspectionTask":
       case "getInspectionTaskStatus": {
         if (!payload.taskId) {
           return {
@@ -1575,13 +1829,23 @@ exports.main = async (event) => {
           };
         }
 
+        if (action === "cancelInspectionTask") {
+          if (["queued", "running", "failed"].includes(task.status)) {
+            await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{
+              status:"cancelled", cancelRequestedAt:Date.now(), updatedAt:Date.now()
+            }});
+            task = await getAnalysisTask(task._id);
+          }
+          return {success:true,data:buildAiTaskStatus(task,task.analysis||null)};
+        }
+
         if(action !== "readInspectionTaskStatus" && ["queued","running","failed"].includes(task.status)) {
           const now=Date.now();
           const claimed=await db.collection(AI_TASK_COLLECTION).where(_.and([
-            {_id:task._id,status:_.neq("success")},_.or([{lockUntil:_.lte(now)},{lockUntil:_.exists(false)}])
+            {_id:task._id,status:_.in(["queued","running","failed"])},_.or([{lockUntil:_.lte(now)},{lockUntil:_.exists(false)}])
           ])).update({data:{lockUntil:now+180000}});
           if(claimed.stats && claimed.stats.updated){
-            try{const latest=await getAnalysisTask(task._id);task=latest.status==="success"?latest:await processAnalysisTask({...latest,status:"running"});}
+            try{const latest=await getAnalysisTask(task._id);task=["success","cancelled"].includes(latest.status)?latest:await processAnalysisTask({...latest,status:"running"});}
             finally{await db.collection(AI_TASK_COLLECTION).doc(task._id).update({data:{lockUntil:0}});}
           }
         }

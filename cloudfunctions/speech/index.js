@@ -27,7 +27,17 @@ function isFileOwnedByOpenId(fileID, openId) {
   if (!fileID || !openId) {
     return false;
   }
-  return extractCloudPath(fileID).includes(`/user/${openId}/`);
+  const cloudPath = extractCloudPath(fileID);
+  const ownerDirectory = `speech-input/user/${openId}/`;
+  if (!cloudPath.startsWith(ownerDirectory)) {
+    return false;
+  }
+
+  // uploadUserFile creates one flat file directly in this user's namespace.
+  // Do not accept a matching owner string in another folder, or nested/traversal
+  // paths that could escape the exact namespace checked by the client uploader.
+  const fileName = cloudPath.slice(ownerDirectory.length);
+  return Boolean(fileName) && !fileName.includes("/") && fileName !== "." && fileName !== "..";
 }
 
 function createSpeechError(message, extra = {}) {
@@ -36,9 +46,23 @@ function createSpeechError(message, extra = {}) {
   return error;
 }
 
+function readFirstEnv(names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function readSpeechCredentials() {
+  return {
+    secretId: readFirstEnv(["SPEECH_SECRET_ID", "SECRET_ID", "SecretId"]),
+    secretKey: readFirstEnv(["SPEECH_SECRET_KEY", "SECRET_KEY", "SecretKey"])
+  };
+}
+
 function getRuntimeConfig() {
-  const secretId = process.env.SPEECH_SECRET_ID || process.env.SECRET_ID || "";
-  const secretKey = process.env.SPEECH_SECRET_KEY || process.env.SECRET_KEY || "";
+  const { secretId, secretKey } = readSpeechCredentials();
 
   if (!secretId || !secretKey) {
     throw createSpeechError("请先在 speech 云函数环境变量中配置 SPEECH_SECRET_ID 和 SPEECH_SECRET_KEY", {
@@ -135,8 +159,7 @@ function formatSpeechErrorMessage(errorInfo) {
 }
 
 function getConfigStatus() {
-  const secretId = process.env.SPEECH_SECRET_ID || process.env.SECRET_ID || "";
-  const secretKey = process.env.SPEECH_SECRET_KEY || process.env.SECRET_KEY || "";
+  const { secretId, secretKey } = readSpeechCredentials();
 
   return {
     hasSpeechSecretId: Boolean(secretId),

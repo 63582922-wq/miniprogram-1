@@ -52,11 +52,13 @@ function normalizeVoiceFields(item = {}, sourceDraft = {}) {
 }
 
 async function listInspections(payload={}) {
-  const {OPENID}=cloud.getWXContext(),projects=await all(db.collection("projects").where({ownerOpenId:OPENID,deleted:false}));
+  const {OPENID}=cloud.getWXContext(),projects=(await all(db.collection("projects").where({ownerOpenId:OPENID})))
+    .filter(project=>project.deleted !== true && project.status !== "preparing");
   const map=new Map(projects.map(p=>[p._id,p.name]));
   if(payload.projectId&&!map.has(payload.projectId))return {success:false,message:"无权查看该项目"};
   const ids=payload.projectId?[payload.projectId]:[...map.keys()],rows=[];
-  for(let i=0;i<ids.length;i+=50)rows.push(...await all(db.collection("inspections").where({deleted:false,projectId:_.in(ids.slice(i,i+50))})));
+  for(let i=0;i<ids.length;i+=50)rows.push(...(await all(db.collection("inspections").where({projectId:_.in(ids.slice(i,i+50))})))
+    .filter(item=>item.deleted !== true));
   const page=Math.max(1,Math.floor(Number(payload.page)||1));
   const pageSize=Math.min(50,Math.max(1,Math.floor(Number(payload.pageSize)||20)));
   const matching=rows.filter(i=>i.status!=="preparing").sort((a,b)=>b.createdAt-a.createdAt);
@@ -88,19 +90,24 @@ async function confirmInspection(payload = {}) {
       annotationId:item.annotationId||"",markerNumber:Number.isInteger(item.markerNumber)&&item.markerNumber>0?item.markerNumber:0,
       area:item.area||"",category:item.category||"",severity:["normal","major","critical"].includes(item.severity)?item.severity:"normal",
       responsibleParty:["pending","constructor","supplier","client"].includes(item.responsibleParty)?item.responsibleParty:"pending",
+      responsiblePartyName:typeof item.responsiblePartyName === 'string' ? item.responsiblePartyName.trim().slice(0,120) : '',
       description:item.description,suggestion:item.suggestion||"",images:[photo.imagePath],annotatedImages:[photo.annotatedImagePath||photo.imagePath],
       annotations:photo.annotations||[],voiceStorageFileId:photo.voiceStorageFileId||"",voiceFileId:photo.voiceStorageFileId||"",voiceText:photo.voiceText||"",sortOrder:index};
   });
   if(new Set(rows.map(r=>r.id)).size!==rows.length)throw new Error("问题编号重复");
   const counts={};rows.forEach(r=>{counts[r.sourcePhotoId]=(counts[r.sourcePhotoId]||0)+1;r.subIssueIndex=r.markerNumber||counts[r.sourcePhotoId];});
-  const evidence=[...photoMap.values()].map(p=>({id:p.id,sourceIndex:p.sourceIndex,imagePath:p.imagePath,sourceOriginalImagePath:p.sourceOriginalImagePath||p.imagePath,annotatedImagePath:p.annotatedImagePath||"",annotations:p.annotations||[],annotationStage:p.annotationStage||null,voiceText:p.voiceText||"",voiceStorageFileId:p.voiceStorageFileId||""}));
-  const canonical={projectId:payload.form.projectId,title:payload.form.title||"",note:payload.form.note||"",aiSummary:payload.form.aiSummary||"",photos:evidence,items:rows};
+  const evidence=[...photoMap.values()].map(p=>({id:p.id,sourceIndex:p.sourceIndex,imagePath:p.imagePath,sourceOriginalImagePath:p.sourceOriginalImagePath||p.imagePath,annotatedImagePath:p.annotatedImagePath||"",annotations:p.annotations||[],annotationStage:p.annotationStage||null,caption:typeof p.caption==="string"?p.caption.trim().slice(0,5000):"",voiceText:p.voiceText||"",voiceStorageFileId:p.voiceStorageFileId||""}));
+  const aiSummary=payload.form.summarySource==="inspector"&&typeof payload.form.aiSummary==="string"
+    ? payload.form.aiSummary.trim().slice(0,5000)
+    : "";
+  const summarySource=aiSummary ? "inspector" : "";
+  const canonical={projectId:payload.form.projectId,title:payload.form.title||"",note:payload.form.note||"",aiSummary,summarySource,photos:evidence,items:rows};
   // Legacy clients are deduplicated by confirmed content; v2 sends a stable explicit request.
   const req=payload.requestId || "legacy-"+hash(canonical), id=requestKey("inspection",OPENID,req);
   const collection=db.collection("inspections"), now=Date.now();
   const inspection=await reserve(collection,id,hash(canonical),{projectId:canonical.projectId,title:canonical.title||"现场巡查",
     inspectionDate:now,inspectorOpenId:OPENID,status:"preparing",schemaVersion:2,issueCount:rows.length,
-    photos:evidence,reportId:"",note:canonical.note,aiSummary:canonical.aiSummary,deleted:false,createdAt:now,updatedAt:now,createdBy:OPENID,updatedBy:OPENID});
+    photos:evidence,reportId:"",note:canonical.note,aiSummary:canonical.aiSummary,summarySource:canonical.summarySource,deleted:false,createdAt:now,updatedAt:now,createdBy:OPENID,updatedBy:OPENID});
   if(inspection.status==="submitted")return {success:true,data:{inspectionId:id}};
   const originals=new Map((payload.originalItems||[]).map(p=>[p.id,p]));
   // Fixed child IDs make interrupted retries safe. Readers gate on parent.status.
@@ -129,11 +136,9 @@ async function detailInspection(payload) {
       message: access.message
     };
   }
-  const items = {data:await all(db.collection("inspection_items").where({inspectionId:payload.inspectionId,deleted:false}).orderBy("sortOrder","asc"))};
-  const report = await db.collection("reports").where({
-    inspectionId: payload.inspectionId,
-    deleted: false
-  }).get();
+  const items = {data:(await all(db.collection("inspection_items").where({inspectionId:payload.inspectionId}).orderBy("sortOrder","asc")))
+    .filter(item=>item.deleted !== true)};
+  const report = await db.collection("reports").where({inspectionId: payload.inspectionId}).get();
   const project = await db.collection("projects").doc(inspection.data.projectId).get();
 
   return {
@@ -144,7 +149,7 @@ async function detailInspection(payload) {
         projectName: project.data ? project.data.name : ""
       },
       items: items.data,
-      report: report.data[0] || null
+      report: report.data.find(item=>item.deleted !== true) || null
     }
   };
 }

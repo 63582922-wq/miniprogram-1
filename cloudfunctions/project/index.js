@@ -22,7 +22,7 @@ async function safeGetDoc(collectionName, docId) {
 
 async function safeGetList(queryRef) {
   try {
-    return (await all(queryRef)).filter(row=>row.status!=="preparing");
+    return (await all(queryRef)).filter(row=>row.status!=="preparing" && row.deleted !== true);
   } catch (error) {
     throw error;
   }
@@ -116,7 +116,10 @@ async function updateProject(payload) {
 
 async function listProjects(payload) {
   const { OPENID } = cloud.getWXContext();
-  const result = {data:await all(db.collection("projects").where({ownerOpenId:OPENID,deleted:false}).orderBy("updatedAt","desc"))};
+  // 旧项目可能没有 deleted 字段；只排除明确删除或尚未完成的记录，
+  // 避免新版首页把历史项目误显示成“暂无项目”。
+  const result = {data:(await all(db.collection("projects").where({ownerOpenId:OPENID}).orderBy("updatedAt","desc")))
+    .filter(item=>item.deleted !== true && item.status !== "preparing")};
 
   const matching = (result.data || []).filter((item) => {
     if (!payload.keyword) {
@@ -134,9 +137,12 @@ async function listProjects(payload) {
   let reportCountMap = {};
 
   if (projectIds.length) {
-    const inspections = {data:await all(db.collection("inspections").where({deleted:false,projectId:_.in(projectIds)}))};
-    const inspectionItems = {data:await all(db.collection("inspection_items").where({deleted:false,projectId:_.in(projectIds)}))};
-    const reports = {data:await all(db.collection("reports").where({deleted:false,projectId:_.in(projectIds)}))};
+    const inspections = {data:(await all(db.collection("inspections").where({projectId:_.in(projectIds)})))
+      .filter(item=>item.deleted !== true)};
+    const inspectionItems = {data:(await all(db.collection("inspection_items").where({projectId:_.in(projectIds)})))
+      .filter(item=>item.deleted !== true)};
+    const reports = {data:(await all(db.collection("reports").where({projectId:_.in(projectIds)})))
+      .filter(item=>item.deleted !== true)};
 
     inspectionCountMap = (inspections.data || []).filter(i=>i.status!=="preparing").reduce((accumulator, item) => {
       accumulator[item.projectId] = (accumulator[item.projectId] || 0) + 1;
@@ -183,22 +189,10 @@ async function detailProject(payload) {
   const project = access.project;
 
   const [inspections, reports, memos, chatAnalysis] = await Promise.all([
-    safeGetList(db.collection("inspections").where({
-      projectId: payload.projectId,
-      deleted: false
-    }).orderBy("createdAt", "desc")),
-    safeGetList(db.collection("reports").where({
-      projectId: payload.projectId,
-      deleted: false
-    }).orderBy("createdAt", "desc")),
-    safeGetList(db.collection("memos").where({
-      projectId: payload.projectId,
-      deleted: false
-    }).orderBy("createdAt", "desc")),
-    safeGetList(db.collection("chat_analysis").where({
-      projectId: payload.projectId,
-      deleted: false
-    }).orderBy("createdAt", "desc"))
+    safeGetList(db.collection("inspections").where({projectId: payload.projectId}).orderBy("createdAt", "desc")),
+    safeGetList(db.collection("reports").where({projectId: payload.projectId}).orderBy("createdAt", "desc")),
+    safeGetList(db.collection("memos").where({projectId: payload.projectId}).orderBy("createdAt", "desc")),
+    safeGetList(db.collection("chat_analysis").where({projectId: payload.projectId}).orderBy("createdAt", "desc"))
   ]);
 
   return {
@@ -225,14 +219,8 @@ async function galleryProject(payload) {
   const project = access.project;
 
   const [inspections, items] = await Promise.all([
-    safeGetList(db.collection("inspections").where({
-      projectId: payload.projectId,
-      deleted: false
-    }).orderBy("createdAt", "desc")),
-    safeGetList(db.collection("inspection_items").where({
-      projectId: payload.projectId,
-      deleted: false
-    }).orderBy("createdAt", "desc"))
+    safeGetList(db.collection("inspections").where({projectId: payload.projectId}).orderBy("createdAt", "desc")),
+    safeGetList(db.collection("inspection_items").where({projectId: payload.projectId}).orderBy("createdAt", "desc"))
   ]);
 
   const inspectionMap = (inspections || []).reduce((accumulator, item) => {
@@ -241,10 +229,51 @@ async function galleryProject(payload) {
   }, {});
 
   const photos = [];
+  const seenPhotoIds = new Set();
+
+  // 新版巡查把“照片本身”保存到 inspections.photos，因此即使一张照片没有
+  // 生成问题，也必须出现在项目相册里。问题子项只描述照片上的问题，不能反
+  // 过来决定照片是否存在。
+  (inspections || []).forEach((inspection) => {
+    const inspectionItems = (items || []).filter(item => item.inspectionId === inspection._id);
+    const itemsByPhotoId = new Map();
+    inspectionItems.forEach(item => {
+      const key = item.sourcePhotoId || "";
+      if (key && !itemsByPhotoId.has(key)) itemsByPhotoId.set(key, item);
+    });
+
+    (Array.isArray(inspection.photos) ? inspection.photos : []).forEach((photo, photoIndex) => {
+      const sourcePhotoId = photo.id || `legacy-photo-${inspection._id}-${photoIndex}`;
+      const sourceItem = itemsByPhotoId.get(sourcePhotoId) || {};
+      const imageUrl = photo.annotatedImagePath || photo.imagePath || photo.sourceOriginalImagePath || "";
+      if (!imageUrl) return;
+      seenPhotoIds.add(`${inspection._id}:${sourcePhotoId}`);
+      photos.push({
+        id: `${inspection._id}-${sourcePhotoId}`,
+        imageUrl,
+        originalImageUrl: photo.imagePath || photo.sourceOriginalImagePath || "",
+        inspectionId: inspection._id,
+        inspectionTitle: inspection.title || "未命名巡查",
+        createdAt: inspection.createdAt || sourceItem.createdAt,
+        area: sourceItem.area || "",
+        category: sourceItem.category || "",
+        description: sourceItem.description || "",
+        voiceText: photo.voiceText || sourceItem.voiceText || "",
+        annotationsCount: (photo.annotations || sourceItem.annotations || []).length
+      });
+    });
+  });
+
+  // 兼容旧记录：旧巡查可能没有 inspections.photos，只在问题子项里保存图片。
+  // 仅在照片级证据没有覆盖时补入，避免同一张照片因多个问题重复出现在相册。
   (items || []).forEach((item) => {
     const inspection = inspectionMap[item.inspectionId];
     if(!inspection)return;
+    const sourcePhotoId = item.sourcePhotoId || "";
+    const photoKey = `${item.inspectionId}:${sourcePhotoId || item._id}`;
+    if (sourcePhotoId && seenPhotoIds.has(photoKey)) return;
     (item.images || []).forEach((imageUrl, imageIndex) => {
+      if (!imageUrl) return;
       photos.push({
         id: `${item._id}-${imageIndex}`,
         imageUrl,
@@ -258,6 +287,7 @@ async function galleryProject(payload) {
         annotationsCount: (item.annotations || []).length
       });
     });
+    if (sourcePhotoId) seenPhotoIds.add(photoKey);
   });
 
   return {

@@ -28,7 +28,8 @@ const COLLECTIONS = [
   "chat_analysis",
   "app_settings",
   "subscriptions",
-  "ai_tasks"
+  "ai_tasks",
+  "privacy_requests"
 ];
 
 /** 集合不存在时 createCollection 抛错，用错误信息判断是否「已存在」 */

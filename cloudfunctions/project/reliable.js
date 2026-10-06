@@ -19,13 +19,49 @@ async function reserve(collection,id,fingerprint,data) {
     return row;
   }
 }
+/**
+ * 所有客户端上传都落在 <folder>/user/{openId}/<file>（见 miniprogram/services/cloud.js）。
+ * 云存储 fileID 本身就是读取凭据，而这些函数会以管理员权限为它签发临时链接，
+ * 所以归属判断必须是「逐段精确比对」。
+ *
+ * 旧实现用 path.includes("/user/"+owner+"/")，对以下形式都不设防：
+ * 前缀伪造（.../user/{owner}_evil/...）、多加层级、相似 openId。
+ * 这里改为解析出 cloud:// 之后的路径并要求恰好四段。
+ */
+const MEDIA_FOLDERS = new Set([
+  "inspection-originals",
+  "inspection-images",
+  "inspection-annotated-images",
+  "inspection-audio",
+  "speech-input",
+  "logos",
+  "reports"
+]);
+function cloudPathOf(fileID) {
+  const matched = /^cloud:\/\/[^/]+\/(.+)$/.exec(`${fileID || ""}`);
+  return matched ? matched[1] : "";
+}
+function isOwnedMedia(path, owner) {
+  const ownerText = `${owner || ""}`;
+  if (typeof path !== "string" || !path || !ownerText) return false;
+  if (!path.startsWith("cloud://")) return false;
+  if (/\.\.|%2f|%2e|%5c/i.test(path)) return false;
+  const parts = cloudPathOf(path).split("/");
+  return parts.length === 4
+    && MEDIA_FOLDERS.has(parts[0])
+    && parts[1] === "user"
+    && parts[2] === ownerText
+    && Boolean(parts[3])
+    && parts[3] !== "."
+    && parts[3] !== "..";
+}
 function assertMedia(path,owner) {
   if(!path)return;
-  if(typeof path!=="string" || !path.startsWith("cloud://") || !path.includes("/user/"+owner+"/") || /\.\.|%2f|%2e/i.test(path))throw new Error("图片或录音未上传，或不属于当前用户");
+  if(!isOwnedMedia(path,owner))throw new Error("图片或录音未上传，或不属于当前用户");
 }
 async function all(query) {
   const rows=[];let offset=0;
   while(true){const result=await query.skip(offset).limit(100).get();const batch=result.data||[];rows.push(...batch);if(batch.length<100)break;offset+=batch.length;}
   return rows;
 }
-module.exports={canonical,hash,requestKey,reserve,assertMedia,all};
+module.exports={canonical,hash,requestKey,reserve,assertMedia,isOwnedMedia,MEDIA_FOLDERS,cloudPathOf,all};

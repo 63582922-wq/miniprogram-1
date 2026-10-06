@@ -48,8 +48,6 @@ async function save(payload) {
         companyAddress: payload.companyAddress || "",
         logoFileId: payload.logoFileId || "",
         reportTemplate: payload.reportTemplate || "default",
-        reportPdfEngine: payload.reportPdfEngine || "canvas",
-        reportPdfServiceUrl: payload.reportPdfServiceUrl || "",
         deleted: false,
         updatedAt: now,
         updatedBy: OPENID
@@ -64,8 +62,6 @@ async function save(payload) {
         companyAddress: payload.companyAddress || "",
         logoFileId: payload.logoFileId || "",
         reportTemplate: payload.reportTemplate || "default",
-        reportPdfEngine: payload.reportPdfEngine || "canvas",
-        reportPdfServiceUrl: payload.reportPdfServiceUrl || "",
         deleted: false,
         createdAt: now,
         updatedAt: now,
