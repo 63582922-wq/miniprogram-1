@@ -2,6 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { harness } = require("./cloud-harness.cjs");
 
 const root = path.resolve(__dirname, "..");
 const cloudRoot = path.join(root, "cloudfunctions");
@@ -54,4 +55,21 @@ test("deployment-only setupdb is not part of the client production call graph", 
     assert.doesNotMatch(fs.readFileSync(file, "utf8"), /callCloud\(\s*["']setupdb["']/,
       "database initialization must never be bundled as a routine client deployment");
   }
+});
+
+test("deployment-only setupdb refuses to run without an admin allowlist", async () => {
+  // 云函数一旦部署，任何小程序用户都能用 wx.cloud.callFunction 调到它——
+  // 微信云开发没有按函数配置调用方白名单的能力，守卫必须写在函数里。
+  // 这段守卫原先只存在于线上控制台，仓库里没有；直接部署旧源码会把它抹掉。
+  const disabled = await harness().load("setupdb", { env: {} })();
+  assert.equal(disabled.success, false);
+  assert.match(disabled.message, /未启用/);
+  assert.match(disabled.message, /ADMIN_OPENIDS/);
+
+  const stranger = await harness().load("setupdb", { env: { ADMIN_OPENIDS: "someone-else" } })();
+  assert.equal(stranger.success, false, "白名单外的账号同样不能建库");
+  assert.match(stranger.message, /未启用/);
+
+  const allowed = await harness().load("setupdb", { env: { ADMIN_OPENIDS: "other, owner ,third" } })();
+  assert.doesNotMatch(allowed.message || "", /未启用/, "白名单内的账号应当放行（空格需被忽略）");
 });
