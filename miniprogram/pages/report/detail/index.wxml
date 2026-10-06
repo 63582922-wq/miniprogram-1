@@ -51,6 +51,26 @@
         <text class="report-summary__stat-label">一般</text>
       </view>
     </view>
+    <!-- 严重项混在长列表里读者要自己找；这里只做导航，点一下跳到对应照片。 -->
+    <view wx:if="{{report.priorityItems.length}}" class="report-priority" aria-label="需要优先处理">
+      <view class="report-priority__head">需要优先处理</view>
+      <button
+        wx:for="{{report.priorityItems}}"
+        wx:key="key"
+        class="ui-button-reset report-priority__row"
+        data-group="{{item.groupIndex}}"
+        bindtap="handleJumpToGroup"
+        aria-label="跳到{{item.groupTitle}}第{{item.displayNo}}项"
+      >
+        <text class="report-priority__severity report-priority__severity--{{item.severity}}">{{item.severityText}}</text>
+        <view class="report-priority__copy">
+          <text class="report-priority__where">{{item.groupTitle}} · {{item.displayNo}}</text>
+          <text class="report-priority__what">{{item.description}}</text>
+        </view>
+        <text class="report-priority__jump">查看</text>
+      </button>
+      <view wx:if="{{report.priorityOmitted}}" class="report-priority__more">另有 {{report.priorityOmitted}} 项，见下方照片与问题</view>
+    </view>
   </view>
   <report-section wx:if="{{report.summary}}" title="巡查小结" content="{{report.summary}}" />
 
@@ -67,7 +87,7 @@
       <view class="section-subtitle">本次巡查未记录问题项。</view>
     </view>
 
-  <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" class="issue-group">
+  <view wx:for="{{report.issueGroups}}" wx:for-item="group" wx:key="key" id="photo-group-{{index}}" class="issue-group">
       <view class="issue-group__head"><text class="issue-group__title">{{group.groupTitle}}</text><text wx:if="{{!group.issues.length}}" class="issue-group__status">未记录问题</text></view>
       <view class="issue-group__content">
         <view wx:if="{{group.image && !group.imagePreviewError}}" class="issue-group__media" style="height:{{group.thumbnailHeight || 360}}rpx" data-index="{{index}}" bindtap="handlePreviewImage">

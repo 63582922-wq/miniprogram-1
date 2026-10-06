@@ -63,6 +63,43 @@ function buildConclusion(stats) {
 // the format itself is shared with the report list.
 function buildReportNo(report = {}) { return formatReportNo(report); }
 
+/**
+ * 首屏「需要优先处理」清单。
+ *
+ * 报告按照片顺序一路排下去，严重项会混在长列表里，接收者要自己找。
+ * 这里把非一般的条目提到概览下方，点一下就跳到对应照片分组。
+ * 只做导航，不改写任何内容——清单里的文字就是问题本身。
+ */
+function buildPriorityItems(issueGroups = []) {
+  const items = [];
+  // 概览要能一眼扫完；完整描述就在下面同一页，点一下即到，所以这里只留引子。
+  const PREVIEW_LIMIT = 42;
+  const preview = text => {
+    const value = `${text || ""}`.trim();
+    return value.length > PREVIEW_LIMIT ? `${value.slice(0, PREVIEW_LIMIT)}…` : value;
+  };
+  issueGroups.forEach((group, groupIndex) => {
+    (group.issues || []).forEach(issue => {
+      if (!issue || issue.severity === "normal" || !issue.severity) return;
+      items.push({
+        key: `${groupIndex}-${issue.displayNo}`,
+        groupIndex,
+        severity: issue.severity,
+        severityText: issue.severityText || "",
+        groupTitle: group.groupTitle || "",
+        displayNo: issue.displayNo || "",
+        description: preview(issue.description)
+      });
+    });
+  });
+  // 严重优先于较重，其余保持报告内的原始顺序。
+  const rank = { critical: 0, major: 1 };
+  return items
+    .map((item, order) => ({ item, order }))
+    .sort((a, b) => (rank[a.item.severity] - rank[b.item.severity]) || (a.order - b.order))
+    .map(entry => entry.item);
+}
+
 function normalizeReportSummary(report = {}) {
   const summary = typeof report.summary === "string" ? report.summary.trim() : "";
   if (!summary || report.summarySource === "inspector") return summary;
@@ -285,6 +322,10 @@ function buildReportDisplayState(report = {}) {
     label: roles.length > 1 ? "统一联系电话" : roles[0]
   }));
 
+  // 首屏清单只列最要紧的几条；把「严重」写满全表等于没有重点。
+  const priorityAll = buildPriorityItems(issueGroups);
+  const PRIORITY_LIMIT = 4;
+
   return {
     ...report,
     summary: normalizeReportSummary(report),
@@ -297,8 +338,31 @@ function buildReportDisplayState(report = {}) {
     identityRows,
     contactEntries,
     issueGroups,
+    priorityItems: priorityAll.slice(0, PRIORITY_LIMIT),
+    priorityOmitted: Math.max(0, priorityAll.length - PRIORITY_LIMIT),
     photoCount
   };
+}
+
+/**
+ * 顶部固定导航的实际占位高度。
+ *
+ * 胶囊按钮的位置因机型而异，写死 44 会在部分机型上让跳转目标被压在导航下。
+ */
+function navigationHeight() {
+  const system = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo() : {};
+  const statusBarHeight = system.statusBarHeight || 20;
+  try {
+    const capsule = typeof wx.getMenuButtonBoundingClientRect === "function"
+      ? wx.getMenuButtonBoundingClientRect()
+      : null;
+    if (capsule && capsule.height) {
+      return Math.max(44, Math.round((capsule.top - statusBarHeight) * 2 + capsule.height));
+    }
+  } catch (_error) {
+    // Runtimes without a capsule rect keep the standard navigation height.
+  }
+  return 44;
 }
 
 Page({
@@ -337,6 +401,7 @@ Page({
     shareBusy:false
   },
   async onLoad(query) {
+    this.reportNavHeight = navigationHeight();
     this.setData({
       reportId: query.reportId || "",
       inspectionId: query.inspectionId || "",
@@ -368,6 +433,31 @@ Page({
     wx.makePhoneCall({
       phoneNumber: phone,
       fail: () => {}
+    });
+  },
+  /**
+   * 从首屏「需要优先处理」跳到对应照片分组。
+   *
+   * 用 selector 定位而不是自己算偏移：分组高度随照片比例变化，算不准。
+   * 顶部有固定导航，所以定位后再回退一个导航高度，别让分组标题被压在栏下。
+   */
+  handleJumpToGroup(event) {
+    const groupIndex = Number(event.currentTarget.dataset.group);
+    if (!Number.isInteger(groupIndex) || groupIndex < 0) {
+      return;
+    }
+    const query = wx.createSelectorQuery();
+    query.select(`#photo-group-${groupIndex}`).boundingClientRect();
+    query.selectViewport().scrollOffset();
+    query.exec(result => {
+      const rect = result && result[0];
+      const viewport = result && result[1];
+      if (!rect || !viewport) {
+        return;
+      }
+      const navHeight = this.reportNavHeight || 0;
+      const target = Math.max(0, viewport.scrollTop + rect.top - navHeight - 12);
+      wx.pageScrollTo({ scrollTop: target, duration: 260 });
     });
   },
   /** 点图片放大看细节 —— 报告的使命就是让人看清问题 */

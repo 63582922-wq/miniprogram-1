@@ -315,6 +315,84 @@
   white-space: nowrap;
 }
 
+/* 需要优先处理：只做导航，视觉上从属于概览，不抢结论的位置。 */
+.report-priority {
+  margin-top: var(--a-space-4);
+  padding-top: var(--a-space-3);
+  border-top: 1px solid var(--a-line);
+}
+
+.report-priority__head {
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  letter-spacing: .08em;
+  margin-bottom: var(--a-space-2);
+}
+
+.report-priority__row {
+  width: 100%;
+  min-height: var(--a-hit);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-space-2);
+  padding: var(--a-space-2) 0;
+  text-align: left;
+}
+
+.report-priority__row + .report-priority__row {
+  border-top: 1px solid var(--a-line);
+}
+
+.report-priority__severity {
+  flex: none;
+  padding: 0 var(--a-space-1);
+  border-radius: var(--a-radius-tight);
+  font-size: var(--a-type-caption);
+  line-height: 1.6;
+}
+
+.report-priority__severity--critical {
+  color: var(--a-danger);
+}
+
+.report-priority__severity--major {
+  color: var(--a-warning);
+}
+
+.report-priority__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-space-1);
+}
+
+.report-priority__where {
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: 1.4;
+}
+
+.report-priority__what {
+  color: var(--a-ink);
+  font-size: var(--a-type-body);
+  line-height: 1.5;
+}
+
+.report-priority__jump {
+  flex: none;
+  align-self: center;
+  color: var(--a-accent-text);
+  font-size: var(--a-type-caption);
+}
+
+.report-priority__more {
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: 1.5;
+  margin-top: var(--a-space-2);
+}
+
 .report-issues {
   display: flex;
   flex-direction: column;
