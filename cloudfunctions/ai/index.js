@@ -679,7 +679,7 @@ function extractAssertedIssueClauses(text = "") {
 function buildDraftBackedIssueItem(draft, itemIndex, sourceIndex, subIssueIndex, overrides = {}) {
   const skipImageRecognition = shouldSkipImageRecognitionForDraft(draft);
   const hasVoiceText = hasMeaningfulVoiceText(draft.voiceText);
-  const evidenceSource = ["image", "note", "image+note"].includes(overrides.evidenceSource)
+  const evidenceSource = ["image", "note", "image+note", "model-only"].includes(overrides.evidenceSource)
     ? overrides.evidenceSource
     : (skipImageRecognition ? "note" : (hasVoiceText ? "image+note" : "image"));
   const confidence = ["high", "medium", "low"].includes(overrides.confidence)
@@ -703,6 +703,9 @@ function buildDraftBackedIssueItem(draft, itemIndex, sourceIndex, subIssueIndex,
     visualEvidence: `${overrides.visualEvidence || ""}`.trim(),
     evidenceSource,
     confidence,
+    // 模型自行描述、但拿不出可见依据与原话依据的条目。保留给人工判断，
+    // 但必须让核对人看出来这条没有依据，不能与有依据的条目长得一样。
+    unsupported: overrides.unsupported === true,
     needsReview: overrides.needsReview === true || confidence !== "high" || evidenceSource === "note",
     images: skipImageRecognition ? [] : (draft.imagePath ? [draft.imagePath] : []),
     annotatedImages: draft.annotatedImagePath
@@ -943,12 +946,16 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
       ? item.evidenceSource
       : (hasAssertedNote ? "image+note" : "image");
 
-    // A model-generated defect without any visible evidence or explicit field
-    // assertion is a hallucination candidate, not a useful review suggestion.
-    if (!visualEvidence && !hasAssertedNote) return;
+    // 模型给了问题描述，却既没有可见依据、也没有原话依据时，过去是直接丢弃。
+    // 那等于让服务端替巡查人做决定，而且不留任何痕迹——核对页根本看不到模型
+    // 说过什么，只表现为「这条照片没问题」。实测中这正是「AI 识别到东西、
+    // 但报告里什么都没有」的原因。
+    // 现在改为保留并明确标注低置信、需现场确认，由核对人自己决定要不要。
+    // 真正的空描述仍然在上方拒绝。
+    const unsupported = !visualEvidence && !hasAssertedNote;
     const evidenceSource = visualEvidence
       ? requestedEvidenceSource
-      : "note";
+      : (hasAssertedNote ? "note" : "model-only");
     const confidence = visualEvidence
       ? item.confidence
       : "low";
@@ -970,6 +977,7 @@ function normalizeInspectionAiItems(payload, parsedItems = [], options = {}) {
         visualEvidence,
         evidenceSource,
         confidence,
+        unsupported,
         needsReview: item.needsReview === true || !visualEvidence
       }
     ));

@@ -352,6 +352,10 @@ async function buildReportData(payload, trustedRead = false) {
       title: `${projectRow.name}巡查报告`,
       projectName: projectRow.name,
       projectAddress: projectRow.address || "",
+      // 甲方联系方式是项目自带的对外信息：报告会发给施工方与业主，
+      // 让他们知道这活是谁的。此前只在项目详情页显示，进不了报告。
+      clientName: projectRow.clientName || "",
+      clientPhone: projectRow.clientPhone || "",
       inspectionDate: inspection.data.inspectionDate,
       inspectionDateText: new Date(inspection.data.inspectionDate).toLocaleDateString("zh-CN"),
       inspectorName: getInspectorName(user),
@@ -627,7 +631,7 @@ function readerSafeAnnotations(annotations = []) {
 async function readerReport(report){
   // Explicit allowlist: future internal fields must not silently become share data.
   const pick=(source,keys)=>Object.fromEntries(keys.filter(k=>source[k]!==undefined).map(k=>[k,source[k]]));
-  const safe=pick(report,["_id","title","projectName","projectAddress","summary","contextNote","inspectorName","inspectorPhone","publisherName","publisherPhone","companyName","companyPhone","companyAddress","logoFileId","inspectionDate","inspectionDateText","publishedAt","createdAt","generatedAt","shareState","snapshotVersion"]);
+  const safe=pick(report,["_id","title","projectName","projectAddress","clientName","clientPhone","summary","contextNote","inspectorName","inspectorPhone","publisherName","publisherPhone","companyName","companyPhone","companyAddress","logoFileId","inspectionDate","inspectionDateText","publishedAt","createdAt","generatedAt","shareState","snapshotVersion"]);
   // 必须在下面批量 getTempFileURL 之前剔除：否则别人的 fileID 已经被签发过，
   // 后续再清空也来不及。历史快照里可能存有未加 user/{openId}/ 作用域的旧引用。
   safe.logoFileId=ownedLogoFileId(safe.logoFileId, report.createdBy);

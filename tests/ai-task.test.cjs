@@ -83,25 +83,56 @@ test('cancelling an in-flight transient failure prevents its automatic paid retr
  assert.equal((await advancing).data.status,'cancelled');
  assert.equal(calls,1,'the bounded automatic retry is not launched after cancellation');
 });
-test('vision diagnostics distinguish model-empty from server-filtered results without logging user content',async()=>{
+test('vision diagnostics distinguish model-empty from model-without-evidence without logging user content',async()=>{
  const run=async candidates=>{
   const {fn,logs}=fixture(async()=>response(candidates));
   const payload=input();payload.issueDrafts[0].analysisMode='ai';payload.issueDrafts[0].voiceText='私人现场描述不应进入诊断日志';
   const created=await fn({action:'createInspectionTask',payload});
   const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
-  assert.equal(done.data.status,'success');assert.equal(done.data.analysis.items.length,0);
+  assert.equal(done.data.status,'success');
   const entry=logs.find(args=>args[0]==='inspection_ai_candidate_counts');assert.ok(entry,'one count-only diagnostic is emitted');
   const diagnostic=JSON.parse(entry[1]);
-  assert.equal(diagnostic.candidateCount,candidates.length);assert.equal(diagnostic.acceptedCount,0);
-  assert.equal(diagnostic.filteredCount,candidates.length);assert.equal(diagnostic.photoCount,1);
+  assert.equal(diagnostic.candidateCount,candidates.length);
+  assert.equal(diagnostic.photoCount,1);
   assert.equal(diagnostic.observationCount,0);
   assert.doesNotMatch(JSON.stringify(logs),/私人现场描述|p0\.png|cloud:\/\//);
-  return diagnostic;
+  return {diagnostic,items:done.data.analysis.items};
  };
- const empty=await run([]);assert.equal(empty.candidateCount,0);assert.equal(empty.filteredCount,0);
- const filtered=await run([{sourceIndex:0,description:'具体问题候选，但没有可见依据'}]);
- assert.equal(filtered.candidateCount,1);assert.equal(filtered.filteredCount,1);
+ const empty=await run([]);
+ assert.equal(empty.diagnostic.candidateCount,0);
+ assert.equal(empty.diagnostic.acceptedCount,0);
+ assert.equal(empty.items.length,0);
+
+ const described=await run([{sourceIndex:0,description:'具体问题候选，但没有可见依据'}]);
+ assert.equal(described.diagnostic.candidateCount,1);
+ assert.equal(described.diagnostic.acceptedCount,1,'模型给了描述就不能再静默丢掉');
+ assert.equal(described.diagnostic.filteredCount,0);
+ assert.equal(described.items.length,1,'条目要交给人工核对，而不是消失');
 });
+
+test('a model item with no visible evidence is kept but clearly marked as unsupported',async()=>{
+ const {fn}=fixture(async()=>response([{sourceIndex:0,description:'地面看起来不太干净'}]));
+ const payload=input();payload.issueDrafts[0].analysisMode='ai';
+ const created=await fn({action:'createInspectionTask',payload});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ const item=done.data.analysis.items[0];
+ assert.equal(item.description,'地面看起来不太干净');
+ assert.equal(item.unsupported,true,'没有可见依据必须显式标出来');
+ assert.equal(item.evidenceSource,'model-only');
+ assert.equal(item.confidence,'low');
+ assert.equal(item.needsReview,true);
+ assert.equal(item.suggestion,'','AI 仍然不得自己写处理建议');
+});
+
+test('an item grounded in the note is not marked unsupported',async()=>{
+ const {fn}=fixture(async()=>response([{sourceIndex:0,description:'窗台收口有缝隙'}]));
+ const payload=input();payload.issueDrafts[0].analysisMode='ai';payload.issueDrafts[0].voiceText='窗台收口不平整。';
+ const created=await fn({action:'createInspectionTask',payload});
+ const done=await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});
+ const item=done.data.analysis.items[0];
+ assert.equal(item.unsupported,false,'原话里有明确缺陷描述，就不算无依据');
+});
+
 test('neutral visual observations are returned per photo separately from issue candidates and survive task completion',async()=>{
  let systemPrompt='';
  const {fn,logs}=fixture(async(_url,body)=>{

@@ -3,12 +3,14 @@
     <view class="item-card__header-main">
       <view wx:if="{{showLeadingIndex && (item.description || item.markerNumber)}}" class="item-card__index">{{item.description ? (displayIndex || (index + 1))+'.' : '标注 '+item.markerNumber}}</view>
       <view wx:if="{{!hideTitle}}" class="item-card__title">{{resolvedTitle}}</view>
-      <text wx:if="{{editable && item.needsReview}}" class="item-card__review-flag">{{item.textOrganized ? '文字整理 · 待核对' : item.evidenceSource === 'image' || item.evidenceSource === 'image+note' ? 'AI识图 · 待核对' : 'AI建议 · 待核对'}}</text>
+      <text wx:if="{{editable && item.needsReview}}" class="item-card__review-flag">{{item.unsupported ? 'AI 建议 · 无可见依据' : item.textOrganized ? '文字整理 · 待核对' : item.evidenceSource === 'image' || item.evidenceSource === 'image+note' ? 'AI识图 · 待核对' : 'AI建议 · 待核对'}}</text>
     </view>
     <button wx:if="{{editable}}" class="ui-button-reset item-card__action item-card__edit" bindtap="toggleEditing">{{editing ? '完成' : '修改'}}</button>
   </view>
   <view wx:if="{{!editable || !editing}}" class="item-card__read">
     <view class="item-card__description">{{item.description || '补充这处标注的说明'}}</view>
+    <!-- 模型自己描述、但说不出依据的条目：留着供判断，但必须一眼看出来没有依据。 -->
+    <view wx:if="{{item.unsupported}}" class="item-card__unsupported">这条没有可见依据，是 AI 自己描述的。请现场确认后再决定要不要保留；保留则照常写入报告。</view>
     <view wx:if="{{showSourceQuote}}" class="item-card__source">
       <button class="ui-button-reset item-card__source-toggle" aria-expanded="{{sourceQuoteExpanded}}" bindtap="toggleSourceQuote">{{sourceQuoteExpanded ? '收起原话' : '查看原话'}}</button>
       <view wx:if="{{sourceQuoteExpanded}}" class="item-card__source-quote">{{item.sourceQuote}}</view>

@@ -297,6 +297,12 @@ function buildReportDisplayState(report = {}) {
     value: inspectorName
   });
   if (projectAddress) identityRows.push({ label: "项目位置", value: projectAddress });
+  // 甲方是项目自带信息，报告要发给施工方与业主双方，写清楚这活是谁的。
+  const clientName = typeof report.clientName === "string" ? report.clientName.trim() : "";
+  const clientPhone = typeof report.clientPhone === "string" ? report.clientPhone.trim() : "";
+  if (clientName || clientPhone) {
+    identityRows.push({ label: "甲方", value: [clientName, clientPhone].filter(Boolean).join("　") });
+  }
   // The issuer's registered/contact address is useful when it differs from
   // the inspected site; suppress it when identical to avoid repeating a row.
   if (companyAddress && companyAddress !== projectAddress) {

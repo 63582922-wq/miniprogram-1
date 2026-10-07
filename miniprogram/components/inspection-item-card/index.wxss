@@ -242,6 +242,17 @@
   font-weight: var(--a-weight-medium);
 }
 
+/* 无依据的 AI 条目：用警示色描边而不是强调色填充，避免看起来像一条已确认的问题。 */
+.item-card__unsupported {
+  margin-top: var(--a-space-2);
+  padding: var(--a-space-2);
+  border: 1px solid var(--a-warning);
+  border-radius: var(--a-radius-tight);
+  color: var(--a-warning);
+  font-size: var(--a-type-caption);
+  line-height: 1.5;
+}
+
 .item-card__review-flag {
   color: var(--a-muted);
   font-size: var(--a-type-caption);

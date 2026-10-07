@@ -418,3 +418,41 @@ test('legacy project and report records without deleted flag remain visible in o
  const built=await h.load('report')({action:'build',payload:{inspectionId:'legacy-built-inspection'}});
  assert.equal(built.data.items[0].description,'历史问题');
 });
+
+test('the project client contact reaches the report snapshot and the share reader',async()=>{
+ const h=fixture();
+ h.table('projects').get('p').clientName='陈工';
+ h.table('projects').get('p').clientPhone='13800000009';
+ h.table('users').set('u',{openId:'owner',nickname:'张工',phone:'13900000000',deleted:false});
+ h.table('app_settings').set('s',{openId:'owner',companyName:'示例市示例家具有限公司',deleted:false});
+ const confirm=h.load('inspection');
+ const insp=await confirm({action:'confirm',payload:payload()});
+ const report=h.load('report');
+ const built=await report({action:'build',payload:{inspectionId:insp.data.inspectionId}});
+ assert.equal(built.data.clientName,'陈工','甲方联系人要能被报告构建读到');
+ assert.equal(built.data.clientPhone,'13800000009');
+
+ const published=await report({action:'save',payload:{...built.data,requestId:'client-contact'}});
+ assert.equal(published.success,true);
+ assert.equal(published.data.snapshot.clientName,'陈工','甲方信息要冻进快照');
+ assert.equal(published.data.snapshot.clientPhone,'13800000009');
+
+ // 只读接收者也必须看得到：报告是发给施工方与业主双方的。
+ h.as('recipient');
+ const read=await report({action:'detail',payload:{reportId:published.data._id,shareToken:published.data.shareToken}});
+ assert.equal(read.success,true);
+ assert.equal(read.data.accessMode,'shared');
+ assert.equal(read.data.clientName,'陈工','读者字段白名单不能把甲方信息挡掉');
+ assert.equal(read.data.clientPhone,'13800000009');
+});
+
+test('a project without a client contact adds no client fields to the report',async()=>{
+ const h=fixture();
+ h.table('users').set('u',{openId:'owner',nickname:'张工',deleted:false});
+ const confirm=h.load('inspection');
+ const insp=await confirm({action:'confirm',payload:payload()});
+ const report=h.load('report');
+ const built=await report({action:'build',payload:{inspectionId:insp.data.inspectionId}});
+ assert.equal(built.data.clientName,'');
+ assert.equal(built.data.clientPhone,'');
+});

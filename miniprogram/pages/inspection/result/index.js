@@ -1,7 +1,7 @@
 const { confirmInspection } = require("../../../services/inspection");
 const { buildReportData, saveReport } = require("../../../services/report");
 const { readDraft, patchDraft, writeDraft, finishDraft } = require("../../../utils/inspection-draft");
-const { identity, bindIssues, resolveIssueMedia, getPhotoDisplayPath } = require("../../../utils/inspection-model");
+const { identity, bindIssues, resolveIssueMedia, getPhotoDisplayPath, isNumberedAnnotation } = require("../../../utils/inspection-model");
 const { uploadDraftMedia } = require("../../../services/inspection-media");
 const { encodeReturnContext, returnToContext } = require("../../../utils/router");
 const { markGuideStep } = require("../../../utils/guide");
@@ -254,11 +254,44 @@ Page({
         if(!result.confirm)return;
         const issues=this.data.issues.filter(item=>(item.description||"").trim());
         this.updateIssues(issues);
-        this.submitReviewedIssues(issues);
+        // 移除空白行之后同样要过标注核对，否则「有标注 + 一条空白问题」
+        // 会从这个分支直接发布出去，绕过下面那道拦截。
+        this.submitAfterAnnotationCheck(issues);
       }});
       return;
     }
-    return this.submitReviewedIssues(this.data.issues);
+    return this.submitAfterAnnotationCheck(this.data.issues);
+  },
+  /**
+   * 发布前的最后一道：有编号标注、却没有任何带说明问题的照片。
+   *
+   * 报告里的编号是从「问题条目」推出来的（group.markers 只认 issue），
+   * 没有对应问题，标注号就会整个从报告里消失——照片照常显示，但编号和
+   * 说明都不见了。真机实测中这正是「我明明标了位置 1，报告里什么都没有」。
+   */
+  submitAfterAnnotationCheck(issues){
+    const orphan=this.photosWithAnnotationsButNoIssue(issues);
+    if(orphan.length){
+      wx.showModal({
+        title:"有标注没有对应问题",
+        content:`照片 ${orphan.join("、")} 上有标注，但没有写问题。生成报告后这些编号不会出现。请补充问题说明，或返回照片移除标注。`,
+        confirmText:"知道了",
+        showCancel:false
+      });
+      return;
+    }
+    return this.submitReviewedIssues(issues);
+  },
+  /** 有编号标注、但没有一条带说明的问题的照片序号 */
+  photosWithAnnotationsButNoIssue(issues){
+    const photos=(this.data.form && this.data.form.issueDrafts) || [];
+    const list=Array.isArray(issues) ? issues : (this.data.issues || []);
+    return photos.map((photo,index)=>{
+      const markers=(photo.annotations || []).filter(isNumberedAnnotation);
+      if(!markers.length)return "";
+      const answered=list.some(item=>item.sourcePhotoId===photo.id && (item.description||"").trim());
+      return answered ? "" : String(index+1);
+    }).filter(Boolean);
   },
   async submitReviewedIssues(issues){
     if(this.data.submitting || !this.data.form)return;
