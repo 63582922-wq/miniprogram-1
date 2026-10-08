@@ -171,10 +171,10 @@ async function saveReport(payload) {
   if(payload.reportId){
     const access=await assertReportAccess(payload.reportId,OPENID);
     if(!access.ok)return {success:false,message:access.message};
-    // Published content is immutable; PDF lifecycle has dedicated actions.
+    // Published content is immutable; a later payload can never rewrite the snapshot.
     if(access.report.snapshotVersion)return {success:true,data:access.report};
   }
-  const reportStatus = payload.status || (payload.pdfFileId ? "generated" : "draft");
+  const reportStatus = payload.status || "draft";
 
   if (payload.reportId) {
     const access = await assertReportAccess(payload.reportId, OPENID);
@@ -197,21 +197,6 @@ async function saveReport(payload) {
       updatedAt: now,
       updatedBy: OPENID
     };
-    if (payload.pdfFileId !== undefined) {
-      updateData.pdfFileId = payload.pdfFileId;
-    }
-    if (payload.pdfTemplateVersion !== undefined) {
-      updateData.pdfTemplateVersion = payload.pdfTemplateVersion || "";
-    }
-    if (payload.pdfTaskId !== undefined) {
-      updateData.pdfTaskId = payload.pdfTaskId || "";
-    }
-    if (payload.pdfTaskStatus !== undefined) {
-      updateData.pdfTaskStatus = payload.pdfTaskStatus || "";
-    }
-    if (payload.pdfErrorMessage !== undefined) {
-      updateData.pdfErrorMessage = payload.pdfErrorMessage || "";
-    }
     if (reportStatus === "generated") {
       updateData.generatedAt = payload.generatedAt || now;
     }
@@ -260,11 +245,6 @@ async function saveReport(payload) {
     companyAddress: payload.companyAddress || "",
     logoFileId: ownedLogoFileId(payload.logoFileId, OPENID),
     reportTemplate: payload.reportTemplate || "default",
-    pdfFileId: payload.pdfFileId || "",
-    pdfTemplateVersion: payload.pdfTemplateVersion || "",
-    pdfTaskId: payload.pdfTaskId || "",
-    pdfTaskStatus: payload.pdfTaskStatus || "",
-    pdfErrorMessage: payload.pdfErrorMessage || "",
     coverLogoFileId: "",
     // 创建时就生成分享 token。
     // onShareAppMessage 是同步函数、无法等待网络，所以 token 必须随报告一起就绪。
@@ -291,7 +271,7 @@ async function saveReport(payload) {
   let existing=null;try{existing=(await db.collection("reports").doc(id).get()).data;}catch(e){}
   const published=existing || await reserve(db.collection("reports"),id,hash(snapshot),{
     ...data,...snapshot,status:"published",publicationStatus:"published",snapshotVersion:2,snapshot,
-    publishedAt:now,shareState:"active",pdfTaskStatus:"idle"
+    publishedAt:now,shareState:"active"
   });
   if(published.deleted)throw new Error("报告已删除");
   await db.collection("inspections").doc(payload.inspectionId).update({data:{reportId:id,updatedAt:now,updatedBy:OPENID}});

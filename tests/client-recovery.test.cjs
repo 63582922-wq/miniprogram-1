@@ -1021,13 +1021,6 @@ test('canceling or failing the direct project-page picker does not create a blan
  }
 });
 
-test('PDF grouping marks unmatched legacy source instead of guessing a photo',()=>{
- const {groupItemsByImage}=require('../report-pdf-service/src/report-template');
- const groups=groupItemsByImage([{description:'历史来源不明确'}],[{imagePath:'cloud://same'},{imagePath:'cloud://same'}]);
- const unresolved=groups.find(group=>group.items.length);
- assert.equal(unresolved.sourceAmbiguous,true);
- assert.match(require('../report-pdf-service/src/report-template').buildReportHtml({photos:[],items:[{description:'历史来源不明确'}]}),/来源待确认/);
-});
 
 test('report image viewer opens the issue-linked full photo, supports issue selection, and closes cleanly',async()=>{
  let imageInfoCalls=0;

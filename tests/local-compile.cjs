@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 function files(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()&&!['node_modules','.git'].includes(e.name)?files(path.join(dir,e.name)):e.isFile()?[path.join(dir,e.name)]:[]);}
-const all=['miniprogram','cloudfunctions','report-pdf-service'].flatMap(d=>files(path.join(root,d)));
+const all=['miniprogram','cloudfunctions'].flatMap(d=>files(path.join(root,d)));
 let failures=0;
 for(const p of all.filter(p=>p.endsWith('.js'))){const r=cp.spawnSync(process.execPath,['--check',p],{encoding:'utf8'});if(r.status){failures++;console.error(p,r.stderr);}}
 for(const p of all.filter(p=>p.endsWith('.json'))){try{JSON.parse(fs.readFileSync(p,'utf8'));}catch(e){failures++;console.error(p,e.message);}}
