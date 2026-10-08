@@ -56,6 +56,10 @@
   --a-radius-object:10rpx;
   --a-radius-sheet:20rpx;
   --a-radius-pill:9999rpx;
+  /* 会长高的输入条：取静止高度的一半，静止时就是完整半圆边；
+     内容变高后半径不变，退化成圆角矩形——不会像 9999rpx 那样被钳制成
+     体育场形，把首尾两行文字甩到边框之外。31px = 输入框静止高 62px 的一半。 */
+  --a-radius-bar:31px;
   --a-icon-sm:32rpx;
   --a-icon:40rpx;
   --a-icon-lg:48rpx;

@@ -263,7 +263,7 @@
   gap: var(--a-space-2);
   padding: var(--a-space-2);
   border: 1px solid var(--a-line);
-  border-radius: var(--a-radius-control);
+  border-radius: var(--a-radius-bar);
   background: var(--a-field);
 }
 
