@@ -238,7 +238,9 @@ test('voice recording is a prominent secondary action; the page CTA owns the sol
   const capture = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxss'), 'utf8');
   const voice = capture.match(/\.voice-hold-button\s*\{([^}]*)\}/s);
   assert.ok(voice, 'capture page must define the hold-to-talk control');
-  assert.match(voice[1], /min-height:\s*var\(--a-hit-voice\)/, 'voice control remains easy to discover and press');
+  // 语音按钮已改为与「继续添加」同高：仍是标准 44px 命中高度，
+  // 只是不再用更大的 --a-hit-voice（按钮整体缩小是按使用反馈改的）。
+  assert.match(voice[1], /min-height:\s*var\(--a-hit\)/, 'voice control keeps the standard 44px hit target');
   assert.match(voice[1], /background:\s*var\(--a-accent-wash\)/, 'voice control must not compete with the filled primary CTA');
   assert.match(voice[1], /border:\s*1\.5px\s+solid\s+var\(--a-accent\)/, 'accent outline keeps the secondary voice action discoverable');
   assert.match(capture, /\.voice-hold-button--active\s*\{[^}]*background:\s*var\(--a-accent-strong\)/s, 'recording state becomes unmistakable');
@@ -246,19 +248,23 @@ test('voice recording is a prominent secondary action; the page CTA owns the sol
   assert.match(primary, /\.primary-button\s*\{[^}]*background:\s*var\(--a-accent\)/s, 'the primary next-step control retains the solid accent fill');
 });
 
-test('capture copy keeps the voice gestures visible now that the mic shares a row', () => {
+test('capture voice control is a compact single line and keeps its state feedback', () => {
   const markup = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxml'), 'utf8');
+  const style = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxss'), 'utf8');
   assert.match(markup, /placeholder="输入现场说明或问题描述"/, 'manual text entry should explain its own purpose without repeating the nearby mic instruction');
-  // 麦克风按钮改成半宽后放不下原来的 12 字提示，但两个手势都必须留着：
-  // 用户要知道「松手才发送」，也要知道「上滑能取消」。
-  assert.match(markup, /松开转字 · 上滑取消/, 'the idle microphone control must still expose both release and cancel gestures');
-  // 上滑取消在录音中同样要可见。
-  assert.match(markup, /向上滑动可取消/, 'the armed recording state keeps the cancel hint');
-  // 按钮改成半宽后放不下「按住说话 · 照片 N」，作用对象改由 aria-label 承担，
-  // 视觉上由「展开的那张照片」表示；这里锁住无障描述不会退化成通用文案。
-  assert.match(markup, /aria-label="按住说话（记入照片 \{\{index \+ 1\}\}）/, 'the mic names its target photo for assistive tech');
+  // 空闲态的常驻说明行已按需求去掉：按钮要和「继续添加」一样是单行、更小。
+  assert.doesNotMatch(markup, /松开转字 · 上滑取消/, 'the idle hint line was deliberately removed');
+  assert.doesNotMatch(markup, /voice-hold-button__hint/, 'no leftover hint node in the markup');
+  // 但录音过程中的状态反馈必须留着，否则「松手完成 / 上滑取消」无从得知。
+  assert.match(markup, /正在转成文字…/, 'transcribing state stays visible');
+  assert.match(markup, /松开，完成转写/, 'release-to-finish stays visible while recording');
+  assert.match(markup, /松开，取消这段/, 'cancel-by-slide stays discoverable while recording');
+  // 手势说明改由无障碍描述承担。
+  assert.match(markup, /aria-label="按住说话（记入照片/, 'the gestures remain described for assistive tech');
+  // 尺寸：语音按钮不再用偏大的 --a-hit-voice，与「继续添加」同为标准 44px。
+  assert.doesNotMatch(style, /--a-hit-voice/, 'the shared row no longer uses the oversized hit token');
+  assert.match(style, /\.capture-action-row\s*>\s*\.voice-hold-button[^{]*\{[^}]*min-height:\s*var\(--a-hit\)/s, 'the voice button uses the standard hit height');
 });
-
 test('AI review distinguishes useful suggestions from an empty result without implying acceptance', () => {
   const markup = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/result/index.wxml'), 'utf8');
   assert.match(markup, /summary\.visionRequested && summary\.aiIssueCount > 0/, 'only photo recognition issues are presented as AI photo analysis');

@@ -87,12 +87,12 @@
   width: auto !important;
   min-width: 0;
   margin: 0 !important;
-  min-height: var(--a-hit-voice);
+  min-height: var(--a-hit);
 }
 
 .capture-action-row > .capture-action-row__add {
-  padding: var(--a-space-2) var(--a-space-2) !important;
-  font-size: var(--a-type-action);
+  padding: var(--a-space-1) var(--a-space-2) !important;
+  font-size: var(--a-type-medium);
   /* 与语音按钮同一套表面：同一个强调色描边与底色，两者不分主次。
      两个图标本身就取同一个墨色，底色一致后图标也自然一致。
      录音中／可取消的变色反馈仍只属于语音按钮。 */
@@ -309,18 +309,18 @@
 .voice-hold-button {
   display: flex;
   width: 100% !important;
-  min-height: var(--a-hit-voice);
+  min-height: var(--a-hit);
   align-items: center;
   justify-content: center;
-  gap: var(--a-space-2);
-  margin: var(--a-space-1) 0 0 !important;
+  gap: var(--a-space-1);
+  margin: 0 !important;
   padding: var(--a-space-2) var(--a-space-2) !important;
   border: 1.5px solid var(--a-accent) !important;
   border-radius: var(--a-radius-pill);
   background: var(--a-accent-wash) !important;
   color: var(--a-ink) !important;
-  font-size: var(--a-type-action);
-  font-weight:var(--a-weight-medium);
+  font-size: var(--a-type-medium);
+  font-weight: var(--a-weight-medium);
   line-height: 1.35;
   user-select: none;
   transition: background-color var(--a-motion), transform var(--a-motion);
@@ -340,24 +340,10 @@
 
 .voice-hold-button__mic {
   display: block;
-  width: var(--a-icon-lg);
-  height: var(--a-icon-lg);
+  width: var(--a-icon);
+  height: var(--a-icon);
   flex: none;
   filter: none;
-}
-
-.voice-hold-button__copy {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--a-space-1);
-}
-
-.voice-hold-button__hint {
-  color: inherit;
-  font-size: var(--a-type-micro);
-  font-weight:var(--a-weight-regular);
-  opacity: .78;
 }
 
 .photo-processing-mode {

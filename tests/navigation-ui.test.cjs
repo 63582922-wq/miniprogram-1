@@ -319,10 +319,12 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.match(allWxss, /\.guide-tip-button\s*\{[\s\S]*?min-height:\s*var\(--a-hit-primary\)/);
   assert.match(annotation, /\.tool\s*\{[\s\S]*?min-height:\s*var\(--a-hit-primary\)/);
   assert.match(annotation, /\.tool--active\s*\{[\s\S]*?background:\s*var\(--a-accent-wash\)/);
-  assert.match(capture, /\.voice-hold-button\s*\{[\s\S]*?min-height:\s*var\(--a-hit-voice\)/);
+  assert.match(capture, /\.voice-hold-button\s*\{[\s\S]*?min-height:\s*var\(--a-hit\)/);
   assert.match(capture, /\.voice-hold-button\s*\{[\s\S]*?background:\s*var\(--a-accent-wash\)/);
   assert.match(capture, /\.voice-hold-button--active\s*\{[\s\S]*?background:\s*var\(--a-accent-strong\)/);
-  assert.match(capture, /\.voice-hold-button__copy\s*\{[^}]*align-items:\s*center/);
+  // 语音按钮已改成与「继续添加」一致的单行结构（图标 + 一行文案），
+  // 不再有 __copy 双行容器；用同一个 flex 行内居中契约锁住版式。
+  assert.match(capture, /\.voice-hold-button\s*\{[\s\S]*?justify-content:\s*center/);
   assert.match(capture, /\.voice-hold-button--cancel\s*\{[\s\S]*?background:\s*var\(--a-danger\)/);
   for (const selector of ["voice-hold-button", "capture-section__title", "issue-draft-card__image"]) {
     const occurrences = [...capture.matchAll(new RegExp(`(^|\\n)\\.${selector}\\s*\\{`, "g"))];
