@@ -10,3 +10,7 @@
 .project-draft-row { display:flex; align-items:center; gap:var(--a-space-3); }
 .project-draft-row .project-plain-row { flex:1; min-width:0; }
 .project-draft-delete { flex:none; color:var(--a-danger); padding:0 var(--a-space-3); min-height:var(--a-hit); font-weight:var(--a-weight-regular); }
+
+.capture-choice-option{border-radius:var(--a-radius-pill)}
+
+.capture-choice-option--primary{border-radius:var(--a-radius-pill)}

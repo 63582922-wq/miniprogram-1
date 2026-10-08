@@ -32,7 +32,7 @@
   background: var(--a-accent);
   color: var(--a-accent-ink);
   border: none;
-  border-radius: var(--a-radius-control);
+  border-radius: var(--a-radius-pill);
   font-size:var(--a-type-caption);
   font-weight:var(--a-weight-regular);
   display: flex;

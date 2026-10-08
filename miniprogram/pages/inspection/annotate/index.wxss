@@ -6,7 +6,7 @@
 .annotation-exit__title{font-size:var(--a-type-section);font-weight:var(--a-weight-emphasis);line-height:1.35;text-align:center;}
 .annotation-exit__hint{margin:var(--a-space-1) 0 var(--a-space-3);color:var(--a-muted);font-size:var(--a-type-caption);line-height:1.45;text-align:center;}
 .annotation-exit__action{display:flex;min-height:var(--a-hit-primary);align-items:center;justify-content:center;color:var(--a-ink);font-size:var(--a-type-action);font-weight:var(--a-weight-medium);}
-.annotation-exit__action--primary{margin-bottom:var(--a-space-1);border:0;border-radius:var(--a-radius-control);background:var(--a-accent);color:var(--a-accent-ink);}
+.annotation-exit__action--primary{margin-bottom:var(--a-space-1);border:0;border-radius:var(--a-radius-pill);background:var(--a-accent);color:var(--a-accent-ink);}
 .annotation-exit__action--danger{color:var(--a-danger);}
 
 .annotate-hint {

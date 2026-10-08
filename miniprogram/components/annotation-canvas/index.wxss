@@ -57,7 +57,7 @@
   margin: 0;
   padding: var(--a-space-1) var(--a-space-1);
   border: 0;
-  border-radius: var(--a-radius-control);
+  border-radius: var(--a-radius-pill);
   background: transparent;
   color: var(--a-ink);
   font-family: var(--a-font-body);
@@ -156,5 +156,5 @@
 .region-choice__name{font-size:var(--a-type-body);font-weight:var(--a-weight-medium);line-height:1.2;}
 .region-choice__hint{color:var(--a-muted);font-size:var(--a-type-caption);line-height:1.3;}
 .region-choice__current{position:absolute;top:var(--a-space-4);right:0;min-width:var(--a-space-7);height:var(--a-hit);padding:0 var(--a-space-2);border-radius:var(--a-radius-pill);background:var(--a-accent);color:var(--a-accent-ink);font-size:var(--a-type-caption);line-height:var(--a-hit);text-align:center;}
-.region-choice__cancel{box-sizing:border-box;width:100%;height:var(--a-hit);margin-top:var(--a-space-3);padding:0;border-radius:var(--a-radius-control);background:var(--a-surface);color:var(--a-ink);font-size:var(--a-type-action);line-height:var(--a-hit);text-align:center;}
+.region-choice__cancel{box-sizing:border-box;width:100%;height:var(--a-hit);margin-top:var(--a-space-3);padding:0;border-radius:var(--a-radius-pill);background:var(--a-surface);color:var(--a-ink);font-size:var(--a-type-action);line-height:var(--a-hit);text-align:center;}
 @import "../../styles/precision-a.wxss";

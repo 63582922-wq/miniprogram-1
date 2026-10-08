@@ -39,7 +39,7 @@
 .request-picker { min-height:var(--a-hit-compact); display:flex; align-items:center; justify-content:space-between; padding:0 var(--a-space-3); border:1px solid var(--a-line); border-radius:var(--a-radius-control); color:var(--a-ink); font-size:var(--a-type-caption); }
 .request-picker__value { color:var(--a-muted); }
 .request-details { box-sizing:border-box; width:100%; min-height:176rpx; padding:var(--a-space-3); border:1px solid var(--a-line); border-radius:var(--a-radius-control); font-size:var(--a-type-caption); }
-.request-submit { min-height:var(--a-hit-compact); border-radius:var(--a-radius-control); background:var(--a-accent); color:var(--a-accent-ink); font-size:var(--a-type-action); }
+.request-submit { min-height:var(--a-hit-compact); border-radius:var(--a-radius-pill); background:var(--a-accent); color:var(--a-accent-ink); font-size:var(--a-type-action); }
 .request-message { padding:var(--a-space-2) 0; }
 .request-list { display:flex; flex-direction:column; gap:var(--a-space-2); padding-top:var(--a-space-2);  }
 .legal-request-row { display:flex; flex-direction:column; gap:var(--a-space-1); }

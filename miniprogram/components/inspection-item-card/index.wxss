@@ -315,3 +315,5 @@
   height: 152rpx;
   background: var(--a-surface);
 }
+
+.item-card__edit{border-radius:var(--a-radius-pill)}

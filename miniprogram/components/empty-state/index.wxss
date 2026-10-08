@@ -45,3 +45,5 @@
   opacity: 0.85;
 }
 @import "../../styles/precision-a.wxss";
+
+.empty-state__action{border-radius:var(--a-radius-pill)}

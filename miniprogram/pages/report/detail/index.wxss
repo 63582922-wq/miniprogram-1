@@ -768,7 +768,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--a-radius-control);
+  border-radius: var(--a-radius-pill);
   box-sizing: border-box;
   font-size:var(--a-type-medium);
   font-weight:var(--a-weight-regular);
@@ -1042,7 +1042,7 @@
   margin: 0;
   padding: var(--a-space-1) var(--a-space-2);
   border: 1px solid var(--a-line-strong);
-  border-radius: var(--a-radius-control);
+  border-radius: var(--a-radius-pill);
   background: transparent;
   color: var(--a-ink);
   font-size: var(--a-type-meta);
@@ -1067,3 +1067,5 @@
 .report-page .issue-group__details { padding:var(--a-space-3) 0; }
 .issue-group__details .issue { margin-top:var(--a-space-2); padding:var(--a-space-3); border-radius:var(--a-radius-control); background:var(--a-surface); }
 .issue-group__details .issue__meta { display:flex; flex-wrap:wrap; gap:var(--a-space-2) var(--a-space-3); }
+
+.report-image-viewer__close{border-radius:var(--a-radius-pill)}
