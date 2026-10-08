@@ -45,6 +45,10 @@ Page({
       if(sequence===this.loadSequence)this.setData({loadError:error.message||"现场记录加载失败，请重试"});
     } finally {if(sequence===this.loadSequence)this.setData({loading:false});}
   },
+  // 报告列表是底部 tab 页，用 switchTab 回去（navigateTo 到 tab 页会失败）。
+  goReportList() {
+    wx.switchTab({ url: "/pages/report/list/index" });
+  },
   goCreate() {
     openRecord(this.data.projectId, this.data.projectName, "inspectionList").catch(e=>wx.showToast({title:e.message,icon:"none"}));
   },

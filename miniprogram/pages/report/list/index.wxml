@@ -1,6 +1,12 @@
 <view class="page report-list-page">
   <page-nav-bar root="{{true}}" />
   <product-identity title="全部报告" />
+  <!-- 巡查记录列表此前只能从项目详情进入；那两个区块已删除，入口挪到这里，
+       保证记录列表不会变成没有入口的孤岛。 -->
+  <view class="record-scope" role="tablist">
+    <button class="ui-button-reset record-scope__option record-scope__option--active" aria-selected="true">报告</button>
+    <button class="ui-button-reset record-scope__option" bindtap="goInspectionRecords">巡查记录</button>
+  </view>
   <button class="ui-button-reset report-filter" bindtap="chooseFilter" hover-class="is-pressed"><text>{{projectName || '全部项目'}}</text><view class="report-filter__aside"><text>{{projectId ? '更换项目' : '选择项目'}}</text><image class="report-filter__icon" src="/images/icons/icon-arrow-right.svg" /></view></button>
   <view class="list">
     <button wx:for="{{reports}}" wx:key="_id" class="ui-button-reset report-row" data-report-id="{{item._id}}" data-report-title="{{item.title}}" bindtap="openReport" bindlongpress="handleReportLongPress" hover-class="is-pressed">

@@ -28,17 +28,7 @@
 
     <button class="ui-button-reset project-gallery-link" bindtap="goGallery">查看全部照片<text class="project-gallery-link__count">{{featurePhotoCount}} 张</text><image class="project-gallery-link__icon" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" /></button>
 
-    <view class="project-section project-section--compact">
-      <view class="project-section__head ui-section-row"><view class="project-section__label ui-section-row__label">最近记录</view><button class="ui-button-reset project-section__action ui-section-row__action" bindtap="goInspectionList">查看全部</button></view>
-      <button wx:if="{{latestInspection}}" class="ui-button-reset project-plain-row project-plain-row--last" data-inspection-id="{{latestInspection._id}}" bindtap="openInspection"><view class="project-plain-row__content"><view class="project-plain-row__title">{{latestInspection.title}}</view><view class="project-plain-row__desc">{{latestInspection.createdAtText}}</view></view><image class="project-plain-row__icon" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" /></button>
-      <view wx:else class="project-empty">还没有现场记录</view>
-    </view>
 
-    <view class="project-section project-section--compact">
-      <view class="project-section__head ui-section-row"><view class="project-section__label ui-section-row__label">最近报告</view><button class="ui-button-reset project-section__action ui-section-row__action" bindtap="goReportList">查看全部</button></view>
-      <button wx:if="{{latestReport}}" class="ui-button-reset project-plain-row project-plain-row--last" data-report-id="{{latestReport._id}}" bindtap="openReport"><view class="project-plain-row__content"><view class="project-plain-row__title">{{latestReport.title}}</view><view class="project-plain-row__desc">{{latestReport.generatedAtDisplay}}</view></view><image class="project-plain-row__icon" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" /></button>
-      <view wx:else class="project-empty">暂无报告</view>
-    </view>
   </block>
   <view wx:if="{{captureChoiceOpen}}" class="capture-choice-mask" catchtap="closeCaptureChoice">
     <view class="capture-choice-panel" catchtap="ignoreTap">

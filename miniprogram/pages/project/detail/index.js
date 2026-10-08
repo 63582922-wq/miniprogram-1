@@ -32,8 +32,6 @@ Page({
     project: {},
     recentInspectionExpanded: false,
     recentReportExpanded: false,
-    latestInspection: null,
-    latestReport: null,
     featurePhotoCount: 0,
     captureChoiceOpen: false,
     projectTitleClass: "project-hero__title--ui",
@@ -75,14 +73,6 @@ Page({
           descriptionText: (result.project && result.project.description) || "暂无项目说明",
           statusText: mapProjectStatusText(result.project && result.project.status)
         },
-        latestInspection: inspections.length ? {
-          ...inspections[0],
-          createdAtText: formatDateTime(inspections[0].createdAt)
-        } : null,
-        latestReport: reports.length ? {
-          ...reports[0],
-          generatedAtDisplay: formatDateTime(reports[0].generatedAt || reports[0].createdAt) || "待生成"
-        } : null,
         featurePhotoCount: galleryPhotos.length,
       });
     } catch (error) {
@@ -197,22 +187,6 @@ Page({
       url: `/pages/project/gallery/index?projectId=${this.data.projectId}`
     });
   },
-  goInspectionList() {
-    wx.navigateTo({
-      url: `/pages/inspection/list/index?projectId=${this.data.projectId}&projectName=${encodeURIComponent(this.data.project.name || "")}`
-    });
-  },
-  goReportList() {
-    // 统一走报告列表页（它已支持按项目筛选），不再维护一份重复的项目报告页
-    wx.setStorageSync("pendingReportContext", {
-      projectId: this.data.projectId,
-      projectName: this.data.project.name || "",
-      source: "projectDetail"
-    });
-    wx.switchTab({
-      url: "/pages/report/list/index"
-    });
-  },
   toggleRecentInspection() {
     this.setData({
       recentInspectionExpanded: !this.data.recentInspectionExpanded
@@ -223,26 +197,4 @@ Page({
       recentReportExpanded: !this.data.recentReportExpanded
     });
   },
-  openInspection(event) {
-    const inspectionId = event.currentTarget.dataset.inspectionId;
-    const returnContext = encodeReturnContext({
-      projectId: this.data.projectId,
-      projectName: this.data.project.name || "",
-      returnTarget: "projectDetail"
-    });
-    wx.navigateTo({
-      url: `/pages/inspection/detail/index?inspectionId=${inspectionId}&returnContext=${returnContext}`
-    });
-  },
-  openReport(event) {
-    const reportId = event.currentTarget.dataset.reportId;
-    const returnContext = encodeReturnContext({
-      projectId: this.data.projectId,
-      projectName: this.data.project.name || "",
-      returnTarget: "projectDetail"
-    });
-    wx.navigateTo({
-      url: `/pages/report/detail/index?reportId=${reportId}&returnContext=${returnContext}`
-    });
-  }
 });

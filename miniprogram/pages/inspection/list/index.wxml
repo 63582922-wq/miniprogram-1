@@ -1,5 +1,9 @@
 <view class="page inspection-page">
   <page-nav-bar title="{{pageTitle || '现场记录'}}" showBack="{{true}}" />
+  <view class="record-scope" role="tablist">
+    <button class="ui-button-reset record-scope__option" bindtap="goReportList">报告</button>
+    <button class="ui-button-reset record-scope__option record-scope__option--active" aria-selected="true">巡查记录</button>
+  </view>
   <view class="page-heading"><button class="ui-button-reset list-create-action" hover-class="is-pressed" bindtap="goCreate"><image class="list-create-action__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />新建记录</button></view>
 
   <view wx:if="{{inspectionList.length}}" class="list">

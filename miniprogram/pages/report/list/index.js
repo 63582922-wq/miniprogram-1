@@ -123,6 +123,11 @@ Page({
     });
     this.loadReports();
   },
+  // 巡查记录列表的入口。它原本只挂在项目详情页的「最近记录 → 查看全部」上，
+  // 那两个区块删除后必须另给入口，否则 code 还在但用户再也点不进去。
+  goInspectionRecords() {
+    wx.navigateTo({ url: "/pages/inspection/list/index" });
+  },
   async chooseFilter(){
     try{const r=await listProjects();this.setData({filterProjects:r.list||[],filterVisible:true});this.setFilterTabBarHidden(true);}
     catch(e){wx.showToast({title:e.message||"项目加载失败",icon:"none"});}

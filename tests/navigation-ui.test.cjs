@@ -212,6 +212,7 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   const inspectionDetailMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/inspection/detail/index.wxml"), "utf8");
   const inspectionDetailScript = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/inspection/detail/index.js"), "utf8");
   const inspectionListMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/inspection/list/index.wxml"), "utf8");
+  const inspectionListScript = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/inspection/list/index.js"), "utf8");
   const voiceMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/components/voice-recorder/index.wxml"), "utf8");
   const emptyMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/components/empty-state/index.wxml"), "utf8");
   const projectFormMarkup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/project/form/index.wxml"), "utf8");
@@ -512,8 +513,15 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.match(galleryScript, /loadError/);
   assert.doesNotMatch(projectDetailMarkup, /project-progress|项目内容|workspaceStats/);
   assert.match(projectDetailMarkup, /查看全部照片/);
-  assert.match(projectDetailMarkup, /最近记录/);
-  assert.match(projectDetailMarkup, /最近报告/);
+  // 「最近记录 / 最近报告」两个区块已按需求从项目详情页删除：确认巡查时会自动
+  // 生成并发布报告，两者其实是同一时刻的同一件事（实测两行时间戳完全相同）。
+  // 报告列表本来就有底部 tab；巡查记录列表原本只挂在这里，所以入口挪到了报告 tab，
+  // 否则那个页面会变成没有入口的孤岛。
+  assert.doesNotMatch(projectDetailMarkup, /最近记录|最近报告/);
+  assert.doesNotMatch(projectDetailScript, /latestInspection|latestReport|goInspectionList|goReportList/);
+  assert.match(reportListMarkup, /巡查记录/, "报告 tab 必须提供巡查记录入口");
+  assert.match(reportListScript, /\/pages\/inspection\/list\/index/, "入口指向已有的记录列表页");
+  assert.match(inspectionListScript, /switchTab[\s\S]*?\/pages\/report\/list\/index/, "记录页可切回报告 tab");
   assert.match(voiceMarkup, /<button class="(?:ui-button-reset )?voice-hold-button[^>]+aria-label=/);
   assert.match(emptyMarkup, /<button wx:if="\{\{actionText\}\}" class="(?:ui-button-reset )?empty-state__action"/);
   assert.doesNotMatch(emptyMarkup, /icon-add-inverse|empty-state__icon/);

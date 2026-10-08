@@ -57,3 +57,9 @@ button,input,textarea{font-family:var(--a-font-body);font-weight:var(--a-weight-
 
 /* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
 .share-panel__choice.share-panel__choice{border-radius:0!important}
+
+/* 「报告 / 巡查记录」切换：报告 tab 与巡查记录页共用。
+   报告 tab 是底部 tab 页，切到记录页用 navigateTo（记录页是子页面，符合全站结构）。 */
+.record-scope{display:flex;gap:var(--a-space-1);padding:var(--a-space-1);margin-bottom:var(--a-space-2);border:1px solid var(--a-line);border-radius:var(--a-radius-control);background:var(--a-field)}
+.record-scope__option{flex:1;width:auto!important;min-height:var(--a-hit);margin:0!important;padding:0 var(--a-space-2)!important;display:flex;align-items:center;justify-content:center;border-radius:var(--a-radius-pill);background:transparent;color:var(--a-muted);font-size:var(--a-type-medium);line-height:1.35}
+.record-scope__option--active{background:var(--a-paper);color:var(--a-ink);font-weight:var(--a-weight-medium)}
