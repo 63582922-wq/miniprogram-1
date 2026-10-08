@@ -554,3 +554,41 @@ test('out-of-order parallel completion reports exact completed and pending batch
  assert.deepEqual(done.data.pendingBatchIndexes,[]);
  assert.equal(calls,3);
 });
+
+test('a per-account daily AI quota stops runaway spend without blocking the product',async()=>{
+ const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test',AI_DAILY_LIMIT:'2'},
+  modules:{axios:{post:async()=>response([])},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},
+  console:{log(){},warn(){},error(){},info(){}}});
+ const draft=(id)=>({requestId:id,projectId:'p',issueDrafts:[{id:'p0',imagePath:'cloud://env/inspection-images/user/owner/p0.png'}]});
+ const first=await fn({action:'createInspectionTask',payload:draft('r1')});
+ const second=await fn({action:'createInspectionTask',payload:draft('r2')});
+ assert.equal(first.success,true);assert.equal(second.success,true,'quota is per day, not per request');
+ const third=await fn({action:'createInspectionTask',payload:draft('r3')});
+ assert.equal(third.success,false,'the third task of the day must be refused');
+ assert.match(third.message,/今日 AI 识别次数已达上限（2 次）/);
+ assert.match(third.message,/手动填写/,'the refusal must point at the manual path that still works');
+ assert.equal(h.table('ai_tasks').size,2,'a refused call must not create a task row');
+});
+
+test('yesterday\'s tasks do not count against today\'s quota',async()=>{
+ const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const yesterday=Date.now()-24*60*60*1000;
+ h.table('ai_tasks').set('old',{_id:'old',openId:'owner',createdAt:yesterday,requestHash:'x',status:'success'});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test',AI_DAILY_LIMIT:'1'},
+  modules:{axios:{post:async()=>response([])},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},
+  console:{log(){},warn(){},error(){},info(){}}});
+ const result=await fn({action:'createInspectionTask',payload:{requestId:'today',projectId:'p',issueDrafts:[{id:'p0',imagePath:'cloud://env/inspection-images/user/owner/p0.png'}]}});
+ assert.equal(result.success,true,'the window is a rolling calendar day, not all-time');
+});
+
+test('a quota-count failure allows the request instead of blocking field work',async()=>{
+ const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test',AI_DAILY_LIMIT:'1'},
+  modules:{axios:{post:async()=>response([])},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},
+  console:{log(){},warn(){},error(){},info(){}}});
+ // 让计数查询抛错：额度是成本控制，不该因一次统计异常挡住用户记录现场
+ h.table('ai_tasks').count=async()=>{throw new Error('count unavailable');};
+ const result=await fn({action:'createInspectionTask',payload:{requestId:'r',projectId:'p',issueDrafts:[{id:'p0',imagePath:'cloud://env/inspection-images/user/owner/p0.png'}]}});
+ assert.equal(result.success,true,'fail-open: the user keeps working, the console alert is the real guard');
+});

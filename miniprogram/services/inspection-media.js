@@ -9,6 +9,58 @@ function keepLocalFile(path) {
   }));
 }
 
+/**
+ * 上传前压缩。
+ *
+ * 现场照片是手机原图，单张常见 3–8 MB。原图直传会让存储与出网流量随用量线性
+ * 上涨：报告每被接收者打开一次，就要重新下载全部原图。
+ *
+ * 规则刻意做得保守且可预测：**只压长边超过 2000px 的**。
+ * 2000px 约为手机屏宽的 2.5 倍，放大看裂缝、崩边、收口缺口仍然够用；
+ * 而手机原图普遍在 3000–4000px，命中率高、收益大。尺寸已达标的一律不动，
+ * 避免为省一点体积反而给已经很小的图引入重编码损失。
+ *
+ * 任何一步失败（不支持、读不到尺寸、压缩报错）都**原样返回原路径**：
+ * 压缩是省钱手段，绝不能因为它挡住用户记录现场。
+ */
+const MAX_UPLOAD_EDGE = 2000;
+const UPLOAD_QUALITY = 85;
+
+function compressForUpload(path) {
+  return new Promise((resolve) => {
+    const usable = path
+      && !path.startsWith("cloud://")
+      && typeof wx !== "undefined"
+      && typeof wx.getImageInfo === "function"
+      && typeof wx.compressImage === "function";
+    if (!usable) {
+      resolve(path || "");
+      return;
+    }
+    wx.getImageInfo({
+      src: path,
+      success: (info = {}) => {
+        const width = Number(info.width) || 0;
+        const height = Number(info.height) || 0;
+        const longEdge = Math.max(width, height);
+        if (!longEdge || longEdge <= MAX_UPLOAD_EDGE) {
+          resolve(path);
+          return;
+        }
+        const options = { src: path, quality: UPLOAD_QUALITY };
+        if (width >= height) options.compressedWidth = MAX_UPLOAD_EDGE;
+        else options.compressedHeight = MAX_UPLOAD_EDGE;
+        wx.compressImage({
+          ...options,
+          success: (result = {}) => resolve(result.tempFilePath || path),
+          fail: () => resolve(path)
+        });
+      },
+      fail: () => resolve(path)
+    });
+  });
+}
+
 // Keep a small bounded upload window: parallelize independent photos without
 // flooding mobile radios or the device's file/network resources.
 async function uploadDraftMedia(form, onProgress = () => {}, concurrency = 3) {
@@ -54,10 +106,13 @@ async function uploadDraftMedia(form, onProgress = () => {}, concurrency = 3) {
         if (firstError) break;
         if (p[field] && !p[field].startsWith("cloud://")) {
           const local = p[field];
+          // 上传压缩版，但本地仍保留原图路径：万一之后要重新标注，
+          // 用的是未压缩的那份，不会因为省钱而损失标注精度。
+          const uploadPath = await compressForUpload(local);
           const revision = field === "annotatedImagePath"
             ? (p.annotationRevision || 1)
             : (p.mediaRevision || 1);
-          p[field] = await uploadUserFile(local, folder, `${p.id || i}.png`, {
+          p[field] = await uploadUserFile(uploadPath, folder, `${p.id || i}.png`, {
             stableKey: `${p.id || i}-${revision}-${field}`
           });
           p[localField] = local;

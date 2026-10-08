@@ -53,3 +53,49 @@ test('resumed media upload with no pending files does not report a fake 1/0 prog
  assert.equal(progressCalls,0);
  assert.equal(result.issueDrafts[0].imagePath,'cloud://bucket/p1.png');
 });
+
+/** 上传前压缩：只压长边超 2000px 的，任何异常都退回原图。 */
+async function runCompress(info, result){
+  const uploaded=[];
+  const module={exports:{}};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/services/inspection-media'),'utf8'),{
+    module,
+    require:()=>({uploadUserFile:async(path)=>{uploaded.push(path);return `cloud://${path}`;}}),
+    wx:{
+      env:{USER_DATA_PATH:'/user'},
+      getImageInfo:o=>info==='fail'?o.fail({}):o.success(info),
+      compressImage:o=>result==='fail'?o.fail({}):o.success({tempFilePath:'/compressed.jpg'})
+    }
+  });
+  await module.exports.uploadDraftMedia({issueDrafts:[{id:'p1',imagePath:'/tmp/photo.jpg'}]});
+  return uploaded[0];
+}
+
+test('oversized photos are compressed down to the 2000px long edge before upload',async()=>{
+  const path=await runCompress({width:4000,height:3000},'ok');
+  assert.equal(path,'/compressed.jpg','a 4000px original must not be uploaded as-is');
+  const portrait=await runCompress({width:3000,height:4000},'ok');
+  assert.equal(portrait,'/compressed.jpg','portrait orientation is judged by its long edge too');
+});
+
+test('photos already within 2000px are uploaded untouched',async()=>{
+  const path=await runCompress({width:1600,height:1200},'ok');
+  assert.equal(path,'/tmp/photo.jpg','re-encoding an already-small photo only adds loss');
+});
+
+test('compression failure never blocks the record: the original is uploaded instead',async()=>{
+  assert.equal(await runCompress({width:4000,height:3000},'fail'),'/tmp/photo.jpg','compress failure falls back');
+  assert.equal(await runCompress('fail','ok'),'/tmp/photo.jpg','unreadable size falls back');
+});
+
+test('a client without compressImage keeps working (older base library)',async()=>{
+  const uploaded=[];
+  const module={exports:{}};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/services/inspection-media'),'utf8'),{
+    module,
+    require:()=>({uploadUserFile:async(path)=>{uploaded.push(path);return `cloud://${path}`;}}),
+    wx:{env:{USER_DATA_PATH:'/user'}}
+  });
+  await module.exports.uploadDraftMedia({issueDrafts:[{id:'p1',imagePath:'/tmp/photo.jpg'}]});
+  assert.equal(uploaded[0],'/tmp/photo.jpg');
+});

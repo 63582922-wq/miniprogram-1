@@ -1402,6 +1402,49 @@ function isTransientAiTaskError(error) {
     || /timeout|timed out|socket hang up|network error/i.test(message);
 }
 
+/**
+ * 每日 AI 任务上限（按账号计）。设为 0 或负数表示不限制。
+ *
+ * 混元与 ASR 都按量计费，而代码此前没有任何限额：一个用户反复点「AI识图」
+ * 或者一批用户同时用，费用会无上限增长，且失败之前没有任何预警。
+ * 控制台的用量告警是第一道闸；这里是第二道，防止单账号误用或滥用把额度打光。
+ */
+const AI_DAILY_TASK_LIMIT = (() => {
+  const raw = Number(process.env.AI_DAILY_LIMIT);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 200;
+})();
+
+/** 按东八区算「今天」的起点——运营者看到的日界应与自己的直觉一致。 */
+function startOfTodayInBeijing() {
+  const offsetMs = 8 * 60 * 60 * 1000;
+  const shifted = new Date(Date.now() + offsetMs);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return shifted.getTime() - offsetMs;
+}
+
+/**
+ * 统计账号当日已创建的 AI 任务数。
+ * 统计失败时**放行**：额度是成本控制手段，不该因为一次查询异常就挡住
+ * 用户记录现场；真正的兜底是控制台的用量告警。
+ */
+async function assertDailyAiQuota(openId) {
+  if (!AI_DAILY_TASK_LIMIT) return { ok: true };
+  try {
+    const result = await db.collection(AI_TASK_COLLECTION)
+      .where({ openId, createdAt: _.gte(startOfTodayInBeijing()) })
+      .count();
+    const used = Number(result.total) || 0;
+    if (used < AI_DAILY_TASK_LIMIT) return { ok: true };
+    return {
+      ok: false,
+      message: `今日 AI 识别次数已达上限（${AI_DAILY_TASK_LIMIT} 次）。可先用手动填写与标注完成记录，明天恢复。`
+    };
+  } catch (error) {
+    console.error("[ai] daily quota check failed, allowing the request", error);
+    return { ok: true };
+  }
+}
+
 async function createAnalysisTask(payload, openId) {
   if(!Array.isArray(payload.issueDrafts)||payload.issueDrafts.length>20)throw new Error("照片数据不完整或超过20张");
   payload.issueDrafts.forEach(p=>{if(!p.imagePath)throw new Error("照片尚未上传");assertMedia(p.imagePath,openId);assertMedia(p.annotatedImagePath,openId);});
@@ -1797,6 +1840,11 @@ exports.main = async (event) => {
         const access = await assertProjectAccess(payload.projectId, OPENID);
         if (!access.ok) {
           return { success: false, message: access.message };
+        }
+
+        const quota = await assertDailyAiQuota(OPENID);
+        if (!quota.ok) {
+          return { success: false, message: quota.message };
         }
 
         const task = await createAnalysisTask(

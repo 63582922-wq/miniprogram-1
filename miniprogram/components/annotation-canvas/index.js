@@ -199,7 +199,10 @@ Component({
    const node=result[0]?.node;if(!node)throw new Error("导出画布未就绪");
    const ratio=Math.min(1,2400/Math.max(this.iw,this.ih));node.width=Math.round(this.iw*ratio);node.height=Math.round(this.ih*ratio);
    const ctx=node.getContext("2d");ctx.clearRect(0,0,node.width,node.height);this.scene(ctx,{x:0,y:0,scale:ratio});
-   return new Promise((resolve,reject)=>wx.canvasToTempFilePath({canvas:node,fileType:"png",destWidth:node.width,destHeight:node.height,success:r=>resolve(r.tempFilePath),fail:reject},this));
+   return new Promise((resolve,reject)=>// 导出为 JPEG 而不是 PNG：画布内容是「照片 + 矢量标注」，PNG 对这种
+   // 连续色调画面几乎不压缩，2400px 一张常比原图还大，是存储的最大单项。
+   // 质量取 0.92 偏高——编号与框线的可读性是产品核心，不能用低质量换体积。
+   wx.canvasToTempFilePath({canvas:node,fileType:"jpg",quality:0.92,destWidth:node.width,destHeight:node.height,success:r=>resolve(r.tempFilePath),fail:reject},this));
   }
  }
 });

@@ -3,7 +3,7 @@ function harness(){
  const tables=new Map(), calls={tempFileUrls:[]};let owner='owner', fail=null,failTempFileUrls=false;
  const table=n=>{if(!tables.has(n))tables.set(n,new Map());return tables.get(n)};
  const matches=(row,q)=>typeof q==='function'?q(row):Object.entries(q||{}).every(([k,v])=>typeof v==='function'?v(row[k]):row[k]===v);
- const command={in:xs=>v=>xs.includes(v),lte:n=>v=>v<=n,neq:n=>v=>v!==n,exists:b=>v=>(v!==undefined)===b,and:qs=>r=>qs.every(q=>matches(r,q)),or:qs=>r=>qs.some(q=>matches(r,q)),remove:()=>undefined};
+ const command={in:xs=>v=>xs.includes(v),gte:n=>v=>v>=n,gt:n=>v=>v>n,lt:n=>v=>v<n,lte:n=>v=>v<=n,neq:n=>v=>v!==n,exists:b=>v=>(v!==undefined)===b,and:qs=>r=>qs.every(q=>matches(r,q)),or:qs=>r=>qs.some(q=>matches(r,q)),remove:()=>undefined};
  const db={command,collection(n){const t=table(n);const q=(filter={},offset=0,limit=100,sort=null)=>({
    where:f=>q(f,offset,limit,sort),skip:s=>q(filter,s,limit,sort),limit:l=>q(filter,offset,l,sort),orderBy:(k,d)=>q(filter,offset,limit,[k,d]),
    get:async()=>{let rows=[...t.values()].filter(r=>matches(r,filter));if(sort)rows.sort((a,b)=>(a[sort[0]]>b[sort[0]]?1:-1)*(sort[1]==='desc'?-1:1));return {data:structuredClone(rows.slice(offset,offset+limit))}},
