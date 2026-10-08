@@ -93,6 +93,12 @@
 .capture-action-row > .capture-action-row__add {
   padding: var(--a-space-2) var(--a-space-2) !important;
   font-size: var(--a-type-action);
+  /* 与语音按钮同一套表面：同一个强调色描边与底色，两者不分主次。
+     两个图标本身就取同一个墨色，底色一致后图标也自然一致。
+     录音中／可取消的变色反馈仍只属于语音按钮。 */
+  border: 1.5px solid var(--a-accent) !important;
+  background: var(--a-accent-wash) !important;
+  color: var(--a-ink) !important;
 }
 
 .capture-section__action {
