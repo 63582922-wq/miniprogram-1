@@ -150,20 +150,29 @@ test("project creation is the primary action on the project index, above the sec
   assert.match(inspectionList, /class="(?:ui-button-reset )?list-create-action"[^>]*bindtap="goCreate"[\s\S]*?list-create-action__icon[\s\S]*?nav-plus\.svg[\s\S]*?新建记录/);
 });
 
-test("capture has one action row under the photo list and carries no inspection-wide metadata block", () => {
+test("capture keeps a per-photo voice control and a global add-photo action", () => {
   const markup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/inspection/create/index.wxml"), "utf8");
   // 「巡查信息（选填）」整块已按需求删除：其中的「报告标题」此前根本不进报告
   //（report 云函数从未读取 inspection.title），填了不生效比没有更糟。
-  // 这里锁住它不会被顺手加回来。
   assert.doesNotMatch(markup, /巡查信息（选填）/, "被删掉的可选信息块不应重新出现");
   assert.doesNotMatch(markup, /field-label">报告标题/, "失效的报告标题字段不应重新出现");
   assert.doesNotMatch(markup, /class="create-card"/, "承载它的卡片不应重新出现");
-  // 语音与「继续添加」并排在照片列表下方同一行。
-  const row = markup.indexOf('class="capture-action-row"');
-  assert.ok(row > markup.indexOf('class="issue-draft-list"'), "action row sits below the photo list");
-  assert.match(markup, /capture-action-row[\s\S]*?voice-hold-button[\s\S]*?继续添加/, "语音与继续添加在同一行内");
-});
 
+  // 层级：语音键属于「每一张照片」。它必须在照片卡片内的 .issue-composer 里，
+  // 排在文本域之后——文字与语音合成一个对话式输入框，麦克风在框内右侧。
+  assert.match(
+    markup,
+    /class="issue-composer"[\s\S]*?issue-draft-card__textarea[\s\S]*?voice-hold-button[\s\S]*?<\/view>/,
+    "each photo carries its own mic, inside the composer to the right of the textarea"
+  );
+  // 语音键不再被提到全局，只此一处定义（在 wx:for 内，每张照片各渲染一个）。
+  assert.equal((markup.match(/class="ui-button-reset voice-hold-button/g) || []).length, 1,
+    "the mic is defined once inside the photo loop, not duplicated globally");
+  assert.doesNotMatch(markup, /capture-action-row/, "the merged global action row stays reverted");
+  // 「继续添加」是全局的，常驻照片列表下方。
+  assert.ok(markup.indexOf("继续添加") > markup.indexOf('class="issue-draft-list"'),
+    "继续添加 stays below the photo list");
+});
 test("global visual contract keeps one paper, ink and vermilion system", () => {
   const tokens = fs.readFileSync(path.resolve(__dirname, "../miniprogram/styles/precision-a.wxss"), "utf8");
   const appConfig = fs.readFileSync(path.resolve(__dirname, "../miniprogram/app.json"), "utf8");
@@ -305,9 +314,8 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.doesNotMatch(pageNav, /rgba\(246,241,232/);
   assert.match(capture, /\.issue-draft-card__media\s*\{[^}]*background:\s*var\(--a-photo-matte\)/s);
   assert.match(capture, /\.capture-section__title\s*\{[^}]*font-size:\s*var\(--a-type-section\);[^}]*font-weight:\s*var\(--a-weight-emphasis\)/s);
-  // 「巡查信息」整块已删除，其分区标题样式一并移除；改为核对新的语音/添加
-  // 合并行仍然只用间距令牌，不引入裸数值。
-  assert.match(capture, /\.capture-action-row\s*\{[^}]*gap:\s*var\(--a-space-2\)/s);
+  // 对话式输入框（文字 + 框内麦克风）仍然只用令牌，不引入裸数值。
+  assert.match(capture, /\.issue-composer\s*\{[^}]*gap:\s*var\(--a-space-2\)/s);
   assert.doesNotMatch(allWxss, /#143D38|#17211D|#0D3B3E/);
   const fontDeclarations = [...allWxss.matchAll(/font-family:\s*([^;}]+)/g)].map((match) => match[1]);
   fontDeclarations.forEach((value) => assert.match(value, /var\(--a-font-(?:body|display)/));

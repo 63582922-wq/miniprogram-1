@@ -17,3 +17,7 @@
 
 /* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
 .project-gallery-link.project-gallery-link{border-radius:0!important}
+
+/* 整行可点控件，内含 <view>，不是按键：退出全局胶囊圆角，否则
+   体育场形弧线会切掉上下两端的文字。 */
+.project-plain-row.project-plain-row{border-radius:0!important}

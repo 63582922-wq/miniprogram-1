@@ -1069,3 +1069,7 @@
 .issue-group__details .issue__meta { display:flex; flex-wrap:wrap; gap:var(--a-space-2) var(--a-space-3); }
 
 .report-image-viewer__close{border-radius:var(--a-radius-pill)}
+
+/* 整行可点控件，内含 <view>，不是按键：退出全局胶囊圆角，否则
+   体育场形弧线会切掉上下两端的文字。 */
+.report-priority__row.report-priority__row{border-radius:0!important}

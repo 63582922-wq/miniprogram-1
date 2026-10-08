@@ -72,35 +72,6 @@
   white-space: nowrap;
 }
 
-/* 语音与「继续添加」并排一行：层级一致、等宽等高。
-   语音按钮只对「当前展开的那张照片」生效，按钮上标明是第几张。 */
-.capture-action-row {
-  display: flex;
-  align-items: stretch;
-  gap: var(--a-space-2);
-  margin-top: var(--a-space-3);
-}
-
-.capture-action-row > .voice-hold-button,
-.capture-action-row > .capture-action-row__add {
-  flex: 1;
-  width: auto !important;
-  min-width: 0;
-  margin: 0 !important;
-  min-height: var(--a-hit);
-}
-
-.capture-action-row > .capture-action-row__add {
-  padding: var(--a-space-1) var(--a-space-2) !important;
-  font-size: var(--a-type-medium);
-  /* 与语音按钮同一套表面：同一个强调色描边与底色，两者不分主次。
-     两个图标本身就取同一个墨色，底色一致后图标也自然一致。
-     录音中／可取消的变色反馈仍只属于语音按钮。 */
-  border: 1.5px solid var(--a-accent) !important;
-  background: var(--a-accent-wash) !important;
-  color: var(--a-ink) !important;
-}
-
 .capture-section__action {
   display: flex;
   width: 100% !important;
@@ -284,18 +255,26 @@
   font-size: var(--a-type-caption);
 }
 
+/* 对话式输入框：文字与语音合成一个框，麦克风在框内右侧。
+   圆角用控件圆角而不是胶囊——这样输入框长高时不会被体育场形弧线切到文字。 */
 .issue-composer {
   display: flex;
-  flex-direction: column;
-  gap: var(--a-space-1);
+  align-items: flex-end;
+  gap: var(--a-space-2);
+  padding: var(--a-space-2);
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius-control);
+  background: var(--a-field);
 }
 
 .issue-draft-card__textarea {
   box-sizing: border-box;
-  width: 100%;
-  min-height: 96rpx;
-  padding: var(--a-space-2) 0;
+  min-width: 0;
+  flex: 1;
+  min-height: var(--a-hit);
+  padding: 0;
   border: 0;
+  background: transparent;
 
   color: var(--a-ink);
   font-size: var(--a-type-body);
@@ -308,22 +287,33 @@
 
 .voice-hold-button {
   display: flex;
-  width: 100% !important;
+  width: var(--a-hit) !important;
+  height: var(--a-hit);
   min-height: var(--a-hit);
+  flex: none;
   align-items: center;
   justify-content: center;
-  gap: var(--a-space-1);
   margin: 0 !important;
-  padding: var(--a-space-2) var(--a-space-2) !important;
+  padding: 0 !important;
   border: 1.5px solid var(--a-accent) !important;
   border-radius: var(--a-radius-pill);
   background: var(--a-accent-wash) !important;
   color: var(--a-ink) !important;
-  font-size: var(--a-type-medium);
-  font-weight: var(--a-weight-medium);
-  line-height: 1.35;
   user-select: none;
   transition: background-color var(--a-motion), transform var(--a-motion);
+}
+
+/* 麦克风在框内放不下文字，录音中的状态改为框下一行提示，
+   只在真正需要知道「松手完成 / 上滑取消」的时刻出现。 */
+.voice-hold-status {
+  padding-top: var(--a-space-1);
+  color: var(--a-accent-text);
+  font-size: var(--a-type-caption);
+  line-height: 1.5;
+}
+
+.voice-hold-status--cancel {
+  color: var(--a-danger);
 }
 
 .voice-hold-button--active {
@@ -628,3 +618,7 @@
 .capture-ai-result { margin:var(--a-space-2) 0; padding:var(--a-space-2) var(--a-space-3); border-radius:var(--a-radius-control); background:var(--a-surface); color:var(--a-ink); font-size:var(--a-type-body); line-height:1.55; }
 
 .issue-draft-card__image-fallback-action{border-radius:var(--a-radius-pill)}
+
+/* 整行可点控件，内含 <view>，不是按键：退出全局胶囊圆角，否则
+   体育场形弧线会切掉上下两端的文字。 */
+.photo-choice-option.photo-choice-option{border-radius:0!important}

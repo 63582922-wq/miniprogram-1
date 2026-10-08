@@ -248,24 +248,26 @@ test('voice recording is a prominent secondary action; the page CTA owns the sol
   assert.match(primary, /\.primary-button\s*\{[^}]*background:\s*var\(--a-accent\)/s, 'the primary next-step control retains the solid accent fill');
 });
 
-test('capture voice control is a compact single line and keeps its state feedback', () => {
+test('capture voice control sits inside the composer and keeps its state feedback', () => {
   const markup = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxml'), 'utf8');
   const style = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxss'), 'utf8');
   assert.match(markup, /placeholder="输入现场说明或问题描述"/, 'manual text entry should explain its own purpose without repeating the nearby mic instruction');
-  // 空闲态的常驻说明行已按需求去掉：按钮要和「继续添加」一样是单行、更小。
+  // 文字与语音合成一个对话式输入框：麦克风在框内、文本域之后。
+  assert.match(markup, /class="issue-composer"[\s\S]*?issue-draft-card__textarea[\s\S]*?voice-hold-button/,
+    'the mic lives inside the composer, to the right of the textarea');
+  // 框内放不下文字，所以常驻提示行去掉了；但录音过程中的状态反馈必须留着，
+  // 否则「松手完成 / 上滑取消」无从得知。
   assert.doesNotMatch(markup, /松开转字 · 上滑取消/, 'the idle hint line was deliberately removed');
   assert.doesNotMatch(markup, /voice-hold-button__hint/, 'no leftover hint node in the markup');
-  // 但录音过程中的状态反馈必须留着，否则「松手完成 / 上滑取消」无从得知。
+  assert.match(markup, /voice-hold-status/, 'recording state moves to its own line under the composer');
   assert.match(markup, /正在转成文字…/, 'transcribing state stays visible');
   assert.match(markup, /松开，完成转写/, 'release-to-finish stays visible while recording');
   assert.match(markup, /松开，取消这段/, 'cancel-by-slide stays discoverable while recording');
-  // 手势说明改由无障碍描述承担。
+  // 手势说明仍由无障碍描述承担。
   assert.match(markup, /aria-label="按住说话（记入照片/, 'the gestures remain described for assistive tech');
-  // 尺寸：语音按钮不再用偏大的 --a-hit-voice，与「继续添加」同为标准 44px。
-  assert.doesNotMatch(style, /--a-hit-voice/, 'the shared row no longer uses the oversized hit token');
-  assert.match(style, /\.capture-action-row\s*>\s*\.voice-hold-button[^{]*\{[^}]*min-height:\s*var\(--a-hit\)/s, 'the voice button uses the standard hit height');
-});
-test('AI review distinguishes useful suggestions from an empty result without implying acceptance', () => {
+  // 尺寸：麦克风按钮用标准 44px 命中高度。
+  assert.match(style, /\.voice-hold-button\s*\{[^}]*min-height:\s*var\(--a-hit\)/s, 'the mic uses the standard hit height');
+});test('AI review distinguishes useful suggestions from an empty result without implying acceptance', () => {
   const markup = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/result/index.wxml'), 'utf8');
   assert.match(markup, /summary\.visionRequested && summary\.aiIssueCount > 0/, 'only photo recognition issues are presented as AI photo analysis');
   assert.match(markup, /summary\.visionRequested && !summary\.aiIssueCount/, 'manual review additions must not hide an empty-AI recovery message');
