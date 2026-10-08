@@ -9,17 +9,6 @@
 .annotation-exit__action--primary{margin-bottom:var(--a-space-1);border:0;border-radius:var(--a-radius-pill);background:var(--a-accent);color:var(--a-accent-ink);}
 .annotation-exit__action--danger{color:var(--a-danger);}
 
-.annotate-hint {
-  padding: var(--a-space-2) var(--a-space-3);
-  border-radius: 0;
-  background: var(--a-surface);
-  border: 0.5px solid var(--a-line);
-  font-size:var(--a-type-caption);
-  color: var(--a-muted);
-  text-align: center;
-  line-height: 1.6;
-}
-
 .export-canvas {
   position: fixed;
   left: -9999px;

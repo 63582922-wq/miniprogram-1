@@ -78,11 +78,7 @@
 
 .report-cover__title-block {
   padding: var(--a-space-4) 0 var(--a-space-3);
-}
-
-.report-cover__kicker,
-.report-summary__kicker,
-.report-issues__kicker {
+}.report-summary__kicker{
   color: var(--a-accent-text);
   font-size:var(--a-type-caption);
   letter-spacing: .14em;
@@ -210,11 +206,6 @@
   font-size:var(--a-type-caption);
 }
 
-.report-cover__issuer-copy {
-  min-width: 0;
-  flex: 1;
-}
-
 .report-cover__company {
   margin-top: 0;
   color: var(--a-ink);
@@ -222,14 +213,6 @@
   font-size:var(--a-type-action);
   font-weight:var(--a-weight-regular);
   line-height: 1.35;
-  word-break: break-word;
-}
-
-.report-cover__issuer-person {
-  margin-top: var(--a-space-1);
-  color: var(--a-muted);
-  font-size: var(--a-type-caption);
-  line-height: 1.5;
   word-break: break-word;
 }
 
@@ -268,14 +251,6 @@
   font-size: var(--a-type-body);
   font-weight:var(--a-weight-regular);
   line-height: 1.55;
-}
-
-.report-summary__scope {
-  margin-top: var(--a-space-1);
-  color: var(--a-muted);
-  font-size: var(--a-type-caption);
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
 }
 
 .report-summary__stats {
@@ -413,13 +388,6 @@
   padding: var(--a-space-4) 0 var(--a-space-2);
 }
 
-.report-issues__subhead {
-  margin-top: var(--a-space-1);
-  color: var(--a-muted);
-  font-size:var(--a-type-caption);
-  line-height: 1.45;
-}
-
 .report-issues__count {
   flex: none;
   color: var(--a-muted);
@@ -542,10 +510,7 @@
 .issue-group__details {
   min-width: 0;
   flex: 1;
-}
-
-.issue-group__caption,
-.issue-group__empty {
+}.issue-group__caption{
   margin-bottom: var(--a-space-1);
   color: var(--a-muted);
   font-size:var(--a-type-caption);
@@ -640,15 +605,6 @@
 
 }
 
-.report-footer__title {
-  margin-bottom: var(--a-space-1);
-  color: var(--a-ink);
-  font-family: var(--a-font-body);
-  font-size:var(--a-type-action);
-  font-weight:var(--a-weight-regular);
-  line-height: 1.35;
-}
-
 .report-footer__row {
   display: flex;
   align-items: flex-start;
@@ -671,26 +627,6 @@
   word-break: break-word;
 }
 
-.report-footer__value--link {
-  color: var(--a-danger);
-}
-
-.report-footer__phone {
-  min-height: var(--a-hit);
-  margin: var(--a-space-overlap-1-5) 0 !important;
-  padding: var(--a-space-2) 0 !important;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  background: transparent;
-  border-radius: 0;
-  text-align: left;
-}
-
-.report-footer__phone::after {
-  border: 0;
-}
-
 .share-manage {
   width: auto !important;
   min-height: var(--a-hit);
@@ -709,37 +645,6 @@
 .share-manage::after,
 .report-action-button::after {
   border: 0;
-}
-
-.report-product-signature {
-  display: flex;
-  align-items: center;
-  gap: var(--a-space-2);
-  margin-top: var(--a-space-2);
-  padding-top: var(--a-space-2);
-
-}
-
-.report-product-signature__mark {
-  width: 54rpx;
-  height: 54rpx;
-  flex: none;
-}
-
-.report-product-signature__name {
-  font-family: var(--a-font-body);
-  font-size:var(--a-type-caption);
-  font-weight:var(--a-weight-regular);
-  letter-spacing: 1rpx;
-  line-height: 1.2;
-}
-
-.report-product-signature__desc {
-  margin-top: var(--a-space-1);
-  color: var(--a-muted);
-  font-size: var(--a-type-caption);
-  letter-spacing: .04em;
-  line-height: 1.4;
 }
 
 .report-page .footer-actions--fixed {

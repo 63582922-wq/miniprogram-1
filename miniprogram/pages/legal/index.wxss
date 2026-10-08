@@ -29,13 +29,6 @@
   color: var(--a-muted);
 }
 
-.legal-hint {
-  margin-top: var(--a-space-1);
-  font-size:var(--a-type-caption);
-  line-height: 1.6;
-  color: var(--a-muted);
-}
-
 .request-picker { min-height:var(--a-hit-compact); display:flex; align-items:center; justify-content:space-between; padding:0 var(--a-space-3); border:1px solid var(--a-line); border-radius:var(--a-radius-control); color:var(--a-ink); font-size:var(--a-type-caption); }
 .request-picker__value { color:var(--a-muted); }
 .request-details { box-sizing:border-box; width:100%; min-height:176rpx; padding:var(--a-space-3); border:1px solid var(--a-line); border-radius:var(--a-radius-control); font-size:var(--a-type-caption); }

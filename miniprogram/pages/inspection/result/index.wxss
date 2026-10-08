@@ -23,8 +23,6 @@
 .ai-review-retry{align-self:flex-start;min-height:var(--a-hit-compact);margin:var(--a-space-1) 0 0;padding:0;color:var(--a-accent-text);font-size:var(--a-type-body);font-weight:var(--a-weight-emphasis);line-height:var(--a-hit-compact);background:transparent;border:0;text-align:left}
 .ai-review-retry::after{border:0}
 .ai-observation{margin:var(--a-space-2) 0;padding:var(--a-space-2) 0;}
-.ai-observation__label{margin-bottom:var(--a-space-1);color:var(--a-accent-text);font-size:var(--a-type-caption);font-weight:var(--a-weight-emphasis)}
-.ai-observation__text{color:var(--a-ink);font-size:var(--a-type-body);line-height:1.6;word-break:break-word}
 .review-submit{min-height:var(--a-hit-review);font-size:var(--a-type-action)!important;font-weight:var(--a-weight-emphasis)!important}
 
 .review-identity {
@@ -78,13 +76,6 @@
   word-break: break-word;
 }
 
-.review-identity__freeze {
-  margin-top: var(--a-space-1);
-  color: var(--a-muted);
-  font-size: var(--a-type-caption);
-  line-height: 1.5;
-}
-
 .review-identity__edit {
   width: auto !important;
   min-height: var(--a-hit);
@@ -124,10 +115,7 @@
   font-size:var(--a-type-caption);
   line-height: 1.4;
   letter-spacing: .08em;
-}
-
-.result-memory__text,
-.result-memory__item {
+}.result-memory__item{
   color: var(--a-muted);
   font-size:var(--a-type-caption);
   line-height: 1.7;
@@ -158,11 +146,6 @@
 .detail-text {
   font-size: var(--a-type-body);
   line-height: 1.7;
-}
-
-.result-list-heading {
-  padding: var(--a-space-3) 0 var(--a-space-2);
-
 }
 
 .list {
@@ -214,12 +197,6 @@
   display: block;
 }
 
-.result-group__mapping {
-  color: var(--a-muted);
-  font-size:var(--a-type-caption);
-  line-height: 1.5;
-}
-
 .result-group__issues {
   display: flex;
   flex-direction: column;
@@ -256,26 +233,6 @@
   margin-top: 0;
   padding-top: 0;
   border: 0;
-}
-
-.issue-entry__delete {
-  width: auto !important;
-  min-height: var(--a-hit);
-  margin: 0 !important;
-  padding: var(--a-space-1) 0 !important;
-  display: flex;
-  align-items: center;
-  align-self: flex-end;
-  color: var(--a-danger);
-  font-size:var(--a-type-caption);
-}
-
-.issue-entry__delete::after {
-  border: 0;
-}
-
-.issue-entry__delete:active {
-  opacity: .58;
 }
 .review-context{padding:var(--a-space-3) 0 var(--a-space-2);display:flex;flex-direction:column;gap:var(--a-space-1);font-size:var(--a-type-body)}
 .review-context__count{font-size:var(--a-type-caption);color:var(--a-muted)}

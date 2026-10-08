@@ -10,10 +10,6 @@
   padding-bottom: calc(var(--a-hit-tab) + var(--a-hit-primary) + var(--a-space-4) + env(safe-area-inset-bottom));
 }
 
-.project-page .precision-head {
-  margin-bottom: 0;
-}
-
 .project-create-dock{position:fixed;left:0;right:0;bottom:calc(var(--a-hit-tab) + env(safe-area-inset-bottom));z-index:35;display:flex;justify-content:center;padding:var(--a-space-2) var(--a-page-inset);background:var(--a-paper)}
 .project-create-dock__button{min-height:var(--a-hit-primary);margin:0!important;max-width:560rpx}
 

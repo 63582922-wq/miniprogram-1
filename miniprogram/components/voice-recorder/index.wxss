@@ -11,13 +11,6 @@
   font-family: var(--a-font-body);
 }
 
-.field-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--a-space-2);
-}
-
 .voice-title {
   font-size:var(--a-type-caption);
   font-weight:var(--a-weight-regular);
