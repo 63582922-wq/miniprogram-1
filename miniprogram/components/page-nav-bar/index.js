@@ -53,7 +53,7 @@ Component({
   pageLifetimes:{show(){this.privacyActive=true;},hide(){this.privacyActive=false;this.rejectPrivacy();}},
   methods: {
     requestPrivacy(resolve){this.privacyResolvers=this.privacyResolvers||[];this.privacyResolvers.push(resolve);this.setData({privacyVisible:true});},
-    agreePrivacy(){const callbacks=this.privacyResolvers||[];this.privacyResolvers=[];this.setData({privacyVisible:false});callbacks.forEach(resolve=>resolve({event:"agree",buttonId:"haoli-privacy-agree"}));},
+    agreePrivacy(){const callbacks=this.privacyResolvers||[];this.privacyResolvers=[];this.setData({privacyVisible:false});callbacks.forEach(resolve=>resolve({event:"agree",buttonId:"chibao-privacy-agree"}));},
     rejectPrivacy(){const callbacks=this.privacyResolvers||[];this.privacyResolvers=[];this.setData({privacyVisible:false});callbacks.forEach(resolve=>resolve({event:"disagree"}));},
     openPrivacy(){if(wx.openPrivacyContract)wx.openPrivacyContract({fail:()=>wx.navigateTo({url:"/pages/legal/index"})});else wx.navigateTo({url:"/pages/legal/index"});},
     computeMetrics() {

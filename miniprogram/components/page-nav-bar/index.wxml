@@ -8,4 +8,4 @@
     </view>
   </view>
 </view>
-<view wx:if="{{privacyVisible}}" class="privacy-mask"><view class="privacy-dialog"><view class="privacy-title">使用前，请阅读隐私指引</view><view class="privacy-copy">照片用于现场记录与报告，录音用于语音说明。不同意仍可输入文字。</view><button class="ui-button-reset privacy-link" bindtap="openPrivacy">查看隐私保护指引</button><button id="haoli-privacy-agree" class="ui-button-reset privacy-agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agreePrivacy">同意并继续</button><button class="ui-button-reset privacy-link" bindtap="rejectPrivacy">暂不同意</button></view></view>
+<view wx:if="{{privacyVisible}}" class="privacy-mask"><view class="privacy-dialog"><view class="privacy-title">使用前，请阅读隐私指引</view><view class="privacy-copy">照片用于现场记录与报告，录音用于语音说明。不同意仍可输入文字。</view><button class="ui-button-reset privacy-link" bindtap="openPrivacy">查看隐私保护指引</button><button id="chibao-privacy-agree" class="ui-button-reset privacy-agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agreePrivacy">同意并继续</button><button class="ui-button-reset privacy-link" bindtap="rejectPrivacy">暂不同意</button></view></view>

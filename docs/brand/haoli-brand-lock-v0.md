@@ -1,5 +1,8 @@
 # 毫厘智管 · 品牌锁定稿 v0
 
+> **历史文档。**记录 2026-10-01 更名前的旧品牌「毫厘智管」标识方案。
+> 文中提到的 `miniprogram/images/brand/haoli-*` 资源已随更名下架，保留本文件仅作追溯。
+
 状态：v1、v2、v3 均已撤回；v8 为工作方向，已接入本地小程序和母版，待用户视觉验收。不作为商标注册、字体授权或印刷色彩证明。
 
 ## 产品定位
@@ -52,9 +55,9 @@
 
 ## 资产
 
-- `miniprogram/images/brand/haoli-symbol-v8.svg`：可编辑的界面主符号。
-- `miniprogram/images/brand/haoli-symbol-v8.png`：小程序界面使用的 1024px 光栅版本。
-- `miniprogram/images/brand/haoli-miniapp-icon-v8-1024.png`：应用图标候选；尚未上传到微信后台。
+- ~~`miniprogram/images/brand/haoli-symbol-v8.svg`~~：可编辑的界面主符号。**已随 2026-10-01 品牌更名下架**，文件不再存在于仓库。
+- ~~`miniprogram/images/brand/haoli-symbol-v8.png`~~：小程序界面使用的 1024px 光栅版本。**同上，已下架**；界面现使用 `miniprogram/images/brand/chibao-icon-v1.png`。
+- ~~`miniprogram/images/brand/haoli-miniapp-icon-v8-1024.png`~~：应用图标候选。**同上，已下架**。
 - v8 之前的探索稿统一保存在 `docs/brand/archive/`，不进入正式小程序资源包，也不得在新页面继续引用。
 - 完整名称由原生文字「毫厘智管」呈现，确保中文可读；正式定稿前不宣称为定制字形。
 
