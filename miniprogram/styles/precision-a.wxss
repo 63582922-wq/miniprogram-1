@@ -125,4 +125,7 @@
 .ui-disabled{opacity:var(--a-state-disabled)}
 .ui-loading{opacity:var(--a-state-loading)}
 .is-pressed{opacity:var(--a-state-pressed)}
-.ui-button-reset { border-radius:var(--a-radius-control) !important; }
+/* 按键统一半圆边（胶囊）。这条带 !important 才压得住小程序原生 button
+   的默认圆角与各组件自己的样式。列表行与卡片借 ui-button-reset 清样式、
+   本身不是按键，用 .x.x{border-radius:0!important} 显式退出（见各页面）。 */
+.ui-button-reset { border-radius:var(--a-radius-pill) !important; }

@@ -15,3 +15,6 @@
 .project-card__date{margin-left:auto;color:var(--a-muted);font-size:var(--a-type-caption);white-space:nowrap;font-variant-numeric:tabular-nums}
 .project-card__arrow{width:12rpx;height:12rpx;margin:var(--a-space-1) var(--a-space-1) 0 0;border-top:2rpx solid var(--a-muted);border-right:2rpx solid var(--a-muted);transform:rotate(45deg);flex:none}
 @import "../../styles/precision-a.wxss";
+
+/* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
+.project-card.project-card{border-radius:0!important}

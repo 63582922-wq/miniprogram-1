@@ -5,3 +5,12 @@
 .profile-section-label{font-size:var(--a-type-caption);color:var(--a-muted);letter-spacing:.08em;margin:var(--a-space-4) 0 var(--a-space-1)}.company-logo{width:var(--a-logo-company);height:var(--a-logo-company);flex:none;background:var(--a-field);border-radius:var(--a-radius-tight)}.company-logo--empty{display:flex;align-items:center;justify-content:center;border:1px solid var(--a-line);color:var(--a-muted);font-size:var(--a-type-caption);letter-spacing:.04em}.company-card .section-title{font-family:var(--a-font-body);font-size:var(--a-type-body);font-weight:var(--a-weight-medium);word-break:break-word}.company-card__status{margin-top:var(--a-space-1);color:var(--a-muted);font-size:var(--a-type-caption);line-height:1.4;word-break:break-word}
 .profile-row{width:100%!important;margin:0!important;padding:0!important;display:flex;gap:var(--a-space-2);align-items:center;min-height:92rpx;border:0;border-radius:0;font-size:var(--a-type-action);text-align:left;color:var(--a-ink);font-weight:var(--a-weight-regular)}.profile-row__chevron{width:28rpx;height:28rpx;margin-left:auto}.profile-note{font-size:var(--a-type-caption);color:var(--a-muted);line-height:1.65;margin:var(--a-space-2) 0 var(--a-space-1)}
 .profile-loading{padding-top:var(--a-space-4)}.profile-loading__identity{display:flex;align-items:center;gap:var(--a-space-3);padding-bottom:var(--a-space-4);}.profile-loading__avatar{width:104rpx;height:104rpx;flex:none;border-radius:50%;background:var(--a-surface)}.profile-loading__copy{flex:1;display:flex;flex-direction:column;gap:var(--a-space-2)}.profile-loading__line,.profile-loading__row{background:linear-gradient(90deg,var(--a-surface) 0%,var(--a-field) 48%,var(--a-surface) 100%);background-size:220% 100%;animation:profileLoading 1.25s ease-in-out infinite}.profile-loading__line{height:20rpx;width:76%}.profile-loading__line--short{width:34%;height:14rpx}.profile-loading__line--medium{width:54%;height:14rpx}.profile-loading__label{margin:var(--a-space-4) 0 var(--a-space-2);color:var(--a-muted);font-size:var(--a-type-caption);letter-spacing:.08em}.profile-loading__row{height:96rpx;}@keyframes profileLoading{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
+.company-card.company-card{border-radius:0!important}
+
+/* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
+.identity-card.identity-card{border-radius:0!important}
+
+/* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
+.profile-row.profile-row{border-radius:0!important}

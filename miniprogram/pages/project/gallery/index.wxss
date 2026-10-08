@@ -91,3 +91,9 @@
   align-items: center;
   justify-content: center;
 }
+
+/* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
+.gallery-card__link.gallery-card__link{border-radius:0!important}
+
+/* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
+.gallery-card__preview.gallery-card__preview{border-radius:0!important}
