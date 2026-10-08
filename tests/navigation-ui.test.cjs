@@ -150,12 +150,18 @@ test("project creation is the primary action on the project index, above the sec
   assert.match(inspectionList, /class="(?:ui-button-reset )?list-create-action"[^>]*bindtap="goCreate"[\s\S]*?list-create-action__icon[\s\S]*?nav-plus\.svg[\s\S]*?新建记录/);
 });
 
-test("inspection-wide optional metadata is outside photo repetition and clearly applies to the whole inspection", () => {
+test("capture has one action row under the photo list and carries no inspection-wide metadata block", () => {
   const markup = fs.readFileSync(path.resolve(__dirname, "../miniprogram/pages/inspection/create/index.wxml"), "utf8");
-  assert.ok(markup.indexOf('class="create-card"') > markup.indexOf('class="issue-draft-list"'));
-  assert.match(markup, /巡查信息（选填）/);
-  assert.match(markup, /field-label">报告标题/);
-  assert.match(markup, /field-label">现场补充说明/);
+  // 「巡查信息（选填）」整块已按需求删除：其中的「报告标题」此前根本不进报告
+  //（report 云函数从未读取 inspection.title），填了不生效比没有更糟。
+  // 这里锁住它不会被顺手加回来。
+  assert.doesNotMatch(markup, /巡查信息（选填）/, "被删掉的可选信息块不应重新出现");
+  assert.doesNotMatch(markup, /field-label">报告标题/, "失效的报告标题字段不应重新出现");
+  assert.doesNotMatch(markup, /class="create-card"/, "承载它的卡片不应重新出现");
+  // 语音与「继续添加」并排在照片列表下方同一行。
+  const row = markup.indexOf('class="capture-action-row"');
+  assert.ok(row > markup.indexOf('class="issue-draft-list"'), "action row sits below the photo list");
+  assert.match(markup, /capture-action-row[\s\S]*?voice-hold-button[\s\S]*?继续添加/, "语音与继续添加在同一行内");
 });
 
 test("global visual contract keeps one paper, ink and vermilion system", () => {
@@ -299,7 +305,9 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.doesNotMatch(pageNav, /rgba\(246,241,232/);
   assert.match(capture, /\.issue-draft-card__media\s*\{[^}]*background:\s*var\(--a-photo-matte\)/s);
   assert.match(capture, /\.capture-section__title\s*\{[^}]*font-size:\s*var\(--a-type-section\);[^}]*font-weight:\s*var\(--a-weight-emphasis\)/s);
-  assert.match(capture, /\.create-card__section-title\s*\{[^}]*font-size:\s*var\(--a-type-section\);[^}]*font-weight:\s*var\(--a-weight-emphasis\)/s);
+  // 「巡查信息」整块已删除，其分区标题样式一并移除；改为核对新的语音/添加
+  // 合并行仍然只用间距令牌，不引入裸数值。
+  assert.match(capture, /\.capture-action-row\s*\{[^}]*gap:\s*var\(--a-space-2\)/s);
   assert.doesNotMatch(allWxss, /#143D38|#17211D|#0D3B3E/);
   const fontDeclarations = [...allWxss.matchAll(/font-family:\s*([^;}]+)/g)].map((match) => match[1]);
   fontDeclarations.forEach((value) => assert.match(value, /var\(--a-font-(?:body|display)/));

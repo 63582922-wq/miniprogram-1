@@ -43,16 +43,12 @@
   font-size: var(--a-type-caption);
 }
 
-.capture-section,
-.create-card {
+.capture-section {
   padding: var(--a-space-section) 0;
 
 }
 
 .capture-section__head,
-.create-card__section-head,
-.create-card__section-lead,
-.create-card__issue-bar,
 .capture-photo-actions {
   display: flex;
   align-items: center;
@@ -76,11 +72,27 @@
   white-space: nowrap;
 }
 
-.capture-section__picker-actions {
+/* 语音与「继续添加」并排一行：层级一致、等宽等高。
+   语音按钮只对「当前展开的那张照片」生效，按钮上标明是第几张。 */
+.capture-action-row {
   display: flex;
-  justify-content: center;
+  align-items: stretch;
   gap: var(--a-space-2);
   margin-top: var(--a-space-3);
+}
+
+.capture-action-row > .voice-hold-button,
+.capture-action-row > .capture-action-row__add {
+  flex: 1;
+  width: auto !important;
+  min-width: 0;
+  margin: 0 !important;
+  min-height: var(--a-hit-voice);
+}
+
+.capture-action-row > .capture-action-row__add {
+  padding: var(--a-space-2) var(--a-space-2) !important;
+  font-size: var(--a-type-action);
 }
 
 .capture-section__action {
@@ -107,8 +119,7 @@
   color: var(--a-ink) !important;
 }
 
-.capture-section__action-icon,
-.create-card__section-icon {
+.capture-section__action-icon {
   display: block;
   width: var(--a-icon);
   height: var(--a-icon);
@@ -379,26 +390,6 @@
 .photo-processing-mode--ai {
   border-color: var(--a-accent) !important;
   background: var(--a-accent-wash) !important;
-}
-
-.create-card__section-title {
-  font-size:var(--a-type-section);
-  font-weight:var(--a-weight-emphasis);
-}
-
-.create-card__toggle {
-  display: flex;
-  width: auto !important;
-  min-height: var(--a-hit);
-  align-items: center;
-  margin: 0 !important;
-  padding: 0 !important;
-  color: var(--a-ink);
-  font-size: var(--a-type-caption);
-}
-
-.create-card__supplement-fields {
-  padding-top: var(--a-space-3);
 }
 
 .create-footer-actions {

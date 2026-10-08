@@ -51,6 +51,20 @@ function createIssueDraft(filePath) {
   };
 }
 
+/**
+ * 语音按钮作用于「当前展开的那张照片」。都没有展开时退回最后一张，
+ * 这样按钮永远可用，不会出现「点了没反应」的死路。
+ */
+function resolveActiveIssueIndex(issueExpandedStates = [], total = 0) {
+  if (!total) return -1;
+  let active = -1;
+  (issueExpandedStates || []).forEach((open, index) => {
+    if (open) active = index;
+  });
+  if (active < 0) active = total - 1;
+  return Math.min(active, total - 1);
+}
+
 function buildIssueExpandedStates(issueDrafts = [], previousStates = []) {
   return issueDrafts.map((_, index) => {
     if (typeof previousStates[index] === "boolean") {
@@ -310,9 +324,9 @@ Page({
     transcribingIssueId: "",
     transcribeStartedAt: 0,
     issueExpandedStates: [],
+    activeIssueIndex: -1,
     issueDraftCount: 0,
     nextActionLabel: "进入人工核对",
-    showSupplementFields: false,
     analyzing: false,
     analyzePanelTitle: "正在整理现场记录",
     analyzeStageText: "",
@@ -573,8 +587,8 @@ Page({
     this.setData({
       sessionKey: nextSessionKey,
       issueExpandedStates: [],
+      activeIssueIndex: -1,
       issueDraftCount: 0,
-      showSupplementFields: false,
       recordingIssueId: "",
       transcribingIssueId: "",
       transcribeStartedAt: 0,
@@ -625,7 +639,7 @@ Page({
         issueDraftCount: issueDrafts.length,
         nextActionLabel: getNextActionLabel(issueDrafts),
         issueExpandedStates: buildIssueExpandedStates(issueDrafts, this.data.issueExpandedStates),
-        showSupplementFields: Boolean((cachedForm.title || "").trim() || (cachedForm.note || "").trim())
+        activeIssueIndex: resolveActiveIssueIndex(buildIssueExpandedStates(issueDrafts, this.data.issueExpandedStates), issueDrafts.length)
       });
       this.resolveCapturePreviewMedia(issueDrafts, this.data.sessionKey);
       return true;
@@ -746,11 +760,6 @@ Page({
     });
     this.persistDraft();
   },
-  toggleSupplementFields() {
-    this.setData({
-      showSupplementFields: !this.data.showSupplementFields
-    });
-  },
   chooseImages(event = {}) {
     if (this.data.pickingImages) return;
     if(!this.data.sessionKey || !this.data.form.projectId || this.data.loadingProjects || this.data.projectLoadError){wx.showToast({title:"请先确认记录所属项目",icon:"none"});return;}
@@ -813,6 +822,7 @@ Page({
         issueDraftCount: issueDrafts.length,
         nextActionLabel: getNextActionLabel(issueDrafts),
         issueExpandedStates,
+        activeIssueIndex: resolveActiveIssueIndex(issueExpandedStates, issueDrafts.length),
         failedPhotoPreviewId: ""
       });
       if (!page.persistDraft()) {
@@ -1056,7 +1066,7 @@ Page({
     const selected=new Set(this.data.photoChoiceIds);
     const photos=normalizeIssueDrafts(this.data.form.issueDrafts.map(photo=>selected.has(photo.id)?{...photo,analysisMode:mode}:photo));
     const first=photos.findIndex(photo=>selected.has(photo.id));
-    this.setData({form:{...this.data.form,issueDrafts:photos},nextActionLabel:getNextActionLabel(photos),photoChoiceOpen:false,photoChoiceIds:[],issueExpandedStates:photos.map((_,index)=>index===first)});
+    this.setData({form:{...this.data.form,issueDrafts:photos},nextActionLabel:getNextActionLabel(photos),photoChoiceOpen:false,photoChoiceIds:[],issueExpandedStates:photos.map((_,index)=>index===first),activeIssueIndex:first});
     this.persistDraft();
     if(mode==='ai')return this.startPhotoRecognition([...selected]);
   },
@@ -1096,7 +1106,8 @@ Page({
     const issueExpandedStates = (this.data.issueExpandedStates || []).slice();
     issueExpandedStates[index] = !issueExpandedStates[index];
     this.setData({
-      issueExpandedStates
+      issueExpandedStates,
+      activeIssueIndex: resolveActiveIssueIndex(issueExpandedStates, (this.data.form.issueDrafts || []).length)
     });
   },
   triggerRecordVibration() {
@@ -1251,7 +1262,8 @@ Page({
       "form.issueDrafts": issueDrafts,
       issueDraftCount: issueDrafts.length,
       nextActionLabel: getNextActionLabel(issueDrafts),
-      issueExpandedStates
+      issueExpandedStates,
+      activeIssueIndex: resolveActiveIssueIndex(issueExpandedStates, issueDrafts.length)
     });
     this.persistDraft();
   },
@@ -1259,7 +1271,7 @@ Page({
     const index=Number(event.currentTarget.dataset.index),step=Number(event.currentTarget.dataset.step),target=index+step;
     const rows=this.data.form.issueDrafts.slice();if(target<0||target>=rows.length)return;
     [rows[index],rows[target]]=[rows[target],rows[index]];
-    this.setData({"form.issueDrafts":rows,issueDraftCount:rows.length,issueExpandedStates:rows.map((_,i)=>i===target)});this.persistDraft();
+    const states=rows.map((_,i)=>i===target);this.setData({"form.issueDrafts":rows,issueDraftCount:rows.length,issueExpandedStates:states,activeIssueIndex:resolveActiveIssueIndex(states,rows.length)});this.persistDraft();
   },
   openAnnotate(event) {
     const index = Number(event.currentTarget.dataset.index);

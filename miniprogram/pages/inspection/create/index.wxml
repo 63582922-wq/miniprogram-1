@@ -27,7 +27,6 @@
         <view class="issue-draft-card__editor">
           <view class="issue-composer">
             <textarea auto-height maxlength="5000" class="issue-draft-card__textarea" value="{{item.voiceText}}" data-id="{{item.id}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="输入现场说明或问题描述" placeholder-class="ui-placeholder" />
-            <button class="ui-button-reset voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}} {{recordCancelArmed && transcribingIssueId === item.id ? 'voice-hold-button--cancel' : ''}} {{item.isTranscribing ? 'ui-disabled' : ''}}" disabled="{{item.isTranscribing}}" aria-label="按住说话，松开发送；录错向上滑动取消" data-index="{{index}}" bindtouchstart="handleRecordTouchStart" catchtouchmove="handleRecordMove" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordCancel"><image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" /><view class="voice-hold-button__copy"><text>{{item.isTranscribing ? '正在转成文字…' : transcribingIssueId === item.id ? (recordCancelArmed ? '松开，取消这段' : '松开，完成转写') : '按住说话'}}</text><text class="voice-hold-button__hint">{{transcribingIssueId === item.id ? (recordCancelArmed ? '已进入取消状态' : '向上滑动可取消') : '松开转文字 · 上滑取消'}}</text></view></button>
           </view>
           <view wx:if="{{item.speechError}}" class="speech-error-row">
             <view class="precision-state">{{item.speechError}}</view>
@@ -37,15 +36,11 @@
       </view>
     </view>
   </view>
-  <view wx:if="{{form.issueDrafts.length < 20}}" class="capture-section__picker-actions">
-    <button class="ui-button-reset secondary-button {{pickingImages || analyzing ? 'ui-disabled' : ''}}" disabled="{{pickingImages || analyzing}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" /><text>继续添加</text></button>
-  </view>
-  <view wx:if="{{form.issueDrafts.length}}" class="create-card">
-    <view class="create-card__section-head"><button class="ui-button-reset create-card__toggle" bindtap="toggleSupplementFields">{{showSupplementFields ? '收起巡查信息' : '巡查信息（选填）'}}</button></view>
-      <view wx:if="{{showSupplementFields}}" class="create-card__supplement-fields">
-      <view class="field"><view class="field-label">报告标题</view><input class="field-input" value="{{form.title}}" data-field="title" bindinput="handleInput" placeholder="本次现场记录" placeholder-class="ui-placeholder" /></view>
-      <view class="field"><view class="field-label">现场补充说明</view><textarea class="field-textarea" value="{{form.note}}" data-field="note" bindinput="handleInput" placeholder="选填：补充整次巡查的背景" placeholder-class="ui-placeholder" /></view>
-    </view>
+  <view wx:if="{{form.issueDrafts.length}}" class="capture-action-row">
+    <block wx:for="{{form.issueDrafts}}" wx:key="id">
+                  <button class="ui-button-reset voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}} {{recordCancelArmed && transcribingIssueId === item.id ? 'voice-hold-button--cancel' : ''}} {{item.isTranscribing ? 'ui-disabled' : ''}}" disabled="{{item.isTranscribing}}" wx:if="{{index === activeIssueIndex}}" aria-label="按住说话（记入照片 {{index + 1}}），松开发送；录错向上滑动取消" data-index="{{index}}" bindtouchstart="handleRecordTouchStart" catchtouchmove="handleRecordMove" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordCancel"><image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" /><view class="voice-hold-button__copy"><text>{{item.isTranscribing ? '正在转成文字…' : transcribingIssueId === item.id ? (recordCancelArmed ? '松开，取消这段' : '松开，完成转写') : '按住说话'}}</text><text class="voice-hold-button__hint">{{transcribingIssueId === item.id ? (recordCancelArmed ? '已进入取消状态' : '向上滑动可取消') : '松开转字 · 上滑取消'}}</text></view></button>
+    </block>
+    <button wx:if="{{form.issueDrafts.length < 20}}" class="ui-button-reset secondary-button capture-action-row__add {{pickingImages || analyzing ? 'ui-disabled' : ''}}" disabled="{{pickingImages || analyzing}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" /><text>继续添加</text></button>
   </view>
   <view wx:if="{{form.issueDrafts.length}}" class="footer-actions footer-actions--fixed"><button class="ui-button-reset primary-button {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" bindtap="handleContinueReview">{{nextActionLabel}}</button></view>
   <view wx:if="{{photoChoiceOpen}}" class="photo-choice-mask" catchtap="deferPhotoProcessing">

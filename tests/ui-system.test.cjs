@@ -246,15 +246,17 @@ test('voice recording is a prominent secondary action; the page CTA owns the sol
   assert.match(primary, /\.primary-button\s*\{[^}]*background:\s*var\(--a-accent\)/s, 'the primary next-step control retains the solid accent fill');
 });
 
-test('capture copy avoids duplicate voice instructions and reserves accent for meaningful actions', () => {
+test('capture copy keeps the voice gestures visible now that the mic shares a row', () => {
   const markup = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxml'), 'utf8');
-  const style = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxss'), 'utf8');
-  const toggle = style.match(/\.create-card__toggle\s*\{([^}]*)\}/s);
   assert.match(markup, /placeholder="输入现场说明或问题描述"/, 'manual text entry should explain its own purpose without repeating the nearby mic instruction');
-  assert.match(markup, /松开转文字 · 上滑取消/, 'the idle microphone control should expose both release and cancel gestures');
-  assert.ok(toggle, 'optional supplement disclosure must have a shared action role');
-  assert.match(toggle[1], /color\s*:\s*var\(--a-ink\)/, 'optional disclosure stays neutral rather than competing with the main accent action');
-  assert.doesNotMatch(toggle[1], /--a-accent/, 'decorative accent color is not used for low-priority optional content');
+  // 麦克风按钮改成半宽后放不下原来的 12 字提示，但两个手势都必须留着：
+  // 用户要知道「松手才发送」，也要知道「上滑能取消」。
+  assert.match(markup, /松开转字 · 上滑取消/, 'the idle microphone control must still expose both release and cancel gestures');
+  // 上滑取消在录音中同样要可见。
+  assert.match(markup, /向上滑动可取消/, 'the armed recording state keeps the cancel hint');
+  // 按钮改成半宽后放不下「按住说话 · 照片 N」，作用对象改由 aria-label 承担，
+  // 视觉上由「展开的那张照片」表示；这里锁住无障描述不会退化成通用文案。
+  assert.match(markup, /aria-label="按住说话（记入照片 \{\{index \+ 1\}\}）/, 'the mic names its target photo for assistive tech');
 });
 
 test('AI review distinguishes useful suggestions from an empty result without implying acceptance', () => {
