@@ -2,6 +2,7 @@ const { getCurrentUser } = require("../../services/user");
 const { getSettings } = require("../../services/settings");
 const { resolveCloudFileUrls, isCloudFileId } = require("../../services/cloud-media");
 const { syncTabBar } = require("../../utils/tab-bar");
+const { getBuildInfo } = require("../../utils/app-version");
 const { getInspectorName } = require("../../utils/report-identity");
 
 async function resolveLogoPreview(fileId) {
@@ -12,8 +13,14 @@ async function resolveLogoPreview(fileId) {
 }
 
 Page({
-  data:{loading:true,loadError:"",displayUserInfo:{},company:{},contactLine:"添加巡查联系电话",completionText:"",identity:{completeCount:0,hasCompany:false,hasLogo:false,hasInspector:false,hasPhone:false}},
-  onShow(){syncTabBar(this,"pages/profile/index");this.loadUser();},
+  data:{buildText:"",loading:true,loadError:"",displayUserInfo:{},company:{},contactLine:"添加巡查联系电话",completionText:"",identity:{completeCount:0,hasCompany:false,hasLogo:false,hasInspector:false,hasPhone:false}},
+  onShow(){
+    syncTabBar(this,"pages/profile/index");
+    // 版本号是本地信息，不依赖网络，所以先渲染出来；
+    // 内测反馈问题时这是第一个要问清楚的东西。
+    this.setData({buildText:getBuildInfo().text});
+    this.loadUser();
+  },
   async loadUser(){
     const generation = (this.profileLoadGeneration || 0) + 1;
     this.profileLoadGeneration = generation;

@@ -25,5 +25,6 @@
     <view class="profile-section-label">使用与设置</view>
     <button class="ui-button-reset profile-row" bindtap="openGuide"><text>使用说明</text><image class="profile-row__chevron" src="/images/icons/icon-arrow-right.svg" /></button>
     <button class="ui-button-reset profile-row" bindtap="openLegal"><text>隐私与服务说明</text><image class="profile-row__chevron" src="/images/icons/icon-arrow-right.svg" /></button>
+    <view wx:if="{{buildText}}" class="profile-note profile-build">{{buildText}}</view>
   </block>
 </view>

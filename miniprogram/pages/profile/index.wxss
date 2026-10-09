@@ -14,3 +14,12 @@
 
 /* 借 ui-button-reset 清样式的列表行/卡片，不是按键，保持直角。 */
 .profile-row.profile-row{border-radius:0!important}
+
+/* 版本号：内测期间反馈问题时要能一眼报出来，所以常驻但保持低调。 */
+.profile-build {
+  padding-top: var(--a-space-3);
+  color: var(--a-muted);
+  font-size: var(--a-type-micro);
+  text-align: center;
+  letter-spacing: 0.06em;
+}
