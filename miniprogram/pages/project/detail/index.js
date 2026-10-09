@@ -112,13 +112,22 @@ Page({
     }
     this.captureInFlight = true;
     this.captureProjectId = projectId;
-    this.setData({captureChoiceOpen:false,capturePicking:true});
+    this.setData({captureChoiceOpen:false});
     try {
+      // 「正在保存照片」这块遮罩是给**保存**看的，不是给**选照片**看的。
+      // 选照片用的是微信原生界面，本来就盖在最上层，不需要我们再遮一层。
+      // 更要紧的是：隐私授权弹窗正是在 choosePhotoFiles 这一步触发的，
+      // 而隐私弹窗渲染在 page-nav-bar 组件里、被 :host 的 z-index:50 困住
+      // （组件内写的 999 对外只有 50），压不过页面里 z-index:91 的遮罩，
+      // 于是「同意并继续」被遮住、点不动。遮罩等选完再出，两边就不会撞上。
       const paths = await choosePhotoFiles(sourceType);
       if (this.captureProjectId !== projectId || this.data.projectId !== projectId) throw new Error("项目已变化，照片未加入记录，请重新选择");
       if (!paths.length) return;
-      const durablePaths = [];
-      for (const path of paths) durablePaths.push(await keepLocalFile(path));
+      this.setData({capturePicking:true});
+      // 并行落盘：原先是一张一张 await，选 9 张就要等 9 次串行的复制，
+      // 「正在保存照片」的遮罩因此亮很久。saveFile 本身是异步 IO，
+      // 互不依赖，Promise.all 既保持顺序又把等待压到最慢的那一张。
+      const durablePaths = await Promise.all(paths.map(path => keepLocalFile(path)));
       const sessionKey = identity("inspection-create");
       const returnContext = encodeReturnContext({projectId,projectName:project.name || "",returnTarget:"projectDetail"});
       const form = {
