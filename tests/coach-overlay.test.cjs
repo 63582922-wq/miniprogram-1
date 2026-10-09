@@ -198,3 +198,22 @@ test('the tip text is centred, not left-aligned',()=>{
   assert.ok(rule,'气泡内文字应有一处统一的居中声明');
   assert.match(rule[1],/text-align:\s*center/,'说明文字必须居中，不能左对齐');
 });
+
+test('the guide never writes to a page the user already left',()=>{
+  // syncCoach 最长等约 7 秒；用户完全可能在这期间返回。
+  // 直接 setData 会打到已卸载的页面上——项目里其它异步都用 generation 计数防这类竞态。
+  const helper=read('miniprogram/utils/coach-page.js');
+  assert.match(helper,/function isPageAlive/,'必须有存活性判断');
+  assert.match(helper,/getCurrentPages\(\)\.indexOf\(page\)\s*>=\s*0/,'用「还在不在页面栈里」判断');
+  assert.match(helper,/function setCoachData/,'setData 要走统一的守卫');
+  // 辅助方法里不允许再出现裸的 this.setData
+  const body=helper.slice(helper.indexOf('function coachMethods('));
+  assert.doesNotMatch(body,/this\.setData\(/,'引导写入必须全部经过 setCoachData');
+});
+
+test('the capture page clears its delayed coach retry on unload',()=>{
+  const page=read('miniprogram/pages/inspection/create/index.js');
+  assert.match(page,/this\.coachRetryTimer = setTimeout\(/,'延迟重试要留下句柄');
+  const unload=page.slice(page.indexOf('onUnload() {'));
+  assert.match(unload.slice(0,200),/clearTimeout\(this\.coachRetryTimer\)/,'离开页面要把定时器清掉');
+});

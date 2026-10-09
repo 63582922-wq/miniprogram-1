@@ -446,8 +446,9 @@ Page({
   },
   async onShow() {
     this.syncCoach();
-    // 草稿恢复完、照片渲染出来之后再同步一次，避免用「还没有照片」的旧前提下判断
-    setTimeout(() => this.syncCoach(), 1200);
+    // 草稿恢复完、照片渲染出来之后再同步一次，避免用「还没有照片」的旧前提下判断。
+    // syncCoach 自己会判断页面是否还在，这里不必再挡一层。
+    this.coachRetryTimer = setTimeout(() => this.syncCoach(), 1200);
     if(this.initializing)return;
     this.ownsDraft = true;
     this.suspendDraftOnHide = false;
@@ -506,6 +507,7 @@ Page({
     }
   },
   onUnload() {
+    if (this.coachRetryTimer) { clearTimeout(this.coachRetryTimer); this.coachRetryTimer = null; }
     this.recordPressActive=false;
     this.recordGesture=(this.recordGesture||0)+1;
     this.pickerEpoch = (this.pickerEpoch || 0) + 1;

@@ -95,7 +95,11 @@ function sweepOrphanLocalMedia(liveDrafts = [], options = {}) {
           .map((item) => ({ filePath: item.filePath, createTime: Number(item.createTime) || 0 }))
           .filter((item) => item.filePath && item.filePath.startsWith(root))
           .filter((item) => !keep.has(item.filePath))
-          .filter((item) => !item.createTime || (now - item.createTime * 1000) > minAge)
+          // 只删「确定够旧」的：拿不到创建时间就留着。
+          // 原来写的是 `!item.createTime || ...`——在不上报创建时间的平台上，
+          // 24 小时这道保险会整个失效，等于只剩 keep 集合一道防线。
+          // 不确定就别删，大不了下次启动再清。
+          .filter((item) => item.createTime && (now - item.createTime * 1000) > minAge)
           .map((item) => item.filePath);
         if (!orphans.length) {
           resolve(0);

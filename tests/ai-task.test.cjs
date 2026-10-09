@@ -592,3 +592,31 @@ test('a quota-count failure allows the request instead of blocking field work',a
  const result=await fn({action:'createInspectionTask',payload:{requestId:'r',projectId:'p',issueDrafts:[{id:'p0',imagePath:'cloud://env/inspection-images/user/owner/p0.png'}]}});
  assert.equal(result.success,true,'fail-open: the user keeps working, the console alert is the real guard');
 });
+
+test('AI_DAILY_LIMIT=0 really means unlimited',async()=>{
+ // 注释说「0 或负数表示不限制」，但旧的解析写成 `raw>0?raw:200`，
+ // 于是填 0 反而得到一个 200/天的限额——与文档和下面的判断都矛盾。
+ const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test',AI_DAILY_LIMIT:'0'},
+  modules:{axios:{post:async()=>response([])},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},
+  console:{log(){},warn(){},error(){},info(){}}});
+ const st=await fn({action:'getRuntimeStatus'});
+ assert.equal(st.data.dailyTaskLimit,0,'填 0 必须解析成「不限制」，而不是悄悄变成 200');
+ const draft=(id)=>({requestId:id,projectId:'p',issueDrafts:[{id:'p0',imagePath:'cloud://env/inspection-images/user/owner/p0.png'}]});
+ for(const rid of ['a','b','c']){
+   const r=await fn({action:'createInspectionTask',payload:draft(rid)});
+   assert.equal(r.success,true,`不限制时第 ${rid} 次不该被拦`);
+ }
+});
+
+test('a typo in AI_DAILY_LIMIT falls back to the default instead of disabling the limit',async()=>{
+ const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test',AI_DAILY_LIMIT:'abc'},
+  modules:{axios:{post:async()=>response([])},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},
+  console:{log(){},warn(){},error(){},info(){}}});
+ const st=await fn({action:'getRuntimeStatus'});
+ assert.equal(st.success,true,'配错了不能让函数起不来');
+ assert.equal(st.data.dailyTaskLimit,200,'配错了要回退到默认值，而不是把限额关掉');
+ const first=await fn({action:'createInspectionTask',payload:{requestId:'x',projectId:'p',issueDrafts:[{id:'p0',imagePath:'cloud://env/inspection-images/user/owner/p0.png'}]}});
+ assert.equal(first.success,true,'默认值下第一条应当放行');
+});

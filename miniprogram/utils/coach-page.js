@@ -56,6 +56,30 @@ async function waitForTarget(selector, isReady, attempts = 24, interval = 300) {
   return null;
 }
 
+/**
+ * 页面还活着吗。
+ *
+ * 引导是「等目标出现」的：最长会等约 7 秒。用户完全可能在这期间就返回了，
+ * 那时 setData 会打到一个已经卸载的页面上——轻则控制台报错，
+ * 重则把状态写进一个不该再被触碰的实例。项目里其它异步都用
+ * generation 计数防这类竞态，引导这里用「还在不在页面栈里」判断即可。
+ */
+function isPageAlive(page) {
+  try {
+    if (!page || typeof getCurrentPages !== "function") return false;
+    return getCurrentPages().indexOf(page) >= 0;
+  } catch (_error) {
+    return false;
+  }
+}
+
+/** 只在页面还活着时写数据。返回是否真的写了。 */
+function setCoachData(page, data) {
+  if (!isPageAlive(page)) return false;
+  page.setData(data);
+  return true;
+}
+
 /** 量一个页面元素的位置，供遮罩挖洞。取不到就返回 null。 */
 function measureTarget(selector) {
   return new Promise((resolve) => {
@@ -94,7 +118,7 @@ function coachMethods(stepKey, targetSelector, options = {}) {
     async syncCoach() {
       if (!isCoachStep(stepKey) || (typeof options.ready === "function" && !options.ready.call(this))) {
         if (this.data.coachVisible) {
-          this.setData({ coachVisible: false, coachRect: null });
+          setCoachData(this, { coachVisible: false, coachRect: null });
         }
         return;
       }
@@ -108,10 +132,10 @@ function coachMethods(stepKey, targetSelector, options = {}) {
       if (!measurable && !options.pendingText) {
         // 目标不存在、也没准备「先做什么」的说明：宁可不显示，
         // 也不要弹一个指着空气的引导
-        this.setData({ coachVisible: false, coachRect: null });
+        setCoachData(this, { coachVisible: false, coachRect: null });
         return;
       }
-      this.setData({
+      setCoachData(this, {
         coachVisible: true,
         coachRect: measurable ? rect : null,
         coachTitle: tip.title,
@@ -122,7 +146,7 @@ function coachMethods(stepKey, targetSelector, options = {}) {
     },
     /** 「知道了」：只收起气泡，步骤仍然激活——用户还没做那件事，下次回到本页还会提示。 */
     handleCoachNext() {
-      this.setData({ coachVisible: false, coachRect: null, coachPendingText: "" });
+      setCoachData(this, { coachVisible: false, coachRect: null, coachPendingText: "" });
     },
     /** 动作已真的完成，推进到下一步。 */
     advanceCoach() {
@@ -132,12 +156,12 @@ function coachMethods(stepKey, targetSelector, options = {}) {
       } else {
         stopCoach();
       }
-      this.setData({ coachVisible: false, coachRect: null, coachPendingText: "" });
+      setCoachData(this, { coachVisible: false, coachRect: null, coachPendingText: "" });
     },
     /** 「跳过引导」：整段引导结束，不再打扰。 */
     handleCoachSkip() {
       stopCoach();
-      this.setData({ coachVisible: false, coachRect: null });
+      setCoachData(this, { coachVisible: false, coachRect: null });
     }
   };
 }
@@ -162,7 +186,7 @@ function coachMethodsMulti(steps, options = {}) {
       const active = this.activeCoachStep();
       if (!active) {
         if (this.data.coachVisible) {
-          this.setData({ coachVisible: false, coachRect: null });
+          setCoachData(this, { coachVisible: false, coachRect: null });
         }
         return;
       }
@@ -178,10 +202,10 @@ function coachMethodsMulti(steps, options = {}) {
       const measurable = rect && rect.width && rect.height;
       const pendingText = active.pendingText || options.pendingText || "";
       if (!measurable && !pendingText) {
-        this.setData({ coachVisible: false, coachRect: null });
+        setCoachData(this, { coachVisible: false, coachRect: null });
         return;
       }
-      this.setData({
+      setCoachData(this, {
         coachVisible: true,
         coachRect: measurable ? rect : null,
         coachTitle: tip.title,
@@ -191,7 +215,7 @@ function coachMethodsMulti(steps, options = {}) {
       });
     },
     handleCoachNext() {
-      this.setData({ coachVisible: false, coachRect: null, coachPendingText: "" });
+      setCoachData(this, { coachVisible: false, coachRect: null, coachPendingText: "" });
     },
     advanceCoach(fromStep) {
       const current = fromStep || (this.activeCoachStep() || {}).key;
@@ -201,14 +225,14 @@ function coachMethodsMulti(steps, options = {}) {
       } else {
         stopCoach();
       }
-      this.setData({ coachVisible: false, coachRect: null });
+      setCoachData(this, { coachVisible: false, coachRect: null });
     },
     handleCoachSkip() {
       stopCoach();
-      this.setData({ coachVisible: false, coachRect: null });
+      setCoachData(this, { coachVisible: false, coachRect: null });
     }
   };
   return base;
 }
 
-module.exports = { measureTarget, measureTargetWithRetry, waitForTarget, coachData, coachMethods, coachMethodsMulti };
+module.exports = { isPageAlive, setCoachData, measureTarget, measureTargetWithRetry, waitForTarget, coachData, coachMethods, coachMethodsMulti };

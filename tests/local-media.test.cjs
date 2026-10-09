@@ -99,3 +99,14 @@ test('the launch sweep waits for identity before it dares to delete anything',()
   assert.match(app,/identityConfirmed:\s*true/,
     '确认身份后要显式告诉工具可以删');
 });
+
+test('a file with no creation time is kept, not guessed at',()=>{
+  // 只删「确定够旧」的：拿不到创建时间就留着。
+  // 否则在不上报 createTime 的平台上，24 小时这道保险会整个失效。
+  const wx=fakeWx([{filePath:ROOT+'undated.jpg'}]);
+  const {sweepOrphanLocalMedia}=loadUtil(wx);
+  return sweepOrphanLocalMedia([],{identityConfirmed:true}).then((count)=>{
+    assert.equal(count,0,'没有创建时间的文件不该被删');
+    assert.deepEqual(wx.removed,[]);
+  });
+});

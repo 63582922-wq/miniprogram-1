@@ -245,7 +245,10 @@ function buildSafeRuntimeStatus() {
     imageDetail: runtimeConfig.imageDetail || "provider-default",
     batchSize: AI_BATCH_SIZE,
     parallelLimit: AI_BATCH_PARALLEL_LIMIT,
-    maxPhotos: 20
+    maxPhotos: 20,
+    // 生效的每日额度，0 表示不限制。运营者要能确认自己配的那个值
+    // 到底有没有被解析成想要的样子——这个函数里出现过「填 0 反而变成 200」。
+    dailyTaskLimit: AI_DAILY_TASK_LIMIT
   };
 }
 
@@ -1410,8 +1413,18 @@ function isTransientAiTaskError(error) {
  * 控制台的用量告警是第一道闸；这里是第二道，防止单账号误用或滥用把额度打光。
  */
 const AI_DAILY_TASK_LIMIT = (() => {
-  const raw = Number(process.env.AI_DAILY_LIMIT);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 200;
+  const raw = process.env.AI_DAILY_LIMIT;
+  // 没配置、或配置成空串：用默认值
+  if (raw === undefined || `${raw}`.trim() === "") return 200;
+  const parsed = Number(raw);
+  // 配错了（例如写成 "abc"）时用默认值兜底，**不能静默放行**——
+  // 那等于把限额这道闸悄悄关掉
+  if (!Number.isFinite(parsed)) return 200;
+  // 显式写成 0 或负数才表示不限制。
+  // 此前这里写的是 `raw > 0 ? raw : 200`，于是「填 0 关掉限额」实际得到
+  // 200/天——与文档所说相反，也和下面 `if (!AI_DAILY_TASK_LIMIT)` 的
+  // 「0 即不限制」自相矛盾。
+  return Math.floor(parsed);
 })();
 
 /** 按东八区算「今天」的起点——运营者看到的日界应与自己的直觉一致。 */
