@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>尺包 · 汇报</title>
+<style>
+  @page { size: 297mm 167mm; margin: 0; }
+
+  :root{
+    --ink:    #14130E;
+    --ink-2:  #514C43;
+    --ink-3:  #918A7C;
+    --paper:  #FBF7F2;
+    --paper-2:#F3ECE3;
+    --hair:   #E2D9CC;
+    --accent: #C2452A;
+    --accent-2:#8E2F1B;
+    --gold:   #B08A52;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:#fff; }
+  body{
+    font-family:"PingFang SC","Hiragino Sans GB","Heiti SC",-apple-system,sans-serif;
+    color:var(--ink); -webkit-font-smoothing:antialiased;
+  }
+
+  .slide{
+    position:relative; width:297mm; height:167mm; overflow:hidden;
+    background:var(--paper); page-break-after:always;
+    padding:16mm 18mm 12mm; display:flex; flex-direction:column;
+  }
+  .slide:last-child{ page-break-after:auto; }
+
+  .kicker{ font-size:8.5pt; letter-spacing:.34em; color:var(--accent); }
+  .kicker.g{ color:var(--gold); }
+
+  h1{ font-size:44pt; line-height:1.16; font-weight:600; letter-spacing:-.015em; margin:0; }
+  h2{ font-size:29pt; line-height:1.24; font-weight:600; letter-spacing:-.01em; margin:0; }
+  .sub{ font-size:12pt; line-height:1.95; color:var(--ink-2); }
+  .small{ font-size:9.5pt; line-height:1.85; color:var(--ink-3); letter-spacing:.02em; }
+
+  /* 深色页：整页反白，用作节奏切换 */
+  .slide.dark{ background:var(--ink); color:var(--paper); }
+  .slide.dark .kicker{ color:var(--gold); }
+  .slide.dark .sub{ color:#C9C2B6; }
+  .slide.dark .small{ color:#8B8478; }
+
+  /* 大数字：不用卡片，靠字号撑住 */
+  .bignum{
+    font-size:92pt; font-weight:600; line-height:.9; letter-spacing:-.04em;
+    color:var(--accent);
+  }
+  .slide.dark .bignum{ color:var(--gold); }
+
+  .row{ display:flex; gap:16mm; }
+  .col{ flex:1; }
+  .hair{ height:1px; background:var(--hair); }
+  .slide.dark .hair{ background:#3A362E; }
+
+  ul.clean{ margin:0; padding:0; }
+  ul.clean li{ list-style:none; font-size:12pt; line-height:2.1; color:var(--ink-2); }
+  ul.clean li b{ color:var(--ink); font-weight:600; }
+  .slide.dark ul.clean li{ color:#C9C2B6; }
+  .slide.dark ul.clean li b{ color:var(--paper); }
+
+  /* 步骤：横排，编号用强调色 */
+  .steps{ display:flex; gap:8mm; margin-top:14mm; }
+  .step{ flex:1; }
+  .step .n{ font-size:26pt; font-weight:600; color:var(--accent); line-height:1; }
+  .step .t{ font-size:14pt; font-weight:600; margin-top:6mm; }
+  .step .d{ font-size:9.5pt; line-height:1.8; color:var(--ink-3); margin-top:3mm; }
+
+  .push{ margin-top:auto; }
+  .foot{ display:flex; justify-content:space-between; font-size:8pt;
+         letter-spacing:.18em; color:var(--ink-3); padding-top:5mm; }
+  .slide.dark .foot{ color:#6E6A60; }
+
+  /* 封面与尾页 */
+  .cover{ padding:0; }
+  .cover .bg{ position:absolute; inset:0; background:var(--ink); }
+  .cover .glow{
+    position:absolute; right:-30mm; top:-40mm; width:190mm; height:190mm;
+    border-radius:50%;
+    background:radial-gradient(circle at 40% 40%, rgba(194,69,42,.55), rgba(194,69,42,0) 62%);
+  }
+  .cover .glow2{
+    position:absolute; left:-40mm; bottom:-60mm; width:170mm; height:170mm;
+    border-radius:50%;
+    background:radial-gradient(circle at 50% 50%, rgba(176,138,82,.34), rgba(176,138,82,0) 64%);
+  }
+  .cover .inner{ position:relative; height:100%; padding:22mm 20mm;
+                 display:flex; flex-direction:column; color:var(--paper); }
+  .cover h1{ font-size:50pt; color:var(--paper); }
+  .brand{ font-size:12pt; letter-spacing:.5em; font-weight:600; }
+
+  /* 二维码 */
+  .qrbox{ display:flex; align-items:center; gap:9mm; }
+  .qrbox img{ width:44mm; height:44mm; background:#fff; padding:2.5mm; display:block; }
+  .qrbox .t{ font-size:15pt; font-weight:600; }
+  .qrbox .d{ font-size:9.5pt; line-height:1.8; color:var(--ink-3); margin-top:3mm; }
+  .slide.dark .qrbox .d{ color:#8B8478; }
+
+  /* 现场照片：切片式摆放，不做相框 */
+  .shot{ width:100%; height:100%; object-fit:cover; display:block; }
+  .shotwrap{ overflow:hidden; background:var(--paper-2); }
+</style>
+</head>
+<body>
+
+<!-- 1 ── 封面 -->
+<div class="slide cover">
+  <div class="bg"></div><div class="glow"></div><div class="glow2"></div>
+  <div class="inner">
+    <div class="brand">尺 包</div>
+    <div class="push"></div>
+    <div class="kicker g">现场记录 · 精准标注 · 清楚交付</div>
+    <h1 style="margin-top:6mm">拍完现场，<br>报告就好了。</h1>
+    <div class="sub" style="margin-top:8mm;max-width:130mm;color:#C9C2B6">
+      从一堆照片到一份能发出去的报告，<br>以前要一两个小时。现在回到车上就能发。
+    </div>
+    <div class="push"></div>
+    <div class="small">2026 · 内部汇报</div>
+  </div>
+</div>
+
+<!-- 2 ── 问题 -->
+<div class="slide">
+  <div class="kicker">问题</div>
+  <h2 style="margin-top:7mm">跑完现场，<br>真正的活才刚开始</h2>
+
+  <div class="row" style="margin-top:14mm">
+    <div class="col">
+      <ul class="clean">
+        <li>回来导照片，从一堆里挑出有问题的</li>
+        <li>一张张配文字说明</li>
+        <li>给问题编号、分区、分类、定责</li>
+        <li>排版、做成一份能发出去的文件</li>
+      </ul>
+    </div>
+    <div class="col" style="flex:.62; display:flex; flex-direction:column; justify-content:center">
+      <div class="bignum">1–2</div>
+      <div class="small" style="margin-top:4mm; color:var(--ink-2)">小时 / 每份报告<br>项目一多就更压人</div>
+    </div>
+  </div>
+
+  <div class="push"></div>
+  <div class="foot"><span>尺包</span><span>01</span></div>
+</div>
+
+<!-- 3 ── 怎么解 -->
+<div class="slide dark">
+  <div class="kicker">解法</div>
+  <h2 style="margin-top:7mm">把这一段接过去</h2>
+
+  <div class="steps">
+    <div class="step"><div class="n">01</div><div class="t">拍照片</div><div class="d">按项目拍照，或从相册选</div></div>
+    <div class="step"><div class="n">02</div><div class="t">圈问题</div><div class="d">在照片上圈出来，自动编号</div></div>
+    <div class="step"><div class="n">03</div><div class="t">说两句</div><div class="d">按住说话自动转文字</div></div>
+    <div class="step"><div class="n">04</div><div class="t">核对一遍</div><div class="d">逐条确认、随手改</div></div>
+    <div class="step"><div class="n">05</div><div class="t">转发业主</div><div class="d">发个链接，对方点开就看</div></div>
+  </div>
+
+  <div class="sub" style="margin-top:16mm; max-width:190mm">
+    照片分组、问题编号、概览和「需要优先处理」清单一并生成。<br>
+    <b style="color:var(--paper)">你只做核对。</b>
+  </div>
+
+  <div class="push"></div>
+  <div class="foot"><span>尺包</span><span>02</span></div>
+</div>
+
+<!-- 4 ── AI -->
+<div class="slide">
+  <div class="kicker">AI 的位置</div>
+  <h2 style="margin-top:7mm">AI 只打草稿，<br>不替你验收</h2>
+
+  <div class="row" style="margin-top:12mm">
+    <div class="col">
+      <div class="kicker" style="color:var(--ink-3)">看照片</div>
+      <div class="sub" style="margin-top:4mm">检查可见的裂缝、破损、拼接错位、收口缺口，写成能直接进报告的表述。</div>
+      <div class="small" style="margin-top:5mm">「门洞右侧收口边缘存在连续缺口，局部基层外露。」</div>
+    </div>
+    <div class="col">
+      <div class="kicker" style="color:var(--ink-3)">整理你说的话</div>
+      <div class="sub" style="margin-top:4mm">「厨房这块砖敲着空，声音发闷，大概三十公分。」</div>
+      <div class="small" style="margin-top:5mm">→ 厨房墙面瓷砖空鼓，敲击有明显空响，范围约 30cm。</div>
+    </div>
+    <div class="col" style="flex:.8">
+      <div class="kicker" style="color:var(--ink-3)">边界</div>
+      <ul class="clean" style="margin-top:4mm">
+        <li><b>不编造</b>　没证据就不写</li>
+        <li><b>不下结论</b>　不判合格与否</li>
+        <li><b>不擅自写入</b>　你不确认就不进报告</li>
+        <li><b>不替你定责</b>　责任方只认你说的</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="push"></div>
+  <div class="foot"><span>尺包</span><span>03</span></div>
+</div>
+
+<!-- 5 ── 交付物 -->
+<div class="slide">
+  <div class="kicker">交付物</div>
+  <h2 style="margin-top:7mm">发给业主的是一份定稿</h2>
+
+  <div class="row" style="margin-top:13mm">
+    <div class="col">
+      <ul class="clean">
+        <li><b>只读链接</b>　对方不用登录、不用下载</li>
+        <li><b>随时可撤销</b>　旧链接立即失效</li>
+        <li><b>有编号、有出具时间</b>　有据可查</li>
+      </ul>
+    </div>
+    <div class="col">
+      <ul class="clean">
+        <li><b>存在服务器上</b>　换手机换微信都能打开</li>
+        <li><b>照片不占手机</b>　上传后本机副本自动清掉</li>
+        <li><b>改资料不改报告</b>　已发出报告不被改写</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="push"></div>
+  <div class="foot"><span>尺包</span><span>04</span></div>
+</div>
+
+<!-- 6 ── 尾页 + 二维码 -->
+<div class="slide dark cover" style="padding:0">
+  <div class="bg"></div><div class="glow" style="right:auto;left:-50mm;top:-50mm"></div>
+  <div class="inner" style="padding:20mm">
+    <div class="brand" style="font-size:11pt">尺 包</div>
+    <div class="push"></div>
+    <h2 style="color:var(--paper)">扫码就能试<br>不用下载、不用注册</h2>
+    <div class="qrbox" style="margin-top:12mm">
+      <img src="assets/体验版二维码.png" alt="体验版二维码">
+      <div>
+        <div class="t" style="color:var(--paper)">微信扫一扫 → 点「申请体验」</div>
+        <div class="d">通过后重新扫码即可打开。<br>全程不用手机号。</div>
+      </div>
+    </div>
+    <div class="push"></div>
+    <div class="small">尺包 · 小程序简介</div>
+  </div>
+</div>
+
+</body>
+</html>
