@@ -155,13 +155,13 @@
   .scene b { color: var(--accent-2); }
   .scene .muted { display: block; margin-top: 3px; color: var(--ink-3); font-size: 10.5pt; }
 
-  .pair { display: flex; align-items: center; gap: 13px; margin-top: 17px; }
+  .pair { display: flex; align-items: center; gap: 13px; margin-top: 12px; }
   .shot { flex: 1; }
   .shot .cap { font-size: 11.5pt; margin-top: 8px; line-height: 1.5; }
   .shot .cap b { color: var(--accent-2); }
 
   .photo {
-    position: relative; height: 138px; border-radius: 10px; overflow: hidden;
+    position: relative; height: 116px; border-radius: 10px; overflow: hidden;
     border: 1px solid #D8D0C6;
     background:
       repeating-linear-gradient(90deg, rgba(0,0,0,.055) 0 1px, transparent 1px 33px),
@@ -191,9 +191,9 @@
   }
   .big-arrow { flex: none; color: var(--accent); font-size: 19pt; }
 
-  .two { display: flex; gap: 14px; margin-top: 17px; }
+  .two { display: flex; gap: 14px; margin-top: 12px; }
   .two > div { flex: 1; }
-  .mini { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 14px 16px; height: 100%; }
+  .mini { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 12px 15px; height: 100%; }
   .mini .mt { font-size: 12pt; font-weight: 700; margin-bottom: 10px; }
   .mini .mt span { color: var(--accent); }
   .bubble {
@@ -213,8 +213,8 @@
   .pill.who { background: #EDEAE4; color: var(--ink-2); }
 
   .report {
-    margin-top: 17px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 14px; padding: 16px 18px;
+    margin-top: 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 13px 16px;
   }
   .report .rh { display: flex; align-items: baseline; gap: 9px; }
   .report .rh .rt { font-size: 13pt; font-weight: 700; }
@@ -235,6 +235,21 @@
     margin-top: 12px; background: var(--ink); color: #fff; border-radius: 10px;
     padding: 12px; text-align: center; font-size: 12.5pt; font-weight: 600;
   }
+
+  /* 留证 */
+  .locked {
+    display: inline-block; background: var(--ink); color: #fff;
+    font-size: 8.5pt; font-weight: 600; padding: 1.5px 8px;
+    border-radius: 20px; margin-right: 7px; letter-spacing: .04em;
+  }
+  .proof {
+    margin-top: 12px; background: var(--ink); color: #fff;
+    border-radius: 13px; padding: 14px 18px;
+  }
+  .proof .ph { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+  .proof .ph .pt { font-size: 12.5pt; font-weight: 700; }
+  .proof .pd { font-size: 11pt; line-height: 1.68; color: #E4DFD8; }
+  .proof .pd b { color: #F3B999; }
 
   /* ---------- page 4 ---------- */
   .cols { display: flex; gap: 15px; margin-top: 20px; }
@@ -480,7 +495,7 @@
   <div class="report">
     <div class="rh">
       <div class="rt">现场巡查报告 · 示例小区 3-1802</div>
-      <div class="rno">编号 CB-20261009-001（示例）</div>
+      <div class="rno"><span class="locked">已定稿</span>编号 CB-20261009-001（示例）</div>
     </div>
     <div class="counts">
       <div class="count"><div class="cn" style="color:var(--urgent)">1</div><div class="cl">严重</div></div>
@@ -497,6 +512,19 @@
     </div>
     <div class="mapnote">照片标注号与下方同号问题一一对应　　照片与问题：共 3 张照片 · 3 条问题</div>
     <div class="sharebtn">转发这份报告</div>
+  </div>
+
+  <div class="proof">
+    <div class="ph">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#F3B999" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="10.5" width="16" height="10.5" rx="2.6"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/>
+      </svg>
+      <div class="pt">这份报告是留在服务器上的定稿</div>
+    </div>
+    <div class="pd">
+      生成之后<b>内容谁都不能改——包括你自己</b>。以后你改公司名称、电话或巡查人资料，也不会动到已经发出去的这份报告。
+      每份报告有唯一编号，事后有争议，双方打开看到的是同一份。
+    </div>
   </div>
 
   <div class="pfoot"><span>5 转发给业主　对方不用登录，点开就能看</span><span>第 3 页 / 共 5 页</span></div>
