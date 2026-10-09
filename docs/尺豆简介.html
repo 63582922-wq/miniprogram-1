@@ -7,7 +7,7 @@
   @page{ size:210mm 297mm; margin:0; }
   :root{
     --ink:#3B2E26; --ink2:#7A6759; --ink3:#A8968A;
-    --paper:#FFF9F3; --tint:#FFF1E4; --hair:#F0DFCE;
+    --paper:#FBF7F0; --tint:#FBF7F0; --hair:#EDE5D8;
     --accent:#E06030; --accent2:#F08A5D; --gold:#E0A860;
   }
   *{box-sizing:border-box}
@@ -17,7 +17,7 @@
   .p{width:210mm;height:297mm;padding:24mm 21mm;background:var(--paper);
      page-break-after:always;display:flex;flex-direction:column;position:relative;overflow:hidden}
   .p:last-child{page-break-after:auto}
-  .dark{background:#2E2119;color:#FFF6EC}
+  .dark{background:#FBF7F0;color:var(--ink)}
   .tint{background:var(--tint)}
   .glow{position:absolute;width:175mm;height:175mm;border-radius:50%;right:-60mm;top:-60mm;
         background:radial-gradient(circle at 45% 45%,rgba(224,96,48,.55),rgba(194,69,42,0) 62%)}
@@ -25,34 +25,34 @@
          background:radial-gradient(circle at 50% 50%,rgba(224,168,96,.34),rgba(176,138,82,0) 64%)}
   .inner{position:relative;height:100%;display:flex;flex-direction:column}
   .top{display:flex;justify-content:space-between;align-items:center;
-       font-size:8.5pt;letter-spacing:.28em;color:var(--ink3);font-weight:600}
+       font-size:8.5pt;letter-spacing:.28em;color:var(--ink3);font-weight:300}
   .top img{width:6.5mm;height:6.5mm;border-radius:2mm;display:block}
   .brandline{display:flex;align-items:center;gap:3mm}
-  h1{font-size:50pt;line-height:1.12;font-weight:600;letter-spacing:-.03em;margin:0}
-  h2{font-size:32pt;line-height:1.22;font-weight:600;letter-spacing:-.02em;margin:0}
+  h1{font-size:50pt;line-height:1.12;font-weight:300;letter-spacing:-.03em;margin:0}
+  h2{font-size:32pt;line-height:1.22;font-weight:300;letter-spacing:-.02em;margin:0}
   .lead{font-size:14pt;line-height:1.85;color:var(--ink2);margin:0}
   .note{font-size:10.5pt;line-height:1.85;color:var(--ink3);margin:0}
-  .sec{font-size:9pt;letter-spacing:.3em;color:var(--accent);font-weight:600}
+  .sec{font-size:9pt;letter-spacing:.3em;color:var(--accent);font-weight:300}
   .list{margin-top:11mm}
   .it{display:flex;gap:7mm;padding:8mm 0;border-top:1px solid var(--hair);align-items:flex-start}
   .it:last-child{border-bottom:1px solid var(--hair)}
   /* 数字做成实心圆徽章——比光秃秃的数字可爱，也更像 App 里的风格 */
-  .it .n{font-size:16pt;font-weight:700;line-height:1;color:#fff;flex:none;
+  .it .n{font-size:16pt;font-weight:400;line-height:1;color:#fff;flex:none;
          width:12mm;height:12mm;border-radius:50%;background:var(--accent);
          display:flex;align-items:center;justify-content:center;
          box-shadow:0 2mm 4mm rgba(224,96,48,.22)}
   .it .ico{width:8.5mm;height:8.5mm;flex:none;margin-top:.5mm;opacity:.85}
-  .it .x{font-size:15pt;font-weight:600;line-height:1.45}
+  .it .x{font-size:15pt;font-weight:300;line-height:1.45}
   .it .y{font-size:11pt;line-height:1.8;color:var(--ink2);margin-top:2.5mm}
   .cmp{display:flex;gap:12mm;margin-top:12mm}
   .cmp>div{flex:1}
-  .cmp .cap{font-size:9pt;letter-spacing:.2em;color:var(--ink3);font-weight:600}
-  .cmp .big{font-size:50pt;font-weight:600;line-height:1;letter-spacing:-.04em;margin-top:5mm}
+  .cmp .cap{font-size:9pt;letter-spacing:.2em;color:var(--ink3);font-weight:300}
+  .cmp .big{font-size:50pt;font-weight:300;line-height:1;letter-spacing:-.04em;margin-top:5mm}
   .cmp .d{font-size:10.5pt;line-height:1.8;color:var(--ink2);margin-top:4mm}
   .cards{display:flex;gap:6mm;margin-top:10mm}
   .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:6mm;padding:7mm}
-  .card .k{font-size:9pt;letter-spacing:.18em;color:var(--accent);font-weight:600}
-  .card .t{font-size:14pt;font-weight:600;margin-top:4mm;line-height:1.4}
+  .card .k{font-size:9pt;letter-spacing:.18em;color:var(--accent);font-weight:300}
+  .card .t{font-size:14pt;font-weight:300;margin-top:4mm;line-height:1.4}
   .card .d{font-size:10pt;line-height:1.8;color:var(--ink2);margin-top:3mm}
   .card .q{font-size:9.5pt;line-height:1.75;color:var(--ink3);margin-top:4mm}
   .rules{margin-top:11mm}
@@ -63,9 +63,9 @@
   .foot{display:flex;justify-content:space-between;font-size:8pt;letter-spacing:.2em;color:var(--ink3)}
   .qr{display:flex;align-items:center;gap:9mm}
   .qr img{width:46mm;height:46mm;background:#fff;padding:3mm;display:block}
-  .qr .t{font-size:15pt;font-weight:600}
+  .qr .t{font-size:15pt;font-weight:300}
   .qr .d{font-size:10pt;line-height:1.8;color:var(--ink3);margin-top:3mm}
-  .dark .qr .d{color:#8B8375}
+  .dark .qr .d{color:var(--ink3)}
   .who{display:flex;flex-wrap:wrap;gap:3mm;margin-top:6mm}
   .who span{font-size:10.5pt;padding:2.8mm 5.5mm;border:1.5px solid var(--hair);border-radius:99mm;color:var(--ink2);background:#fff}
 </style>
@@ -75,20 +75,20 @@
 <div class="p dark">
   <div class="glow"></div><div class="glow2"></div>
   <div class="inner">
-    <div class="top" style="color:#8B8375"><span></span><span>现场记录 · 精准标注 · 清楚交付</span></div>
+    <div class="top" style="color:var(--ink3)"><span></span><span>现场记录 · 精准标注 · 清楚交付</span></div>
     <div class="push"></div>
     <div style="display:flex;align-items:center;gap:8mm">
       <img src="assets/chidou-icon.png" alt="尺豆" style="width:41mm;height:41mm;border-radius:11mm;display:block;flex:none">
-      <h1 style="color:#FCF9F5">拍完现场，<br>报告就好了。</h1>
+      <h1 style="color:var(--ink)">拍完现场，<br>报告就好了。</h1>
     </div>
-    <p class="lead" style="margin-top:10mm;max-width:140mm;color:#C6BFB2">
+    <p class="lead" style="margin-top:10mm;max-width:140mm;color:var(--ink2)">
       拍照、圈出问题、说两句话，<br>一份能转发的图文报告，就好了。
     </p>
     <div class="push"></div>
     <div class="qr">
       <img src="assets/体验版二维码.png" alt="体验版二维码">
       <div>
-        <div class="t" style="color:#FCF9F5">微信扫一扫，点「申请体验」</div>
+        <div class="t" style="color:var(--ink)">微信扫一扫，点「申请体验」</div>
         <div class="d">通过后重新扫码即可打开。<br>不用下载，不用注册，不用手机号。</div>
       </div>
     </div>
@@ -96,7 +96,7 @@
 </div>
 
 <div class="p">
-  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 包</span><span>01</span></div>
+  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>01</span></div>
   <h2 style="margin-top:12mm">现场记录，<br>最容易吃亏的三个地方</h2>
   <img src="assets/现场-吊顶标注.jpg" alt="现场照片"
        style="width:100%;display:block;margin-top:9mm;border-radius:6mm">
@@ -121,7 +121,7 @@
 </div>
 
 <div class="p">
-  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 包</span><span>02</span></div>
+  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>02</span></div>
   <h2 style="margin-top:12mm">五步，都在现场做完</h2>
   <div class="list">
     <div class="it"><div class="n">1</div><img class="ico" src="assets/icon-tab-camera.svg" alt=""><div>
@@ -140,7 +140,7 @@
 </div>
 
 <div class="p">
-  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 包</span><span>03</span></div>
+  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>03</span></div>
   <h2 style="margin-top:12mm">省下来的是这一段</h2>
   <p class="lead" style="margin-top:7mm;max-width:152mm">报告不是「写」出来的，是现场顺手攒出来的。回到车上，它已经能发出去。</p>
   <div class="cmp">
@@ -168,7 +168,7 @@
 </div>
 
 <div class="p">
-  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 包</span><span>04</span></div>
+  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>04</span></div>
   <h2 style="margin-top:12mm">AI 是替你写字的那只手</h2>
   <p class="lead" style="margin-top:7mm;max-width:158mm">
     现场手脏、光线暗、没空打字——那些要一个字一个字写的说明，可以让它先写一版。
@@ -205,7 +205,7 @@
 </div>
 
 <div class="p">
-  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 包</span><span>05</span></div>
+  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>05</span></div>
   <h2 style="margin-top:12mm">发出去的，<br>是一份说得清的定稿</h2>
   <div class="list">
     <div class="it"><div class="n" style="font-size:18pt">·</div><div>
@@ -232,24 +232,24 @@
 <div class="p dark">
   <div class="glow" style="left:-62mm;top:-62mm;right:auto"></div>
   <div class="inner">
-    <div class="top" style="color:#8B8375"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 包</span><span>现在就能试</span></div>
+    <div class="top" style="color:var(--ink3)"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>现在就能试</span></div>
     <div class="push"></div>
-    <h2 style="color:#FCF9F5">三步就能跑起来</h2>
+    <h2 style="color:var(--ink)">三步就能跑起来</h2>
     <div class="list" style="margin-top:9mm">
-      <div class="it" style="border-color:#3A362E"><div class="n" style="color:var(--gold)">1</div><div>
-        <div class="x" style="color:#FCF9F5">填一次资料</div>
-        <div class="y" style="color:#C6BFB2">公司名称、LOGO、电话、地址，巡查人姓名和电话。以后每份报告自动带上。</div></div></div>
-      <div class="it" style="border-color:#3A362E"><div class="n" style="color:var(--gold)">2</div><div>
-        <div class="x" style="color:#FCF9F5">建一个项目</div>
-        <div class="y" style="color:#C6BFB2">一个工地一个项目，填个名称就能存。</div></div></div>
-      <div class="it" style="border-color:#3A362E"><div class="n" style="color:var(--gold)">3</div><div>
-        <div class="x" style="color:#FCF9F5">开始现场记录</div>
-        <div class="y" style="color:#C6BFB2">拍照、圈问题、说话，然后核对、生成、转发。</div></div></div>
+      <div class="it" ><div class="n" style="color:var(--gold)">1</div><div>
+        <div class="x" style="color:var(--ink)">填一次资料</div>
+        <div class="y" style="color:var(--ink2)">公司名称、LOGO、电话、地址，巡查人姓名和电话。以后每份报告自动带上。</div></div></div>
+      <div class="it" ><div class="n" style="color:var(--gold)">2</div><div>
+        <div class="x" style="color:var(--ink)">建一个项目</div>
+        <div class="y" style="color:var(--ink2)">一个工地一个项目，填个名称就能存。</div></div></div>
+      <div class="it" ><div class="n" style="color:var(--gold)">3</div><div>
+        <div class="x" style="color:var(--ink)">开始现场记录</div>
+        <div class="y" style="color:var(--ink2)">拍照、圈问题、说话，然后核对、生成、转发。</div></div></div>
     </div>
     <div class="qr" style="margin-top:13mm">
       <img src="assets/体验版二维码.png" alt="体验版二维码">
       <div>
-        <div class="t" style="color:#FCF9F5">微信扫一扫，点「申请体验」</div>
+        <div class="t" style="color:var(--ink)">微信扫一扫，点「申请体验」</div>
         <div class="d">通过后重新扫码即可打开。<br>第一次打开会自动带你走一遍，按钮上会有高亮提示。</div>
       </div>
     </div>
