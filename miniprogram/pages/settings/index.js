@@ -54,7 +54,9 @@ Page({
     editModalValue3: ""
   },
   onShow() {
-    if(!this.loaded)this.loadSettings();
+    // 资料来自云端请求，元素要等它回来才渲染。这里在加载完成后**再同步一次**：
+    // 只靠 syncCoach 内部的重试，慢网络下仍然可能先一步放弃。
+    if(!this.loaded)this.loadSettings().then(()=>this.syncCoach()).catch(()=>{});
     this.syncCoach();
   },
   ...coachMethods("settingsSave", "#coach-save-target", {

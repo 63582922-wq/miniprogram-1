@@ -22,9 +22,10 @@ const { isCoachStep, moveCoach, stopCoach, buildCoachTip, getNextCoachStep } = r
  * 量元素位置，带重试。
  *
  * 页面 onShow 时往往还在 loading，目标按钮尚未渲染，一次量不到就放弃会让
- * 引导永远不出现（设置页就是这么漏的）。这里最多等约 2 秒。
+ * 引导永远不出现——设置页就是这么漏的：它的基础资料来自云端请求，
+ * 比 2 秒的重试窗口慢，于是每次都放弃。默认等约 7 秒，够慢网络用。
  */
-async function measureTargetWithRetry(selector, attempts = 8, interval = 250) {
+async function measureTargetWithRetry(selector, attempts = 24, interval = 300) {
   for (let i = 0; i < attempts; i++) {
     const rect = await measureTarget(selector);
     if (rect && rect.width && rect.height) {
