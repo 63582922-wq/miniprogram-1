@@ -323,6 +323,15 @@
   .fb .fd { font-size: 11.5pt; line-height: 1.78; color: #E8E3DC; }
   .fb .fd b { color: #F3B999; }
   .fb .blank { display: inline-block; min-width: 150px; border-bottom: 1px solid #6E665C; }
+
+  /* 二维码块：封面上最显眼的位置，用户拿到这份文档第一眼就该看到怎么打开 */
+  .qrblock { display: flex; align-items: center; gap: 24px; margin-top: 26px;
+             padding: 22px 26px; border: 2px solid var(--accent); border-radius: 16px;
+             background: var(--accent-tint); }
+  .qrblock img { width: 140px; height: 140px; flex: none; display: block; }
+  .qrh { font-size: 17pt; font-weight: 700; color: var(--ink); letter-spacing: .02em; }
+  .qrd { font-size: 11.5pt; line-height: 1.75; color: var(--ink-2); margin-top: 9px; }
+  .qrd b { color: var(--accent-2); }
 </style>
 </head>
 <body>
@@ -351,6 +360,15 @@
     <div class="ol-new">
       <b>尺包把这一段接过去了：</b>现场拍完顺手圈一下、说两句，
       报告的框架自己就排好了，你只做核对。
+    </div>
+  </div>
+
+  <div class="qrblock">
+    <img src="assets/体验版二维码.png" alt="尺包体验版二维码">
+    <div>
+      <div class="qrh">扫码打开，马上试一次</div>
+      <div class="qrd">微信<b>扫一扫</b>上面这个码，直接进体验版。<br>
+        不用下载、不用注册，也不用手机号。</div>
     </div>
   </div>
 
@@ -698,21 +716,20 @@
         <ul class="notes">
           <li><b>AI 是帮手，不是结论。</b>识别结果都标着「待核对」，要你点过确认才会进报告。没识别出问题时也会提示「不代表现场验收合格」。</li>
           <li><b>可以完全不用 AI。</b>选「仅手动填写」，照片和录音就不会发给第三方，流程一样完整。</li>
-          <li><b>草稿记得提交。</b>没提交的草稿只在这台手机上，清微信缓存会丢；提交后就存到服务器上了。</li>
-          <li><b>删除只是把它从列表里收起来</b>，不等于已经从服务器上彻底清除。要注销请走「我的 → 隐私与服务说明」。</li>
           <li><b>以后改公司或巡查人资料，不会改写已经发出去的报告。</b></li>
-          <li><b>报告是在线看的，没有 PDF 导出。</b></li>
+          <li><b>报告保存在服务器上。</b>换手机、换微信都能打开，不用管文件放在哪；转发出去的链接永远指向最新那份。</li>
+          <li><b>照片不会一直占你的手机。</b>上传后本机副本会自动清掉，报告在线上看。</li>
         </ul>
       </div>
     </div>
   </div>
 
   <div class="fb">
-    <div class="ft">用着不顺手，随时找我</div>
+    <div class="ft">还有不清楚的，随时问</div>
     <div class="fd">
       哪一步走不通、哪里用着别扭，或者报告转发给业主之后对方有什么反应，
-      都欢迎告诉我——<b>你说的问题，通常下一次更新就改了</b>。<br>
-      微信找我：<span class="blank"></span>
+      都欢迎告诉我。<br>
+      小程序里「<b>我的 → 使用说明</b>」可以随时再看一遍完整流程。
     </div>
   </div>
 
