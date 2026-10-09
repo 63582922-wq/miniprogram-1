@@ -14,60 +14,56 @@
   body{font-family:"PingFang SC","Hiragino Sans GB",-apple-system,sans-serif;
        color:var(--ink);-webkit-font-smoothing:antialiased}
 
-  .p{width:210mm;height:296mm;padding:22mm 20mm 16mm;background:var(--paper);
+  .p{width:210mm;height:296mm;padding:20mm 19mm 14mm;background:var(--paper);
      page-break-after:always;display:flex;flex-direction:column;overflow:hidden}
   .p:last-child{page-break-after:auto}
 
   .top{display:flex;justify-content:space-between;align-items:center;
-       font-size:8.5pt;letter-spacing:.28em;color:var(--ink3);font-weight:400;flex:none}
+       font-size:8.5pt;letter-spacing:.28em;color:var(--ink3);flex:none}
   .top img{width:6.5mm;height:6.5mm;border-radius:2mm;display:block}
   .brandline{display:flex;align-items:center;gap:3mm}
 
-  h1{font-size:44pt;line-height:1.14;font-weight:300;letter-spacing:-.02em;margin:0}
-  h2{font-size:27pt;line-height:1.24;font-weight:300;letter-spacing:-.015em;margin:0}
-  h3{font-size:12pt;font-weight:400;letter-spacing:.2em;color:var(--accent);margin:0}
-  .lead{font-size:12.5pt;line-height:1.85;color:var(--ink2);margin:0;font-weight:300}
-  .note{font-size:10pt;line-height:1.8;color:var(--ink3);margin:0;font-weight:300}
+  h1{font-size:42pt;line-height:1.14;font-weight:300;letter-spacing:-.02em;margin:0}
+  h2{font-size:25pt;line-height:1.24;font-weight:300;letter-spacing:-.015em;margin:0}
+  h3{font-size:11.5pt;font-weight:400;letter-spacing:.2em;color:var(--accent);margin:0}
+  .lead{font-size:12pt;line-height:1.8;color:var(--ink2);margin:0;font-weight:300}
+  .note{font-size:9.5pt;line-height:1.75;color:var(--ink3);margin:0;font-weight:300}
   .push{margin-top:auto}
   .foot{display:flex;justify-content:space-between;font-size:8pt;
-        letter-spacing:.2em;color:var(--ink3);padding-top:5mm;flex:none}
+        letter-spacing:.2em;color:var(--ink3);padding-top:4mm;flex:none}
 
-  /* 三件事：一行一条，圆点徽章 */
-  .list{margin-top:7mm}
-  .it{display:flex;gap:6mm;padding:5.5mm 0;border-top:1px solid var(--hair);align-items:center}
+  .list{margin-top:6mm}
+  .it{display:flex;gap:5.5mm;padding:4.5mm 0;border-top:1px solid var(--hair);align-items:flex-start}
   .it:last-child{border-bottom:1px solid var(--hair)}
-  .it .n{font-size:12pt;font-weight:400;color:#fff;flex:none;
-         width:9mm;height:9mm;border-radius:50%;background:var(--accent);
-         display:flex;align-items:center;justify-content:center}
-  .it .ico{width:8mm;height:8mm;flex:none;opacity:.85}
-  .it .x{font-size:13pt;font-weight:400;line-height:1.4}
-  .it .y{font-size:10pt;line-height:1.7;color:var(--ink2);margin-top:1.5mm;font-weight:300}
+  .it .n{font-size:11pt;color:#fff;flex:none;width:8.5mm;height:8.5mm;border-radius:50%;
+         background:var(--accent);display:flex;align-items:center;justify-content:center}
+  .it .x{font-size:12.5pt;font-weight:400;line-height:1.4}
+  .it .y{font-size:9.5pt;line-height:1.65;color:var(--ink2);margin-top:1.2mm;font-weight:300}
 
-  /* 五步横排 */
-  .steps{display:flex;gap:4mm;margin-top:6mm}
+  .steps{display:flex;gap:4mm;margin-top:5mm}
   .step{flex:1;text-align:center}
-  .step img{width:8mm;height:8mm;display:block;margin:0 auto}
-  .step .n{font-size:9pt;color:var(--accent);margin-top:2.5mm}
-  .step .t{font-size:11pt;font-weight:400;margin-top:1.5mm}
+  .step img{width:7.5mm;height:7.5mm;display:block;margin:0 auto}
+  .step .n{font-size:8.5pt;color:var(--accent);margin-top:2mm}
+  .step .t{font-size:10.5pt;margin-top:1.2mm}
 
-  .cards{display:flex;gap:5mm;margin-top:7mm}
-  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:5mm;padding:5.5mm}
-  .card .k{font-size:8.5pt;letter-spacing:.16em;color:var(--accent)}
-  .card .t{font-size:12pt;font-weight:400;margin-top:3mm;line-height:1.4}
-  .card .d{font-size:9.5pt;line-height:1.7;color:var(--ink2);margin-top:2.5mm;font-weight:300}
+  .cards{display:flex;gap:4.5mm;margin-top:6mm}
+  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:5mm;padding:5mm}
+  .card .k{font-size:8pt;letter-spacing:.16em;color:var(--accent)}
+  .card .t{font-size:11.5pt;margin-top:2.5mm;line-height:1.4}
+  .card .d{font-size:9pt;line-height:1.65;color:var(--ink2);margin-top:2mm;font-weight:300}
 
-  .rules{margin-top:6mm}
-  .rules .r{display:flex;gap:5mm;align-items:baseline;padding:3mm 0;border-top:1px solid var(--hair)}
-  .rules .r b{font-size:11pt;width:34mm;flex:none;font-weight:400}
-  .rules .r span{font-size:10pt;color:var(--ink2);line-height:1.7;font-weight:300}
+  .rules{margin-top:5mm}
+  .rules .r{display:flex;gap:5mm;align-items:baseline;padding:2.6mm 0;border-top:1px solid var(--hair)}
+  .rules .r b{font-size:10.5pt;width:32mm;flex:none;font-weight:400}
+  .rules .r span{font-size:9.5pt;color:var(--ink2);line-height:1.65;font-weight:300}
 
   .qr{display:flex;align-items:center;gap:8mm}
-  .qr img{width:42mm;height:42mm;background:#fff;padding:3mm;display:block;flex:none}
-  .qr .t{font-size:13pt;font-weight:400}
-  .qr .d{font-size:9.5pt;line-height:1.75;color:var(--ink3);margin-top:2.5mm;font-weight:300}
+  .qr img{width:40mm;height:40mm;background:#fff;padding:2.5mm;display:block;flex:none}
+  .qr .t{font-size:12.5pt}
+  .qr .d{font-size:9pt;line-height:1.7;color:var(--ink3);margin-top:2mm;font-weight:300}
 
-  .shot{width:100%;display:block;border-radius:5mm;margin-top:6mm}
-  .cap{font-size:8.5pt;color:var(--ink3);margin-top:2mm}
+  .shot{width:100%;display:block;border-radius:5mm;margin-top:5mm}
+  .cap{font-size:8.5pt;color:var(--ink3);margin-top:1.8mm}
 </style>
 </head>
 <body>
@@ -78,15 +74,27 @@
   <div class="push"></div>
   <div style="display:flex;align-items:center;gap:8mm">
     <div style="flex:none;text-align:center">
-      <img src="assets/chidou-icon.png" alt="尺豆" style="width:38mm;height:38mm;border-radius:10mm;display:block">
-      <div style="margin-top:4mm;font-size:22pt;font-weight:300;letter-spacing:.32em;text-indent:.32em">尺 豆</div>
+      <img src="assets/chidou-icon.png" alt="尺豆" style="width:36mm;height:36mm;border-radius:9mm;display:block">
+      <div style="margin-top:3.5mm;font-size:21pt;font-weight:300;letter-spacing:.32em;text-indent:.32em">尺 豆</div>
     </div>
     <h1>拍完现场，<br>报告就好了。</h1>
   </div>
-  <p class="lead" style="margin-top:9mm;max-width:140mm">
+  <p class="lead" style="margin-top:8mm;max-width:142mm">
     尺豆是一个记录工地问题的 AI 工具。<br>
     只需要拍照、圈出问题、描述问题，一份能转发的图文报告，就好了。
   </p>
+
+  <h3 style="margin-top:10mm">三步就能跑起来</h3>
+  <div class="steps" style="margin-top:4mm">
+    <div class="step"><div class="n">01</div><div class="t">填一次资料</div></div>
+    <div class="step"><div class="n">02</div><div class="t">建一个项目</div></div>
+    <div class="step"><div class="n">03</div><div class="t">开始现场记录</div></div>
+  </div>
+  <p class="note" style="margin-top:3.5mm">
+    公司名称、LOGO、电话、地址和巡查人信息只填一次，之后每份报告自动带上。一个工地一个项目。
+    第一次打开会自动带你走一遍，按钮上会有高亮提示。
+  </p>
+
   <div class="push"></div>
   <div class="qr">
     <img src="assets/体验版二维码.png" alt="体验版二维码">
@@ -97,10 +105,10 @@
   </div>
 </div>
 
-<!-- 2 三件事 + 五步 -->
+<!-- 2 问题 + 做法 -->
 <div class="p">
   <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>01</span></div>
-  <h2 style="margin-top:11mm">现场记录最容易吃亏的地方，<br>和现在的做法</h2>
+  <h2 style="margin-top:9mm">现场记录最容易吃亏的地方，<br>和现在的做法</h2>
 
   <div class="list">
     <div class="it"><div class="n">1</div><div>
@@ -117,7 +125,7 @@
     </div></div>
   </div>
 
-  <h3 style="margin-top:11mm">五步，都在现场做完</h3>
+  <h3 style="margin-top:9mm">五步，都在现场做完</h3>
   <div class="steps">
     <div class="step"><img src="assets/icon-tab-camera.svg" alt=""><div class="n">01</div><div class="t">拍照片</div></div>
     <div class="step"><img src="assets/annotation-rectangle.svg" alt=""><div class="n">02</div><div class="t">圈出问题</div></div>
@@ -125,22 +133,23 @@
     <div class="step"><img src="assets/icon-note.svg" alt=""><div class="n">04</div><div class="t">核对一遍</div></div>
     <div class="step"><img src="assets/icon-arrow-right.svg" alt=""><div class="n">05</div><div class="t">转发业主</div></div>
   </div>
-  <p class="note" style="margin-top:5mm">
-    圈出位置后系统自动编号，报告里的编号与照片一一对应；松开麦克风自动转文字，也可以打字；核对时逐条确认、随手改，你不确认就不会进报告。
+  <p class="note" style="margin-top:4mm">
+    圈出位置后系统自动编号，报告里的编号与照片一一对应；松开麦克风自动转文字，也可以打字；
+    核对时逐条确认、随手改，你不确认就不会进报告。
   </p>
 
   <img class="shot" src="assets/现场-吊顶标注.jpg" alt="现场照片">
   <div class="cap">示意图</div>
 
   <div class="push"></div>
-  <div class="foot"><span>尺豆</span><span>1 / 3</span></div>
+  <div class="foot"><span>尺豆</span><span>1 / 2</span></div>
 </div>
 
-<!-- 3 AI -->
+<!-- 3 AI + 省与得 -->
 <div class="p">
   <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>02</span></div>
-  <h2 style="margin-top:11mm">AI 是替你写字的那只手</h2>
-  <p class="lead" style="margin-top:5mm;max-width:158mm">
+  <h2 style="margin-top:9mm">AI 是替你写字的那只手</h2>
+  <p class="lead" style="margin-top:4mm;max-width:160mm">
     现场手脏、光线暗、没空打字——那些要一个字一个字写的说明，让它先写一版。
     不想用也行：选「仅手动填写」，照片和录音就不会发给第三方，流程一样完整。
   </p>
@@ -169,16 +178,8 @@
     <div class="r"><b>拿主意的始终是你</b><span>报告是你要发出去的，每条都能亲手改。</span></div>
   </div>
 
-  <div class="push"></div>
-  <div class="foot"><span>尺豆</span><span>2 / 3</span></div>
-</div>
-
-<!-- 4 省了什么 + 报告 + 开始用 -->
-<div class="p">
-  <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>03</span></div>
-  <h2 style="margin-top:11mm">省掉的、和拿到的</h2>
-
-  <div class="list">
+  <h3 style="margin-top:9mm">省掉的、和拿到的</h3>
+  <div class="list" style="margin-top:4mm">
     <div class="it"><div class="n">1</div><div>
       <div class="x">不用做 PDF</div>
       <div class="y">报告在线上，随时打开就是最新那份；公司抬头填一次，之后每份自动带上。</div>
@@ -189,29 +190,12 @@
     </div></div>
     <div class="it"><div class="n">3</div><div>
       <div class="x">发给业主的是一份说得清的定稿</div>
-      <div class="y">只读链接，对方不用登录、也看不到你其他记录；有编号、有出具时间；链接可以随时撤销——<span style="color:var(--ink3)">撤销后旧链接立即失效，报告本身还在你账号里，已经被对方保存到本地的截图或文件撤不回来。</span></div>
+      <div class="y">只读链接，对方不用登录、也看不到你其他记录；有编号、有出具时间；链接可随时撤销——撤销后旧链接立即失效，报告本身还在你账号里，已被对方保存到本地的截图或文件撤不回来。</div>
     </div></div>
   </div>
 
-  <h3 style="margin-top:10mm">三步就能跑起来</h3>
-  <div class="steps" style="margin-top:5mm">
-    <div class="step"><div class="n">01</div><div class="t">填一次资料</div></div>
-    <div class="step"><div class="n">02</div><div class="t">建一个项目</div></div>
-    <div class="step"><div class="n">03</div><div class="t">开始现场记录</div></div>
-  </div>
-  <p class="note" style="margin-top:4mm">
-    公司名称、LOGO、电话、地址和巡查人信息只填一次，之后每份报告自动带上。一个工地一个项目。第一次打开会自动带你走一遍，按钮上会有高亮提示。
-  </p>
-
   <div class="push"></div>
-  <div class="qr" style="margin-bottom:2mm">
-    <img src="assets/体验版二维码.png" alt="体验版二维码">
-    <div>
-      <div class="t">微信扫一扫，点「申请体验」</div>
-      <div class="d">通过后重新扫码即可打开。<br>不用下载，不用注册，不用手机号。</div>
-    </div>
-  </div>
-  <div class="foot"><span>尺豆</span><span>3 / 3</span></div>
+  <div class="foot"><span>尺豆</span><span>2 / 2</span></div>
 </div>
 
 </body>
