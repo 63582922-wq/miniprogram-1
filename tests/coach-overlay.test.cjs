@@ -190,3 +190,11 @@ test('every binding the overlay template uses is actually declared',()=>{
       `模板用了 {{${name}}}，但组件既没声明这个属性也没有这个 data 字段——它会静默失效`);
   }
 });
+
+test('the tip text is centred, not left-aligned',()=>{
+  // 说明文字横跨整个气泡宽度，左对齐会偏在一边，与下面通栏的主按钮也不在同一中轴。
+  const style=read('miniprogram/components/coach-overlay/index.wxss');
+  const rule=style.match(/\.coach__step,\s*\.coach__title,\s*\.coach__desc,\s*\.coach__pending\s*\{([^}]*)\}/s);
+  assert.ok(rule,'气泡内文字应有一处统一的居中声明');
+  assert.match(rule[1],/text-align:\s*center/,'说明文字必须居中，不能左对齐');
+});

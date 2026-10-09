@@ -47,6 +47,16 @@
   box-shadow: 0 8rpx 32rpx rgba(25, 24, 22, .22);
 }
 
+/* 气泡内的文字统一居中。
+   说明文字（例如「打字，或按住输入框右边的麦克风说话…」）横跨整个气泡宽度，
+   左对齐会显得偏在一边，与下面的通栏按钮也不在同一中轴。 */
+.coach__step,
+.coach__title,
+.coach__desc,
+.coach__pending {
+  text-align: center;
+}
+
 .coach__step {
   color: var(--a-muted);
   font-size: var(--a-type-micro);
@@ -63,7 +73,8 @@
 .coach__pending {
   margin-top: var(--a-space-2);
   padding: var(--a-space-2);
-  border-left: 4rpx solid var(--a-accent);
+  border-radius: var(--a-radius-object);
+  background: var(--a-field);
   color: var(--a-accent-text);
   font-size: var(--a-type-caption);
   line-height: 1.6;
