@@ -14,7 +14,7 @@
   html,body{margin:0;padding:0;background:#fff}
   body{font-family:"PingFang SC","Hiragino Sans GB",-apple-system,sans-serif;
        color:var(--ink);-webkit-font-smoothing:antialiased}
-  .p{width:210mm;height:297mm;padding:24mm 21mm;background:var(--paper);
+  .p{width:210mm;height:292mm;padding:23mm 21mm 18mm;background:var(--paper);
      page-break-after:always;display:flex;flex-direction:column;position:relative;overflow:hidden}
   .p:last-child{page-break-after:auto}
   .dark{background:#FBF7F0;color:var(--ink)}
@@ -45,14 +45,14 @@
   .cmp .cap{font-size:9pt;letter-spacing:.2em;color:var(--ink3);font-weight:300}
   .cmp .big{font-size:50pt;font-weight:300;line-height:1;letter-spacing:-.04em;margin-top:5mm}
   .cmp .d{font-size:10.5pt;line-height:1.8;color:var(--ink2);margin-top:4mm}
-  .cards{display:flex;gap:6mm;margin-top:10mm}
-  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:6mm;padding:7mm}
+  .cards{display:flex;gap:5mm;margin-top:6mm}
+  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:6mm;padding:6mm}
   .card .k{font-size:9pt;letter-spacing:.18em;color:var(--accent);font-weight:300}
   .card .t{font-size:14pt;font-weight:300;margin-top:4mm;line-height:1.4}
-  .card .d{font-size:10pt;line-height:1.8;color:var(--ink2);margin-top:3mm}
-  .card .q{font-size:9.5pt;line-height:1.75;color:var(--ink3);margin-top:4mm}
-  .rules{margin-top:11mm}
-  .rules .r{display:flex;gap:5mm;align-items:baseline;padding:4.5mm 0;border-top:1px solid var(--hair)}
+  .card .d{font-size:10pt;line-height:1.7;color:var(--ink2);margin-top:2.5mm}
+  .card .q{font-size:9.5pt;line-height:1.7;color:var(--ink3);margin-top:3mm}
+  .rules{margin-top:7mm}
+  .rules .r{display:flex;gap:5mm;align-items:baseline;padding:2.6mm 0;border-top:1px solid var(--hair)}
   .rules .r b{font-size:12pt;width:26mm;flex:none}
   .rules .r span{font-size:10.5pt;color:var(--ink2);line-height:1.75}
   .push{margin-top:auto}
@@ -100,6 +100,7 @@
   <h2 style="margin-top:12mm">现场记录，<br>最容易吃亏的三个地方</h2>
   <img src="assets/现场-吊顶标注.jpg" alt="现场照片"
        style="width:100%;display:block;margin-top:9mm;border-radius:6mm">
+  <div style="font-size:9pt;color:var(--ink3);margin-top:2.5mm;letter-spacing:.06em">示意图</div>
 
   <div class="list" style="margin-top:7mm">
     <div class="it"><div class="n">1</div><div>
@@ -169,9 +170,9 @@
 
 <div class="p">
   <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>04</span></div>
-  <h2 style="margin-top:12mm">AI 是替你写字的那只手</h2>
-  <p class="lead" style="margin-top:7mm;max-width:158mm">
-    现场手脏、光线暗、没空打字——那些要一个字一个字写的说明，可以让它先写一版。
+  <h2 style="margin-top:8mm">AI 是替你写字的那只手</h2>
+  <p class="lead" style="margin-top:5mm;max-width:158mm">
+    现场手脏、光线暗、没空打字——让它先写一版。
   </p>
   <div class="cards">
     <div class="card">
@@ -189,17 +190,16 @@
     <div class="card">
       <div class="k">顺手填表</div>
       <div class="t">区域、分类、等级</div>
-      <div class="d">不用按字段说话，它从你的原话里拆出来，填进对应字段。</div>
-      <div class="q">核对页上还可以随手改。</div>
+      <div class="d">不用按字段说话，它从你原话里拆出来填好。</div>
     </div>
   </div>
   <div class="rules">
-    <div class="r"><b>不编造</b><span>照片里没有证据就不写，宁可留空</span></div>
-    <div class="r"><b>不下结论</b><span>不判合格与否，不推断尺寸、强度</span></div>
-    <div class="r"><b>不擅自写入</b><span>结果都标「待核对」，你不确认就不进报告</span></div>
-    <div class="r"><b>不替你定责</b><span>责任方只认你明确说的，不猜是哪一方</span></div>
+    <div class="r"><b>AI 写的必须你确认</b><span>结果都标「待核对」，你不确认就不进报告。</span></div>
+    <div class="r"><b>它只打草稿</b><span>不编造看不出的问题，不判合格与否，不替你认定责任。</span></div>
+    <div class="r"><b>拿主意的始终是你</b><span>报告是你要发出去的，每条都能亲手改。</span></div>
   </div>
-  <p class="note" style="margin-top:9mm">不想用也行——选「仅手动填写」，照片和录音就不会发给第三方，流程一样完整。</p>
+  </div>
+  <p class="note" style="margin-top:4mm">不想用也行——选「仅手动填写」，照片和录音就不会发给第三方，流程一样完整。</p>
   <div class="push"></div>
   <div class="foot"><span>尺豆</span><span>4 / 5</span></div>
 </div>
@@ -212,8 +212,8 @@
       <div class="x">只读链接，对方不用登录</div>
       <div class="y">业主、施工方点开就能看，不用下载小程序，也看不到你其他任何记录。</div></div></div>
     <div class="it"><div class="n" style="font-size:18pt">·</div><div>
-      <div class="x">随时可以撤销</div>
-      <div class="y">旧链接立即失效。发错了、发多了，都收得回来。</div></div></div>
+      <div class="x">链接可以随时撤销</div>
+      <div class="y">撤销后旧链接立即失效，报告本身还在你账号里。已经被对方保存到本地的截图或文件，撤不回来。</div></div></div>
     <div class="it"><div class="n" style="font-size:18pt">·</div><div>
       <div class="x">有编号、有出具时间</div>
       <div class="y">谁在什么时候确认过什么，都留得住。报告开头直接列「需要优先处理」。</div></div></div>
