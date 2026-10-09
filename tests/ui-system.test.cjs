@@ -241,9 +241,19 @@ test('voice recording is a prominent secondary action; the page CTA owns the sol
   // 语音按钮已改为与「继续添加」同高：仍是标准 44px 命中高度，
   // 只是不再用更大的 --a-hit-voice（按钮整体缩小是按使用反馈改的）。
   assert.match(voice[1], /min-height:\s*var\(--a-hit\)/, 'voice control keeps the standard 44px hit target');
-  assert.match(voice[1], /background:\s*var\(--a-accent-wash\)/, 'voice control must not compete with the filled primary CTA');
-  assert.match(voice[1], /border:\s*1\.5px\s+solid\s+var\(--a-accent\)/, 'accent outline keeps the secondary voice action discoverable');
-  assert.match(capture, /\.voice-hold-button--active\s*\{[^}]*background:\s*var\(--a-accent-strong\)/s, 'recording state becomes unmistakable');
+  // 视觉圆与触控区分离：麦克风要放进 52px 的输入框，44 的圆四周只剩 4px 太挤，
+  // 但直接缩小按钮又会让持续手势的落点低于标准触控高度。
+  // 所以圆画在 ::before 上，按钮本体保持 44。下面同时锁住「圆更小」这一点。
+  const circle = capture.match(/\.voice-hold-button::before\s*\{([^}]*)\}/s);
+  assert.ok(circle, 'the visible circle lives on ::before so the hit area can stay 44px');
+  const circleSize = Number((circle[1].match(/width:\s*(\d+)px/) || [])[1]);
+  const hitSize = Number((voice[1].match(/--a-hit|width:\s*var\(--a-hit\)/) ? 44 : 0));
+  assert.ok(circleSize > 0 && circleSize < hitSize,
+    `视觉圆（${circleSize}px）必须小于触控区（${hitSize}px），否则就是白改`);
+  assert.match(circle[1], /background:\s*var\(--a-accent-wash\)/, 'voice control must not compete with the filled primary CTA');
+  assert.match(circle[1], /border:\s*1\.5px\s+solid\s+var\(--a-accent\)/, 'accent outline keeps the secondary voice action discoverable');
+  assert.match(capture, /\.voice-hold-button--active::before\s*\{[^}]*background:\s*var\(--a-accent-strong\)/s, 'recording state becomes unmistakable');
+  assert.match(capture, /\.voice-hold-button--cancel::before\s*\{[^}]*background:\s*var\(--a-danger\)/s, 'cancelled state becomes unmistakable');
   const primary = fs.readFileSync(path.join(root, 'miniprogram/app.wxss'), 'utf8');
   assert.match(primary, /\.primary-button\s*\{[^}]*background:\s*var\(--a-accent\)/s, 'the primary next-step control retains the solid accent fill');
 });

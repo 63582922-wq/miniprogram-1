@@ -36,6 +36,26 @@ async function measureTargetWithRetry(selector, attempts = 24, interval = 300) {
   return null;
 }
 
+/**
+ * 等目标出现：既等元素渲染出来，也等「这一步的前提」成立。
+ *
+ * 以前只重试量元素，ready() 却只在开头判一次——草稿还没恢复完就判成
+ * 「还没有照片」，于是明明有照片却提示「先拍一张照片」。
+ * 前提和元素都要一起等。
+ */
+async function waitForTarget(selector, isReady, attempts = 24, interval = 300) {
+  for (let i = 0; i < attempts; i++) {
+    if (typeof isReady !== "function" || isReady()) {
+      const rect = await measureTarget(selector);
+      if (rect && rect.width && rect.height) {
+        return rect;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+  return null;
+}
+
 /** 量一个页面元素的位置，供遮罩挖洞。取不到就返回 null。 */
 function measureTarget(selector) {
   return new Promise((resolve) => {
@@ -79,7 +99,7 @@ function coachMethods(stepKey, targetSelector, options = {}) {
         return;
       }
       // 页面往往还在 loading，目标按钮要等数据回来才渲染，所以带重试地量
-      const rect = await measureTargetWithRetry(targetSelector);
+      const rect = await waitForTarget(targetSelector, options.ready ? () => options.ready.call(this) : null);
       if (!isCoachStep(stepKey)) {
         return;
       }
@@ -146,9 +166,10 @@ function coachMethodsMulti(steps, options = {}) {
         }
         return;
       }
-      // 目标此刻不存在就不去量，直接走下面的 pending 分支给一句「先做什么」。
-      const targetExists = typeof active.ready !== "function" || active.ready.call(this);
-      const rect = targetExists ? await measureTargetWithRetry(active.selector) : null;
+      // 前提（例如「已经有照片了」）与元素一起等：草稿恢复是异步的，
+      // 只在开头判一次会把「还没恢复完」误判成「还没有照片」。
+      const rect = await waitForTarget(active.selector,
+        typeof active.ready === "function" ? () => active.ready.call(this) : null);
       const confirmed = this.activeCoachStep();
       if (!confirmed || confirmed.key !== active.key) {
         return;
@@ -190,4 +211,4 @@ function coachMethodsMulti(steps, options = {}) {
   return base;
 }
 
-module.exports = { measureTarget, measureTargetWithRetry, coachData, coachMethods, coachMethodsMulti };
+module.exports = { measureTarget, measureTargetWithRetry, waitForTarget, coachData, coachMethods, coachMethodsMulti };

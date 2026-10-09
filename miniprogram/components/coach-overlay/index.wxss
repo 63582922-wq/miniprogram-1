@@ -16,16 +16,15 @@
 }
 
 /* 高亮框只描边、不填充，也不拦截点击——用户点的是底下的真实按钮。
-   圆角用 --a-radius-bar（半高半径）：目标多是胶囊按钮，框会跟着变成胶囊；
-   遇到高一些的目标也只是一个规整的圆角矩形，不会像固定 24rpx 那样
-   和按钮自身的胶囊边形成两层圆角。 */
+   用真胶囊半径：目标都是按钮，圆角会按元素高度自适应贴合，
+   不会像固定 24rpx 那样和按钮自身的胶囊边形成两层圆角。 */
 .coach__ring {
   position: fixed;
   box-sizing: border-box;
   /* 用浅色而不是强调色：被高亮的多半本身就是强调色按钮，
      橙色框贴着橙色按钮会糊成一块更粗的边，读不出「这是一个框」。 */
   border: 3px solid var(--a-paper);
-  border-radius: var(--a-radius-bar);
+  border-radius: var(--a-radius-pill);
   background: transparent;
   pointer-events: none;
 }

@@ -184,11 +184,16 @@
 
 /* 对话式输入框：文字与语音合成一个框，麦克风在框内右侧。
    圆角用控件圆角而不是胶囊——这样输入框长高时不会被体育场形弧线切到文字。 */
+/* 高度对齐同页的「继续添加」等按钮（--a-hit-primary）。
+   原来 44(麦克风) + 8×2(内边距) + 1×2(边框) = 62px，比按钮高出一截，
+   一排胶囊高低不齐。改为去掉纵向内边距并给最小高度，静止时与按钮同高；
+   文字多行时容器仍会被撑高，圆角用半高半径所以不会甩字。 */
 .issue-composer {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--a-space-2);
-  padding: var(--a-space-2);
+  min-height: var(--a-hit-primary);
+  padding: 0 var(--a-space-2);
   border: 1px solid var(--a-line);
   border-radius: var(--a-radius-bar);
   background: var(--a-field);
@@ -212,7 +217,12 @@
   color: var(--a-muted);
 }
 
+/* 触控区 44px、视觉圆 36px——两者分开。
+   麦克风塞在 52px 的输入框里，圆若本身就是 44，四周只剩 4px，显得挤；
+   但直接把按钮改小，又会让「按住说话」这个持续手势的落点低于标准触控高度。
+   所以按钮保持 --a-hit（也是测试锁定的标准触控高度），圆画在 ::before 上。 */
 .voice-hold-button {
+  position: relative;
   display: flex;
   width: var(--a-hit) !important;
   height: var(--a-hit);
@@ -222,12 +232,30 @@
   justify-content: center;
   margin: 0 !important;
   padding: 0 !important;
-  border: 1.5px solid var(--a-accent) !important;
-  border-radius: var(--a-radius-pill);
-  background: var(--a-accent-wash) !important;
+  border: 0 !important;
+  background: transparent !important;
   color: var(--a-ink) !important;
   user-select: none;
-  transition: background-color var(--a-motion), transform var(--a-motion);
+  transition: transform var(--a-motion);
+}
+
+.voice-hold-button::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 36px;
+  height: 36px;
+  /* 四边归零 + margin:auto 即为居中，且不必写负的原始边距
+     （页面 WXSS 不允许出现原始间距数值）。 */
+  margin: auto;
+  box-sizing: border-box;
+  border: 1.5px solid var(--a-accent);
+  border-radius: var(--a-radius-pill);
+  background: var(--a-accent-wash);
+  transition: background-color var(--a-motion), border-color var(--a-motion);
 }
 
 /* 麦克风在框内放不下文字，录音中的状态改为框下一行提示，
@@ -243,22 +271,24 @@
   color: var(--a-danger);
 }
 
-.voice-hold-button--active {
-  background: var(--a-accent-strong) !important;
-  border-color: var(--a-accent-strong) !important;
-  transform: scale(.99);
+.voice-hold-button--active { transform: scale(.99); }
+.voice-hold-button--active::before {
+  background: var(--a-accent-strong);
+  border-color: var(--a-accent-strong);
 }
 
-.voice-hold-button--cancel {
-  background: var(--a-danger) !important;
-  border-color: var(--a-danger) !important;
-  color: var(--a-white) !important;
+.voice-hold-button--cancel { color: var(--a-white) !important; }
+.voice-hold-button--cancel::before {
+  background: var(--a-danger);
+  border-color: var(--a-danger);
 }
 
 .voice-hold-button__mic {
+  position: relative;
+  z-index: 1;
   display: block;
-  width: var(--a-icon);
-  height: var(--a-icon);
+  width: 18px;
+  height: 18px;
   flex: none;
   filter: none;
 }

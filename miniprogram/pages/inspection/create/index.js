@@ -446,6 +446,8 @@ Page({
   },
   async onShow() {
     this.syncCoach();
+    // 草稿恢复完、照片渲染出来之后再同步一次，避免用「还没有照片」的旧前提下判断
+    setTimeout(() => this.syncCoach(), 1200);
     if(this.initializing)return;
     this.ownsDraft = true;
     this.suspendDraftOnHide = false;
