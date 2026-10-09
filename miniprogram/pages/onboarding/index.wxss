@@ -50,6 +50,83 @@
   margin-top: var(--a-space-1);
 }
 
+/* 顶部一句话说清产品怎么用：四步一线，比罗列功能更接近现场人的理解顺序。 */
+.onboarding-summary__flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a-space-1);
+  margin-top: var(--a-space-2);
+  color: var(--a-ink);
+  font-size: var(--a-type-action);
+  letter-spacing: 0.04em;
+}
+
+.onboarding-summary__arrow { color: var(--a-muted); }
+
+.onboarding-section-label {
+  padding-top: var(--a-space-4);
+  padding-bottom: var(--a-space-1);
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  letter-spacing: 0.08em;
+}
+
+/* 「接下来会这么走」是说明，不是任务：没有完成状态，只按顺序讲清楚每一步做什么。 */
+.onboarding-flow { display: flex; flex-direction: column; }
+
+.onboarding-flow__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-space-2);
+  padding: var(--a-space-3) 0;
+}
+
+.onboarding-flow__index {
+  display: flex;
+  width: var(--a-icon-lg);
+  height: var(--a-icon-lg);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--a-line-strong);
+  border-radius: 50%;
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: 1;
+}
+
+.onboarding-flow__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--a-space-1);
+}
+
+.onboarding-flow__title {
+  color: var(--a-ink);
+  font-size: var(--a-type-action);
+  letter-spacing: 0.04em;
+}
+
+.onboarding-flow__desc {
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: 1.7;
+}
+
+/* 需要特别提醒的一句（如「没圈位置就没有编号」）用警示色描边，不抢正文。 */
+.onboarding-flow__note {
+  padding: var(--a-space-2);
+  border-left: 4rpx solid var(--a-warning);
+  border-radius: var(--a-radius-tight);
+  background: var(--a-surface);
+  color: var(--a-warning);
+  font-size: var(--a-type-caption);
+  line-height: 1.6;
+}
+
 .onboarding-actions{display:flex;gap:var(--a-space-2);margin-top:var(--a-space-3)}.onboarding-actions>.secondary-button,.onboarding-actions>.primary-button{flex:1;min-width:0;margin:0!important}
 
 .guide-tip-mask {

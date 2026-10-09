@@ -2,10 +2,14 @@
   <page-nav-bar title="使用向导" showBack="{{true}}" autoBack="{{false}}" bind:backtap="handleBackTap" />
 
   <view class="card onboarding-summary">
-    <view class="onboarding-summary__title">首次使用建议按以下流程完成</view>
-    <view class="onboarding-summary__desc">已完成 {{completedCount}} / {{steps.length}} 步</view>
+    <view class="onboarding-summary__title">一个工地一个项目，一趟走完这四步</view>
+    <view class="onboarding-summary__flow">
+      <text>拍照记录</text><text class="onboarding-summary__arrow">→</text><text>圈出问题</text><text class="onboarding-summary__arrow">→</text><text>生成报告</text><text class="onboarding-summary__arrow">→</text><text>转发业主</text>
+    </view>
+    <view class="onboarding-summary__desc">先做完下面两件事就可以开始。已完成 {{completedCount}} / {{steps.length}} 步。</view>
   </view>
 
+  <view class="onboarding-section-label">先做这两件事</view>
   <view class="onboarding-steps">
     <view wx:for="{{steps}}" wx:key="key" class="{{item.cardClass}}">
       <view class="onboarding-step__head">
@@ -15,6 +19,18 @@
       <view class="onboarding-step__desc">{{item.desc}}</view>
       <button class="ui-button-reset onboarding-step__tip-trigger" data-step="{{item.key}}" bindtap="handleStepTip">说明</button>
       <button wx:if="{{item.showAction}}" class="ui-button-reset primary-button onboarding-step__action" data-step="{{item.key}}" bindtap="handleStepAction">{{item.actionText}}</button>
+    </view>
+  </view>
+
+  <view class="onboarding-section-label">接下来会这么走</view>
+  <view class="onboarding-flow">
+    <view wx:for="{{flow}}" wx:key="key" class="onboarding-flow__item">
+      <view class="onboarding-flow__index">{{index + 1}}</view>
+      <view class="onboarding-flow__copy">
+        <view class="onboarding-flow__title">{{item.title}}</view>
+        <view class="onboarding-flow__desc">{{item.desc}}</view>
+        <view wx:if="{{item.note}}" class="onboarding-flow__note">{{item.note}}</view>
+      </view>
     </view>
   </view>
 

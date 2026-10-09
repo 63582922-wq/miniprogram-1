@@ -1,16 +1,22 @@
 const { listProjects, deleteProject } = require("../../../services/project");
-const { getGuideProgress, isGuideCompleted } = require("../../../utils/guide");
-const { startCoach } = require("../../../utils/coach");
-const ONBOARDING_SEEN_KEY = "onboardingSeenV1";
+// 只用 isGuideCompleted 决定空态按钮的文案；startCoach/getGuideProgress 在这里用不到，
+// 此前 import 了却从未引用，已移除。
+const { isGuideCompleted } = require("../../../utils/guide");
 const { syncTabBar } = require("../../../utils/tab-bar");
 
 Page({
   data: {
     keyword: "",loading:false,loadError:"",page:0,hasMore:false,
     projectList: [],
-    onboardingCheckedInSession: false
+    onboardingActionText: "第一次用？看使用向导"
   },
-  onShow(){syncTabBar(this,"pages/project/list/index");this.loadProjects();},
+  onShow(){
+    syncTabBar(this,"pages/project/list/index");
+    // 已完成向导的人不该再看到「第一次用？」——文案跟着状态走。
+    this.setData({onboardingActionText:isGuideCompleted()?"查看使用向导":"第一次用？看使用向导"});
+    this.loadProjects();
+  },
+  openOnboarding(){wx.navigateTo({url:"/pages/onboarding/index?source=projectList"});},
   onReachBottom(){if(this.data.hasMore)this.loadProjects(true);},
   async loadProjects(append=false){
     append=append===true;if(append&&this.data.loading)return;
