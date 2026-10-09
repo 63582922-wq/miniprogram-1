@@ -1,22 +1,35 @@
 const { listProjects, deleteProject } = require("../../../services/project");
-// 只用 isGuideCompleted 决定空态按钮的文案；startCoach/getGuideProgress 在这里用不到，
-// 此前 import 了却从未引用，已移除。
 const { isGuideCompleted } = require("../../../utils/guide");
+// 向导看没看过。onboarding 页在退出时写这个标记，此前没有任何地方读它——
+// 于是「首次自动进入」这件事一直没生效。
+const ONBOARDING_SEEN_KEY = "onboardingSeenV1";
 const { syncTabBar } = require("../../../utils/tab-bar");
 
 Page({
   data: {
     keyword: "",loading:false,loadError:"",page:0,hasMore:false,
-    projectList: [],
-    onboardingActionText: "第一次用？看使用向导"
+    projectList: []
   },
   onShow(){
     syncTabBar(this,"pages/project/list/index");
-    // 已完成向导的人不该再看到「第一次用？」——文案跟着状态走。
-    this.setData({onboardingActionText:isGuideCompleted()?"查看使用向导":"第一次用？看使用向导"});
-    this.loadProjects();
+    // 等项目列表回来再判断要不要进向导：已有项目的人不该被打扰。
+    this.loadProjects().then(()=>this.autoOpenGuideOnce()).catch(()=>{});
   },
-  openOnboarding(){wx.navigateTo({url:"/pages/onboarding/index?source=projectList"});},
+  /**
+   * 首次使用自动进一次向导；之后再想看，去「我的 → 使用说明」。
+   *
+   * 三个条件同时成立才算首次：没看过向导、向导尚未完成、手上没有任何项目。
+   * 进入前就把标记落下——否则用户中途退出，下次启动还会再弹一次。
+   */
+  autoOpenGuideOnce(){
+    if(wx.getStorageSync(ONBOARDING_SEEN_KEY))return;
+    if(isGuideCompleted()||(this.data.projectList||[]).length){
+      wx.setStorageSync(ONBOARDING_SEEN_KEY,true);
+      return;
+    }
+    wx.setStorageSync(ONBOARDING_SEEN_KEY,true);
+    wx.navigateTo({url:"/pages/onboarding/index?source=firstRun"});
+  },
   onReachBottom(){if(this.data.hasMore)this.loadProjects(true);},
   async loadProjects(append=false){
     append=append===true;if(append&&this.data.loading)return;

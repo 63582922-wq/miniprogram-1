@@ -13,13 +13,10 @@
   <view wx:if="{{loadError}}" class="precision-state">{{loadError}}<button class="ui-button-reset secondary-button" bindtap="loadProjects">重新加载</button></view>
   <view wx:elif="{{loading}}" class="precision-state">正在加载项目…</view>
   <empty-state wx:elif="{{!projectList.length && keyword}}" title="没有找到项目" description="试试其他名称或地址" />
-  <!-- 空列表是唯一真正的冷启动位置：这里不给入口，新用户就不知道有向导。 -->
   <empty-state
     wx:elif="{{!projectList.length}}"
     title="还没有项目"
     description="把现场照片和记录按项目保存。"
-    actionText="{{onboardingActionText}}"
-    bindaction="openOnboarding"
   />
   <button wx:if="{{hasMore && !loading && !loadError}}" class="ui-button-reset secondary-button" bindtap="onReachBottom">加载更多</button>
   <view class="project-create-dock"><button class="ui-button-reset primary-button project-create-dock__button" bindtap="goCreate" hover-class="is-pressed"><image class="list-create-action__icon" src="/images/icons/nav-plus.svg" mode="aspectFit" />新建项目</button></view>

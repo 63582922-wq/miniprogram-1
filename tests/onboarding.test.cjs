@@ -35,17 +35,37 @@ test('every guide helper the project list imports is actually used',()=>{
   }
 });
 
-test('the empty project list offers a way into the guide',()=>{
+test('the empty project list does NOT keep a resident guide button',()=>{
+  // 向导入口不该常驻在空列表上：首次使用自动进入，「我的 → 使用说明」可以再走一次。
   const markup=read(PROJECT_LIST_WXML);
-  const empty=markup.slice(markup.indexOf('还没有项目'));
-  assert.match(empty.slice(0,400),/bindaction="openOnboarding"/,
-    '空态必须能进引导页（empty-state 组件早已支持 bindaction，此前没接）');
-  assert.match(empty.slice(0,400),/actionText="\{\{onboardingActionText\}\}"/,
-    '按钮文案跟着引导完成状态走');
+  const empty=markup.slice(markup.indexOf('还没有项目')).slice(0,400);
+  assert.doesNotMatch(empty,/bindaction="openOnboarding"/,
+    '空列表不该常驻一个「查看使用向导」按钮');
+  assert.doesNotMatch(markup,/onboardingActionText/,'相关的数据字段也应一并清掉');
   const script=read(PROJECT_LIST_JS);
-  assert.match(script,/openOnboarding\(\)[\s\S]{0,80}pages\/onboarding\/index/,'入口要指向引导页');
-  assert.match(script,/isGuideCompleted\(\)\s*\?\s*"查看使用向导"\s*:\s*"第一次用？看使用向导"/,
-    '已完成的人不该再看到「第一次用？」');
+  assert.doesNotMatch(script,/onboardingActionText/,'脚本里不该再留着这个文案字段');
+});
+
+test('first-run users are taken into the guide automatically, once',()=>{
+  const script=read(PROJECT_LIST_JS);
+  // 判据：没看过 + 向导未完成 + 手上没有任何项目，三者同时成立才算首次
+  assert.match(script,/ONBOARDING_SEEN_KEY/,'必须真的读这个标记——它此前只写不读');
+  assert.match(script,/autoOpenGuideOnce/,'首次进入要有自动触发');
+  assert.match(script,/isGuideCompleted\(\)\|\|\(this\.data\.projectList\|\|\[\]\)\.length/,
+    '已有项目或已完成向导的人不该被自动带进向导');
+  assert.match(script,/pages\/onboarding\/index\?source=firstRun/,'自动进入要带上来源标记');
+  // 进入前就落标记：否则中途退出后每次启动都弹
+  const body=script.slice(script.indexOf('autoOpenGuideOnce()'));
+  const flagAt=body.indexOf('setStorageSync(ONBOARDING_SEEN_KEY');
+  const navAt=body.indexOf('navigateTo');
+  assert.ok(flagAt>0&&navAt>0&&flagAt<navAt,'要先落标记再跳转，避免反复打扰');
+});
+
+test('the guide can always be replayed from 我的',()=>{
+  const profile=read('miniprogram/pages/profile/index.js');
+  const markup=read('miniprogram/pages/profile/index.wxml');
+  assert.match(profile,/openGuide\(\)[\s\S]{0,80}pages\/onboarding\/index/,'「我的」要能再走一次');
+  assert.match(markup,/bindtap="openGuide"/,'「我的」里要真的渲染这个入口');
 });
 
 test('the guide follows the real field order instead of listing features',()=>{
