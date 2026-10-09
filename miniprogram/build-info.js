@@ -5,7 +5,7 @@
  * 应用读不到平台版本号时回退到这里，好让「我装的是哪一版」始终有答案。
  */
 module.exports = {
-  version: "1.0.32",
+  version: "1.0.33",
   builtAt: "2026-10-09",
-  commit: "44a34cf"
+  commit: "ec6b1ce"
 };

@@ -43,3 +43,58 @@ test('导航栏组件宿主不能建层叠上下文，否则隐私弹窗会被�
  assert.ok(/\.privacy-mask\{[^}]*z-index:999/.test(css),
    '隐私弹窗必须保持 999，才能真正盖过页面遮罩');
 });
+
+test('连做三份报告，引导只在第一份出现（长期使用，不是单次链路）',()=>{
+ // 账号持有人在真机上建第二份报告时，已经走完的操作引导又冒出来了。
+ // 根因：advanceCoach 不检查引导是否还在进行，只要 getNextCoachStep
+ // 还能返回下一步就 moveCoach——而 moveCoach 会把 active 重新置真。
+ // 于是每建一份新报告，页面照常调用同样的钩子，引导就被复活一次。
+ const store={};
+ global.wx={getStorageSync:k=>store[k],setStorageSync:(k,v)=>{store[k]=v;},removeStorageSync:k=>{delete store[k];}};
+ delete require.cache[require.resolve('../miniprogram/utils/coach.js')];
+ delete require.cache[require.resolve('../miniprogram/utils/coach-page.js')];
+ const coach=require('../miniprogram/utils/coach.js');
+ const {coachMethods}=require('../miniprogram/utils/coach-page.js');
+
+ const fakePage=()=>({data:{},setData(d){Object.assign(this.data,d);},selectComponent:()=>null,
+   ...coachMethods('capturePickPhoto','#whatever')});
+
+ // 第 1 份报告：把 9 步走完
+ coach.startCoach(coach.COACH_STEPS[0]);
+ assert.equal(coach.getCoachState().active,true,'开始时应处于引导中');
+ for(let i=0;i<coach.COACH_STEPS.length;i++){
+   const page=fakePage();
+   page.advanceCoach(coach.COACH_STEPS[i]);
+ }
+ assert.equal(coach.getCoachState().active,false,'走完最后一步后引导应结束');
+
+ // 第 2、3 份报告：用户照常干活，页面照常调用同样的钩子
+ for(const round of [2,3]){
+   for(const step of coach.COACH_STEPS){
+     const page=fakePage();
+     page.advanceCoach(step);
+     assert.equal(coach.getCoachState().active,false,
+       `第 ${round} 份报告时引导不该被重新激活（动作：${step}）`);
+   }
+   // 用户中途点「跳过」也不该影响后续
+   const page=fakePage();
+   page.handleCoachSkip();
+   assert.equal(coach.getCoachState().active,false,`第 ${round} 份报告跳过引导后仍应保持结束`);
+ }
+});
+
+test('引导进行中时，对不上的动作不能推进步骤',()=>{
+ const store={};
+ global.wx={getStorageSync:k=>store[k],setStorageSync:(k,v)=>{store[k]=v;},removeStorageSync:k=>{delete store[k];}};
+ delete require.cache[require.resolve('../miniprogram/utils/coach.js')];
+ delete require.cache[require.resolve('../miniprogram/utils/coach-page.js')];
+ const coach=require('../miniprogram/utils/coach.js');
+ const {coachMethods}=require('../miniprogram/utils/coach-page.js');
+ coach.startCoach(coach.COACH_STEPS[2]);
+ const page={data:{},setData(d){Object.assign(this.data,d);},selectComponent:()=>null,
+   ...coachMethods(coach.COACH_STEPS[2],'#x')};
+ page.advanceCoach(coach.COACH_STEPS[5]);   // 用户跳着操作
+ assert.equal(coach.getCoachState().step,coach.COACH_STEPS[2],'对不上的动作不应推进步骤');
+ page.advanceCoach(coach.COACH_STEPS[2]);   // 做对了当前这一步
+ assert.equal(coach.getCoachState().step,coach.COACH_STEPS[3],'做对当前步骤才推进');
+});

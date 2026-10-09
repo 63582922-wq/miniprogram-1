@@ -1,4 +1,4 @@
-const { isCoachStep, moveCoach, stopCoach, buildCoachTip, getNextCoachStep } = require("./coach");
+const { isCoachStep, moveCoach, stopCoach, buildCoachTip, getNextCoachStep, getCoachState } = require("./coach");
 
 /**
  * 页面接入高亮引导的最小接口。
@@ -148,9 +148,22 @@ function coachMethods(stepKey, targetSelector, options = {}) {
     handleCoachNext() {
       setCoachData(this, { coachVisible: false, coachRect: null, coachPendingText: "" });
     },
-    /** 动作已真的完成，推进到下一步。 */
-    advanceCoach() {
-      const next = getNextCoachStep(stepKey);
+    /**
+     * 动作已真的完成，推进到下一步。
+     *
+     * 两个前提缺一不可，否则「引导只在首次出现」这条就守不住：
+     *  1. 引导必须还在进行中。走完之后用户照常建第二份、第三份报告，
+     *     页面还是会调到这里；不看 active 就会把引导重新激活。
+     *  2. 当前步骤必须对得上。页面传进来的 / 捕获的 stepKey 是「刚做完哪个
+     *     动作」，不是权威状态；用户跳着操作时按它推进会跳步。
+     */
+    advanceCoach(fromStep) {
+      const state = getCoachState();
+      if (!state.active) return;
+      const current = state.step;
+      const key = fromStep || stepKey;
+      if (current && key && key !== current) return;
+      const next = getNextCoachStep(current || key);
       if (next) {
         moveCoach(next);
       } else {
@@ -218,7 +231,16 @@ function coachMethodsMulti(steps, options = {}) {
       setCoachData(this, { coachVisible: false, coachRect: null, coachPendingText: "" });
     },
     advanceCoach(fromStep) {
-      const current = fromStep || (this.activeCoachStep() || {}).key;
+      // 引导走完一遍就结束了。此后用户正常用（建第二个、第三个报告）时，
+      // 页面照样会在动作成功后调 advanceCoach——原来这里不看引导是否还在进行，
+      // 只要 getNextCoachStep 还能返回下一步就把引导重新激活，
+      // 于是每建一次新报告，走过的引导又冒出来一次。
+      const state = getCoachState();
+      if (!state.active) return;
+      // 页面传进来的 fromStep 是「刚做完哪个动作」，不是权威状态。
+      // 只有当前确实停在这一步才推进；对不上就不动，避免跳步或重复推进。
+      const current = state.step;
+      if (fromStep && fromStep !== current) return;
       const next = current ? getNextCoachStep(current) : "";
       if (next) {
         moveCoach(next);
