@@ -115,7 +115,10 @@ test('one UI foundation owns colors, font roles and every A token used by app su
   for (const file of surfaces) {
     const source = fs.readFileSync(file, 'utf8');
     const relative = path.relative(root, file);
-    assert.doesNotMatch(source, /min-height\s*:\s*(?:44|48|52|56|60)px\b/, `${relative} must use a named touch-size role rather than a private hit target`);
+    // 剥掉注释再判断：注释里引用具体数值（例如解释某个历史决定）是正常的，
+    // 不该被当成一条 CSS 声明。
+    const declarations = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.doesNotMatch(declarations, /min-height\s*:\s*(?:44|48|52|56|60)px\b/, `${relative} must use a named touch-size role rather than a private hit target`);
   }
 });
 
@@ -258,11 +261,27 @@ test('voice recording is a prominent secondary action; the page CTA owns the sol
   assert.match(primary, /\.primary-button\s*\{[^}]*background:\s*var\(--a-accent\)/s, 'the primary next-step control retains the solid accent fill');
 });
 
+test('voice feedback centred under the mic', () => {
+  // 录音中的提示横跨整行、位于麦克风下方，左对齐会偏向一边。
+  const style = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxss'), 'utf8');
+  const status = style.match(/\.voice-hold-status\s*\{([^}]*)\}/s);
+  assert.ok(status, 'the recording status line must exist');
+  assert.match(status[1], /text-align:\s*center/, '录音提示要与输入框同一中轴，不能左对齐');
+});
+
 test('capture voice control sits inside the composer and keeps its state feedback', () => {
   const markup = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxml'), 'utf8');
   const style = fs.readFileSync(path.join(root, 'miniprogram/pages/inspection/create/index.wxss'), 'utf8');
   assert.match(markup, /placeholder="输入现场说明或问题描述"/, 'manual text entry should explain its own purpose without repeating the nearby mic instruction');
   // 文字与语音合成一个对话式输入框：麦克风在框内、文本域之后。
+  // 单行文字必须垂直居中：textarea 贴顶渲染，靠上下等量内边距把它顶回中间。
+  const composer = style.match(/\.issue-composer\s*\{([^}]*)\}/s);
+  assert.match(composer[1], /align-items:\s*center/, '输入框内的元素要垂直居中');
+  const textarea = style.match(/\.issue-draft-card__textarea\s*\{([^}]*)\}/s);
+  assert.match(textarea[1], /padding:\s*var\(--a-space-2\)\s+0/,
+    '输入区上下等量内边距，单行文字才居中（否则文字贴着盒子顶部）');
+  assert.doesNotMatch(textarea[1], /min-height/,
+    '不能再靠 min-height 撑高——多出来的高度会全部落在文字下方');
   assert.match(markup, /class="issue-composer"[\s\S]*?issue-draft-card__textarea[\s\S]*?voice-hold-button/,
     'the mic lives inside the composer, to the right of the textarea');
   // 框内放不下文字，所以常驻提示行去掉了；但录音过程中的状态反馈必须留着，

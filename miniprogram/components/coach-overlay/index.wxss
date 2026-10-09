@@ -16,15 +16,14 @@
 }
 
 /* 高亮框只描边、不填充，也不拦截点击——用户点的是底下的真实按钮。
-   用真胶囊半径：目标都是按钮，圆角会按元素高度自适应贴合，
-   不会像固定 24rpx 那样和按钮自身的胶囊边形成两层圆角。 */
+   圆角由 JS 按目标形状给：接近正方形用圆形，否则用胶囊，
+   这样圆框套圆按钮、胶囊框套胶囊按钮，边才贴得住。 */
 .coach__ring {
   position: fixed;
   box-sizing: border-box;
   /* 用浅色而不是强调色：被高亮的多半本身就是强调色按钮，
      橙色框贴着橙色按钮会糊成一块更粗的边，读不出「这是一个框」。 */
   border: 3px solid var(--a-paper);
-  border-radius: var(--a-radius-pill);
   background: transparent;
   pointer-events: none;
 }

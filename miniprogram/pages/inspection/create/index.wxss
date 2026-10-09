@@ -199,12 +199,15 @@
   background: var(--a-field);
 }
 
+/* textarea 会把文字贴着自己的盒子顶部渲染。原先靠 min-height:44px 撑高度，
+   多出来的 ~9px 全落在文字下方，于是输入框看着「文字偏高」。
+   改为给上下等量内边距：单行时盒子 = 行高 + 上下内边距，在 52px 的容器里
+   自然垂直居中；多行时上下留白对称，也不会贴边。 */
 .issue-draft-card__textarea {
   box-sizing: border-box;
   min-width: 0;
   flex: 1;
-  min-height: var(--a-hit);
-  padding: 0;
+  padding: var(--a-space-2) 0;
   border: 0;
   background: transparent;
 
@@ -261,10 +264,13 @@
 /* 麦克风在框内放不下文字，录音中的状态改为框下一行提示，
    只在真正需要知道「松手完成 / 上滑取消」的时刻出现。 */
 .voice-hold-status {
+  /* 这行提示出现在麦克风正下方、横跨整行，左对齐会显得偏向一边；
+     居中后与上面的输入框、下面的按钮同一中轴。 */
   padding-top: var(--a-space-1);
   color: var(--a-accent-text);
   font-size: var(--a-type-caption);
   line-height: 1.5;
+  text-align: center;
 }
 
 .voice-hold-status--cancel {

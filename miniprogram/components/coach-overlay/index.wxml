@@ -6,7 +6,7 @@
     <view class="coach__mask" style="left:{{masks.left.left}}px;top:{{masks.left.top}}px;width:{{masks.left.width}}px;height:{{masks.left.height}}px"></view>
     <view class="coach__mask" style="left:{{masks.right.left}}px;top:{{masks.right.top}}px;width:{{masks.right.width}}px;height:{{masks.right.height}}px"></view>
     <view class="coach__mask" style="left:{{masks.bottom.left}}px;top:{{masks.bottom.top}}px;width:{{masks.bottom.width}}px;height:{{masks.bottom.height}}px"></view>
-    <view class="coach__ring" style="left:{{hole.left}}px;top:{{hole.top}}px;width:{{hole.width}}px;height:{{hole.height}}px"></view>
+    <view class="coach__ring" style="left:{{hole.left}}px;top:{{hole.top}}px;width:{{hole.width}}px;height:{{hole.height}}px;border-radius:{{ringRadius}}"></view>
   </block>
   <!-- 目标还不存在（例如还没有照片）：整屏压暗，只讲清楚下一步做什么 -->
   <view wx:else class="coach__mask" style="left:0;top:0;right:0;bottom:0"></view>

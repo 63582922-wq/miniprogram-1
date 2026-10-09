@@ -30,7 +30,8 @@ Component({
     hole: null,
     masks: null,
     tipStyle: "",
-    placeBelow: true
+    placeBelow: true,
+    ringRadius: "var(--a-radius-pill)"
   },
 
   observers: {
@@ -66,6 +67,9 @@ Component({
 
       // 目标在屏幕下半部分时，气泡放到上方，避免被键盘或底部栏顶住
       const placeBelow = bottom < viewportHeight * 0.62;
+      // 框的形状跟着目标走：接近正方形（例如语音键）用圆形，
+      // 否则用胶囊——圆框套在圆按钮上、胶囊框套在胶囊按钮上，边才贴得住。
+      const ringRadius = Math.abs((right - left) - (bottom - top)) <= 8 ? "50%" : "var(--a-radius-pill)";
 
       this.setData({
         hole: { left, top, width: right - left, height: bottom - top },
@@ -76,6 +80,7 @@ Component({
           bottom: { left: 0, top: bottom, width: viewportWidth, height: Math.max(0, viewportHeight - bottom) }
         },
         placeBelow,
+        ringRadius,
         tipStyle: placeBelow
           ? `left:${TIP_MARGIN}px;right:${TIP_MARGIN}px;top:${Math.min(bottom + TIP_MARGIN, viewportHeight - 24)}px`
           : `left:${TIP_MARGIN}px;right:${TIP_MARGIN}px;bottom:${Math.min(viewportHeight - top + TIP_MARGIN, viewportHeight - 24)}px`
