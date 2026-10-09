@@ -15,14 +15,29 @@
   background: var(--a-scrim);
 }
 
-/* 高亮框只描边、不填充，也不拦截点击——用户点的是底下的真实按钮。 */
+/* 高亮框只描边、不填充，也不拦截点击——用户点的是底下的真实按钮。
+   圆角用 --a-radius-bar（半高半径）：目标多是胶囊按钮，框会跟着变成胶囊；
+   遇到高一些的目标也只是一个规整的圆角矩形，不会像固定 24rpx 那样
+   和按钮自身的胶囊边形成两层圆角。 */
 .coach__ring {
   position: fixed;
   box-sizing: border-box;
-  border: 2px solid var(--a-accent);
-  border-radius: var(--a-radius-control);
+  /* 用浅色而不是强调色：被高亮的多半本身就是强调色按钮，
+     橙色框贴着橙色按钮会糊成一块更粗的边，读不出「这是一个框」。 */
+  border: 3px solid var(--a-paper);
+  border-radius: var(--a-radius-bar);
   background: transparent;
   pointer-events: none;
+}
+
+/* 目标暂时不存在时（例如还没有照片，就没有「标注」可指）不画高亮框，
+   改为整屏压暗 + 居中气泡，让流程不至于无声消失。 */
+.coach__tip--centered {
+  left: var(--a-space-3) !important;
+  right: var(--a-space-3) !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%);
 }
 
 .coach__tip {
@@ -30,7 +45,7 @@
   box-sizing: border-box;
   padding: var(--a-space-3);
   border-radius: var(--a-radius-object);
-  background: var(--a-paper);
+  background: var(--a-surface);
   box-shadow: 0 8rpx 32rpx rgba(25, 24, 22, .22);
 }
 
@@ -47,6 +62,15 @@
   font-weight: var(--a-weight-emphasis);
 }
 
+.coach__pending {
+  margin-top: var(--a-space-2);
+  padding: var(--a-space-2);
+  border-left: 4rpx solid var(--a-accent);
+  color: var(--a-accent-text);
+  font-size: var(--a-type-caption);
+  line-height: 1.6;
+}
+
 .coach__desc {
   margin-top: var(--a-space-1);
   color: var(--a-muted);
@@ -54,30 +78,38 @@
   line-height: 1.7;
 }
 
-.coach__actions {
+/* 主按钮通栏、次动作退成一行小字——与应用既有的底部提示同一种结构。
+   此前把「跳过引导」和「知道了」并排，一大一小、还不在同一基线，看着很乱。 */
+.coach__next {
   display: flex;
   align-items: center;
-  gap: var(--a-space-2);
-  margin-top: var(--a-space-3);
-}
-
-.coach__skip {
-  width: auto !important;
-  flex: none;
-  margin: 0 !important;
-  padding: 0 var(--a-space-1) !important;
-  color: var(--a-muted);
-  font-size: var(--a-type-caption);
-}
-
-.coach__next {
-  flex: 1;
-  width: auto !important;
-  min-height: var(--a-hit);
-  margin: 0 !important;
+  justify-content: center;
+  width: 100% !important;
+  min-height: var(--a-hit-primary);
+  margin: var(--a-space-3) 0 0 !important;
   padding: 0 var(--a-space-3) !important;
   background: var(--a-accent) !important;
   color: var(--a-accent-ink) !important;
-  font-size: var(--a-type-action);
+  font-size: var(--a-type-medium);
+  font-weight: var(--a-weight-regular);
   line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.coach__skip {
+  display: block;
+  width: 100% !important;
+  min-height: var(--a-hit);
+  margin: var(--a-space-1) 0 0 !important;
+  padding: 0 !important;
+  background: transparent;
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: var(--a-hit);
+  letter-spacing: 0;
+}
+
+.coach__next::after,
+.coach__skip::after {
+  border: 0;
 }

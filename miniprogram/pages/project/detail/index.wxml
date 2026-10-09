@@ -40,5 +40,5 @@
     </view>
   </view>
   <view wx:if="{{capturePicking}}" class="capture-saving-mask"><view class="capture-saving-panel"><view class="capture-saving-indicator"></view><text>正在保存照片…</text></view></view>
-  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" pendingText="{{coachPendingText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

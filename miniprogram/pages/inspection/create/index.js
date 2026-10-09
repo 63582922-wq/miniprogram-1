@@ -753,11 +753,16 @@ Page({
    */
   ...coachMethodsMulti([
     { key: "capturePickPhoto", selector: "#coach-pick-photo" },
+    // 后三步要等到有照片才存在。此时不能什么都不显示——那样引导走到一半就断了，
+    // 改为居中气泡说明「先做这一步，我带你继续」。
     { key: "captureAnnotate", selector: "#coach-annotate",
+      pendingText: "先拍一张照片，拍完我带你圈出问题位置。",
       ready() { return Boolean((this.data.form.issueDrafts || []).length); } },
     { key: "captureVoice", selector: "#coach-voice",
+      pendingText: "先拍一张照片，拍完我带你写说明。",
       ready() { return Boolean((this.data.form.issueDrafts || []).length); } },
     { key: "captureContinue", selector: "#coach-continue",
+      pendingText: "先拍一张照片并写好说明，再进入核对。",
       ready() { return Boolean((this.data.form.issueDrafts || []).length); } }
   ]),
   chooseImages(event = {}) {

@@ -93,7 +93,10 @@ test('guidance advances because the user did the thing, not because they tapped 
   assert.match(helper,/handleCoachNext\(\)\s*\{[\s\S]{0,200}coachVisible:\s*false/,
     '「知道了」只收起气泡，不应推进步骤');
   assert.match(helper,/advanceCoach\(/,'页面必须能主动推进');
-  const component=read('miniprogram/components/coach-overlay/index.wxml');
+  // 必须先剥掉 WXML 注释再判断：说明性注释里很容易出现「下一步」这种词，
+  // 直接搜全文会把注释当成按钮文案（这个坑已经踩过第二次了）。
+  const component=read('miniprogram/components/coach-overlay/index.wxml')
+    .replace(/<!--[\s\S]*?-->/g,'');
   assert.match(component,/跳过引导/);
   assert.match(component,/知道了/);
   assert.doesNotMatch(component,/下一步/,'给「下一步」会把用户从真实操作上引开');
@@ -112,4 +115,78 @@ test('the capture page lights up its four steps in field order',()=>{
   }
   // 后三步的目标元素要等到有照片才存在
   assert.match(block,/ready\(\)/,'按状态出现的步骤必须有 ready 判断，否则会指着空气');
+});
+
+test('every highlighted selector actually exists in that page markup',()=>{
+  // 这条是补的：曾经 coach-voice 的 id 在调整属性顺序时丢了，
+  // 于是第 6 步永远指不到元素。而当时的测试只检查「步骤名出现在 JS 里」，
+  // 没检查「选择器在 WXML 里真有对应元素」，所以没能拦住。
+  for(const page of new Set(Object.values(PAGES))){
+    const script=read(page+'.js');
+    const markup=read(page+'.wxml');
+    const selectors=[...script.matchAll(/selector:\s*"#([a-zA-Z0-9_-]+)"/g)].map(m=>m[1]);
+    for(const selector of new Set(selectors)){
+      assert.ok(markup.includes(selector),
+        `${page}.wxml 里没有 id="${selector}"——这一步会永远指不到东西`);
+    }
+    // 单步版用字符串字面量传选择器，一并检查
+    const literal=[...script.matchAll(/coachMethods\(\s*"[^"]+"\s*,\s*"#([a-zA-Z0-9_-]+)"/g)].map(m=>m[1]);
+    for(const selector of new Set(literal)){
+      assert.ok(markup.includes(selector),
+        `${page}.wxml 里没有 id="${selector}"——这一步会永远指不到东西`);
+    }
+  }
+});
+
+test('the tip uses one full-width button, matching the app\'s own sheet pattern',()=>{
+  const style=read('miniprogram/components/coach-overlay/index.wxss');
+  const markup=read('miniprogram/components/coach-overlay/index.wxml');
+  // 曾经把「跳过引导」和「知道了」并排，一大一小、不在同一基线，视觉很乱
+  assert.doesNotMatch(style,/\.coach__actions/,'不该再有并排按钮的容器');
+  assert.match(style,/\.coach__next\s*\{[\s\S]{0,200}width:\s*100%\s*!important/,
+    '主按钮要通栏');
+  assert.match(style,/\.coach__skip\s*\{[\s\S]{0,200}background:\s*transparent/,
+    '「跳过引导」要退成一行小字，不能和主按钮抢');
+  assert.ok(markup.indexOf('coach__next')<markup.indexOf('coach__skip'),
+    '主按钮在上、次动作在下');
+});
+
+test('the highlight ring hugs a button, not a container',()=>{
+  // 框套在 footer 容器上会连底部安全区一起框住，而且圆角和按钮的胶囊边打架
+  for(const page of new Set(Object.values(PAGES))){
+    const markup=read(page+'.wxml');
+    for(const m of markup.matchAll(/<([a-z-]+)([^>]{0,300}?)id="(coach-[a-zA-Z0-9_-]+)"/g)){
+      assert.equal(m[1],'button',
+        `${page}.wxml 的 #${m[3]} 挂在 <${m[1]}> 上；高亮目标应当是按钮本身`);
+    }
+  }
+});
+
+test('a step whose target is not there yet still says what to do',()=>{
+  const helper=read('miniprogram/utils/coach-page.js');
+  const component=read('miniprogram/components/coach-overlay/index.wxml');
+  assert.match(helper,/pendingText/,'目标缺失时要有交代，不能什么都不显示');
+  assert.match(component,/coach__tip--centered/,'无目标时气泡居中');
+  const capture=read('miniprogram/pages/inspection/create/index.js');
+  const pending=(capture.match(/pendingText:/g)||[]).length;
+  assert.ok(pending>=3,`采集页后三步都要有 pendingText，实际 ${pending} 处`);
+});
+
+test('every binding the overlay template uses is actually declared',()=>{
+  // 曾经 pendingText 只写进了 WXML 与页面数据，组件却没声明这个属性，
+  // 于是那行「先拍一张照片…」永远不显示，而且不报错。
+  const script=read('miniprogram/components/coach-overlay/index.js');
+  const markup=read('miniprogram/components/coach-overlay/index.wxml')
+    .replace(/<!--[\s\S]*?-->/g,'');
+  const propsBlock=script.slice(script.indexOf('properties: {'),script.indexOf('data: {'));
+  const dataBlock=script.slice(script.indexOf('data: {'),script.indexOf('observers: {'));
+  const declared=new Set([
+    ...[...propsBlock.matchAll(/^\s{4}([a-zA-Z][a-zA-Z0-9]*):/gm)].map(m=>m[1]),
+    ...[...dataBlock.matchAll(/^\s{4}([a-zA-Z][a-zA-Z0-9]*):/gm)].map(m=>m[1])
+  ]);
+  const used=new Set([...markup.matchAll(/\{\{\s*([a-zA-Z][a-zA-Z0-9]*)/g)].map(m=>m[1]));
+  for(const name of used){
+    assert.ok(declared.has(name),
+      `模板用了 {{${name}}}，但组件既没声明这个属性也没有这个 data 字段——它会静默失效`);
+  }
 });

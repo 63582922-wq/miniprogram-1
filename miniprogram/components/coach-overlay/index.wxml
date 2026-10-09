@@ -1,20 +1,22 @@
 <!-- 容器是 0×0 的定位锚点，不参与命中测试：
      洞的位置不渲染任何元素，点击会直接落到被高亮的真实按钮上。 -->
-<view wx:if="{{visible && hole}}" class="coach">
-  <view class="coach__mask" style="left:{{masks.top.left}}px;top:{{masks.top.top}}px;width:{{masks.top.width}}px;height:{{masks.top.height}}px"></view>
-  <view class="coach__mask" style="left:{{masks.left.left}}px;top:{{masks.left.top}}px;width:{{masks.left.width}}px;height:{{masks.left.height}}px"></view>
-  <view class="coach__mask" style="left:{{masks.right.left}}px;top:{{masks.right.top}}px;width:{{masks.right.width}}px;height:{{masks.right.height}}px"></view>
-  <view class="coach__mask" style="left:{{masks.bottom.left}}px;top:{{masks.bottom.top}}px;width:{{masks.bottom.width}}px;height:{{masks.bottom.height}}px"></view>
+<view wx:if="{{visible}}" class="coach">
+  <block wx:if="{{hole}}">
+    <view class="coach__mask" style="left:{{masks.top.left}}px;top:{{masks.top.top}}px;width:{{masks.top.width}}px;height:{{masks.top.height}}px"></view>
+    <view class="coach__mask" style="left:{{masks.left.left}}px;top:{{masks.left.top}}px;width:{{masks.left.width}}px;height:{{masks.left.height}}px"></view>
+    <view class="coach__mask" style="left:{{masks.right.left}}px;top:{{masks.right.top}}px;width:{{masks.right.width}}px;height:{{masks.right.height}}px"></view>
+    <view class="coach__mask" style="left:{{masks.bottom.left}}px;top:{{masks.bottom.top}}px;width:{{masks.bottom.width}}px;height:{{masks.bottom.height}}px"></view>
+    <view class="coach__ring" style="left:{{hole.left}}px;top:{{hole.top}}px;width:{{hole.width}}px;height:{{hole.height}}px"></view>
+  </block>
+  <!-- 目标还不存在（例如还没有照片）：整屏压暗，只讲清楚下一步做什么 -->
+  <view wx:else class="coach__mask" style="left:0;top:0;right:0;bottom:0"></view>
 
-  <view class="coach__ring" style="left:{{hole.left}}px;top:{{hole.top}}px;width:{{hole.width}}px;height:{{hole.height}}px"></view>
-
-  <view class="coach__tip" style="{{tipStyle}}">
+  <view class="coach__tip {{hole ? '' : 'coach__tip--centered'}}" style="{{tipStyle}}">
     <view wx:if="{{stepText}}" class="coach__step">{{stepText}}</view>
     <view class="coach__title">{{title}}</view>
     <view wx:if="{{desc}}" class="coach__desc">{{desc}}</view>
-    <view class="coach__actions">
-      <button wx:if="{{showSkip}}" class="ui-button-reset coach__skip" bindtap="handleSkip">跳过引导</button>
-      <button class="ui-button-reset coach__next" bindtap="handleNext">知道了</button>
-    </view>
+    <view wx:if="{{pendingText}}" class="coach__pending">{{pendingText}}</view>
+    <button class="ui-button-reset coach__next" bindtap="handleNext">知道了</button>
+    <button wx:if="{{showSkip}}" class="ui-button-reset coach__skip" bindtap="handleSkip">跳过引导</button>
   </view>
 </view>

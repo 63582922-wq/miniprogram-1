@@ -11,7 +11,7 @@
  * 要么依赖 pointer-events（小程序支持不稳），要么用户点不动目标按钮。
  */
 
-const GAP = 4;          // 高亮框比目标大一圈，让按钮看起来被"框住"
+const GAP = 6;          // 高亮框比目标大一圈，让按钮看起来被"框住"（留出呼吸）
 const TIP_MARGIN = 12;  // 提示气泡与高亮框的距离
 
 Component({
@@ -21,6 +21,8 @@ Component({
     title: { type: String, value: "" },
     desc: { type: String, value: "" },
     stepText: { type: String, value: "" },
+    /** 目标还没出现时补一句「先做什么」，例如还没有照片就没有「标注」可指。 */
+    pendingText: { type: String, value: "" },
     showSkip: { type: Boolean, value: true }
   },
 
@@ -33,11 +35,13 @@ Component({
 
   observers: {
     "visible, rect": function (visible, rect) {
-      if (!visible || !rect) {
+      if (!visible) {
         this.setData({ hole: null, masks: null, tipStyle: "" });
         return;
       }
-      this.layout(rect);
+      // 目标还没出现（例如还没有照片，就没有「标注」可指）时不能什么都不显示——
+      // 那样用户会觉得引导走到一半断了。改为整屏压暗 + 居中气泡说明下一步做什么。
+      this.layout(rect || null);
     }
   },
 
@@ -46,6 +50,12 @@ Component({
       const info = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()) || {};
       const viewportWidth = Number(info.windowWidth) || 375;
       const viewportHeight = Number(info.windowHeight) || 667;
+
+      if (!rect) {
+        // pending 模式：不画洞也不画框，WXML 用一整块遮罩盖住全屏
+        this.setData({ hole: null, masks: null, tipStyle: "" });
+        return;
+      }
 
       const left = Math.max(0, Number(rect.left) - GAP);
       const top = Math.max(0, Number(rect.top) - GAP);

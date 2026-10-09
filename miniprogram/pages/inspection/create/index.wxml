@@ -28,7 +28,7 @@
           <!-- 对话式输入框：文字与语音合成一个框，麦克风在框内右侧。 -->
           <view class="issue-composer">
             <textarea auto-height maxlength="5000" class="issue-draft-card__textarea" value="{{item.voiceText}}" data-id="{{item.id}}" data-index="{{index}}" bindinput="handleIssueVoiceTextInput" placeholder="输入现场说明或问题描述" placeholder-class="ui-placeholder" />
-            <button class="ui-button-reset voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}} {{recordCancelArmed && transcribingIssueId === item.id ? 'voice-hold-button--cancel' : ''}} {{item.isTranscribing ? 'ui-disabled' : ''}}" disabled="{{item.isTranscribing}}" aria-label="按住说话（记入照片 {{index + 1}}），松开发送；录错向上滑动取消" data-index="{{index}}" bindtouchstart="handleRecordTouchStart" catchtouchmove="handleRecordMove" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordCancel"><image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" /></button>
+            <button class="ui-button-reset voice-hold-button {{transcribingIssueId === item.id ? 'voice-hold-button--active' : ''}} {{recordCancelArmed && transcribingIssueId === item.id ? 'voice-hold-button--cancel' : ''}} {{item.isTranscribing ? 'ui-disabled' : ''}}" id="{{index === 0 ? 'coach-voice' : ''}}" disabled="{{item.isTranscribing}}" aria-label="按住说话（记入照片 {{index + 1}}），松开发送；录错向上滑动取消" data-index="{{index}}" bindtouchstart="handleRecordTouchStart" catchtouchmove="handleRecordMove" bindtouchend="handleRecordTouchEnd" bindtouchcancel="handleRecordCancel"><image class="voice-hold-button__mic" src="/images/icons/icon-mic.svg" mode="aspectFit" /></button>
           </view>
           <view wx:if="{{item.isTranscribing || transcribingIssueId === item.id}}" class="voice-hold-status {{recordCancelArmed && transcribingIssueId === item.id ? 'voice-hold-status--cancel' : ''}}">{{item.isTranscribing ? '正在转成文字…' : (recordCancelArmed ? '松开，取消这段' : '松开，完成转写')}}</view>
           <view wx:if="{{item.speechError}}" class="speech-error-row">
@@ -39,10 +39,10 @@
       </view>
     </view>
   </view>
-  <view wx:if="{{form.issueDrafts.length < 20}}" id="coach-pick-photo" class="capture-section__picker-actions">
-    <button class="ui-button-reset secondary-button {{pickingImages || analyzing ? 'ui-disabled' : ''}}" disabled="{{pickingImages || analyzing}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" /><text>继续添加</text></button>
+  <view wx:if="{{form.issueDrafts.length < 20}}" class="capture-section__picker-actions">
+    <button id="coach-pick-photo" class="ui-button-reset secondary-button {{pickingImages || analyzing ? 'ui-disabled' : ''}}" disabled="{{pickingImages || analyzing}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" /><text>继续添加</text></button>
   </view>
-  <view wx:if="{{form.issueDrafts.length}}" id="coach-continue" class="footer-actions footer-actions--fixed"><button class="ui-button-reset primary-button {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" bindtap="handleContinueReview">{{nextActionLabel}}</button></view>
+  <view wx:if="{{form.issueDrafts.length}}" class="footer-actions footer-actions--fixed"><button id="coach-continue" class="ui-button-reset primary-button {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" bindtap="handleContinueReview">{{nextActionLabel}}</button></view>
   <view wx:if="{{photoChoiceOpen}}" class="photo-choice-mask" catchtap="deferPhotoProcessing">
     <view class="photo-choice-panel" catchtap="ignoreTap">
       <view class="photo-choice-title ui-sheet-title">{{photoChoiceIds.length > 1 ? '这 '+photoChoiceIds.length+' 张照片怎么整理？' : '这张照片怎么整理？'}}</view>
@@ -64,5 +64,5 @@
       <button wx:else class="ui-button-reset analyze-panel__cancel" bindtap="handleCancelAnalyze">返回记录</button>
     </view>
   </view>
-  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" pendingText="{{coachPendingText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

@@ -204,5 +204,5 @@
     <view class="section-title">暂无报告数据</view>
     <view class="section-subtitle">请先确认巡查问题，再生成报告。</view>
   </view>
-  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" pendingText="{{coachPendingText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

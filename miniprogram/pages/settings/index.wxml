@@ -17,7 +17,7 @@
       <view class="field"><view class="field-label">公司地址 · 选填</view><textarea class="field-textarea" auto-height value="{{form.companyAddress}}" data-field="companyAddress" bindinput="handleInput" maxlength="200" placeholder="填写公司地址" placeholder-class="ui-placeholder" /></view>
       <view class="section-subtitle">以上资料将随新报告分享给接收者。保存资料不会改写已发布的报告。</view>
     </view>
-    <view class="footer-actions" id="coach-save-target"><button class="ui-button-reset primary-button {{isSaving || loading || logoUploading ? 'ui-disabled' : ''}} {{isSaving ? 'ui-loading' : ''}}" disabled="{{isSaving || loading || logoUploading}}" loading="{{isSaving}}" bindtap="handleSubmit">{{logoUploading ? 'LOGO 上传中' : isSaving ? '正在保存' : '保存资料'}}</button></view>
+    <view class="footer-actions"><button class="ui-button-reset primary-button {{isSaving || loading || logoUploading ? 'ui-disabled' : ''}} {{isSaving ? 'ui-loading' : ''}}" id="coach-save-target" disabled="{{isSaving || loading || logoUploading}}" loading="{{isSaving}}" bindtap="handleSubmit">{{logoUploading ? 'LOGO 上传中' : isSaving ? '正在保存' : '保存资料'}}</button></view>
   </block>
-  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" pendingText="{{coachPendingText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

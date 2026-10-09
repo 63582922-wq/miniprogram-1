@@ -83,23 +83,26 @@ function coachMethods(stepKey, targetSelector, options = {}) {
       if (!isCoachStep(stepKey)) {
         return;
       }
-      if (!rect || !rect.width || !rect.height) {
-        // 量不到目标就不要显示一个指着空气的引导
+      const tip = buildCoachTip(stepKey, options.tip || {});
+      const measurable = rect && rect.width && rect.height;
+      if (!measurable && !options.pendingText) {
+        // 目标不存在、也没准备「先做什么」的说明：宁可不显示，
+        // 也不要弹一个指着空气的引导
         this.setData({ coachVisible: false, coachRect: null });
         return;
       }
-      const tip = buildCoachTip(stepKey, options.tip || {});
       this.setData({
         coachVisible: true,
-        coachRect: rect,
+        coachRect: measurable ? rect : null,
         coachTitle: tip.title,
         coachDesc: tip.desc,
-        coachStepText: tip.stepText
+        coachStepText: tip.stepText,
+        coachPendingText: measurable ? "" : (options.pendingText || "")
       });
     },
     /** 「知道了」：只收起气泡，步骤仍然激活——用户还没做那件事，下次回到本页还会提示。 */
     handleCoachNext() {
-      this.setData({ coachVisible: false, coachRect: null });
+      this.setData({ coachVisible: false, coachRect: null, coachPendingText: "" });
     },
     /** 动作已真的完成，推进到下一步。 */
     advanceCoach() {
@@ -109,7 +112,7 @@ function coachMethods(stepKey, targetSelector, options = {}) {
       } else {
         stopCoach();
       }
-      this.setData({ coachVisible: false, coachRect: null });
+      this.setData({ coachVisible: false, coachRect: null, coachPendingText: "" });
     },
     /** 「跳过引导」：整段引导结束，不再打扰。 */
     handleCoachSkip() {
@@ -129,8 +132,11 @@ function coachMethodsMulti(steps, options = {}) {
   const base = {
     /** 当前页正在提示的那一步；advanceCoach 靠它决定推进到哪。 */
     activeCoachStep() {
-      return steps.find((item) => isCoachStep(item.key)
-        && (typeof item.ready !== "function" || item.ready.call(this))) || null;
+      // 只用 isCoachStep 判定「这一步算不算数」。
+      // ready() 判定的是「目标元素此刻在不在」，两者不能混：曾经把 ready
+      // 并进来当过滤条件，导致还没有照片时没有任何步骤是激活的，
+      // 连「先拍一张照片」的居中说明都不显示——流程走到一半就断了。
+      return steps.find((item) => isCoachStep(item.key)) || null;
     },
     async syncCoach() {
       const active = this.activeCoachStep();
@@ -140,27 +146,31 @@ function coachMethodsMulti(steps, options = {}) {
         }
         return;
       }
-      const rect = await measureTargetWithRetry(active.selector);
+      // 目标此刻不存在就不去量，直接走下面的 pending 分支给一句「先做什么」。
+      const targetExists = typeof active.ready !== "function" || active.ready.call(this);
+      const rect = targetExists ? await measureTargetWithRetry(active.selector) : null;
       const confirmed = this.activeCoachStep();
       if (!confirmed || confirmed.key !== active.key) {
         return;
       }
-      if (!rect || !rect.width || !rect.height) {
-        // 目标还没出现就不要显示一个指着空气的引导
+      const tip = buildCoachTip(active.key, active.tip || options.tip || {});
+      const measurable = rect && rect.width && rect.height;
+      const pendingText = active.pendingText || options.pendingText || "";
+      if (!measurable && !pendingText) {
         this.setData({ coachVisible: false, coachRect: null });
         return;
       }
-      const tip = buildCoachTip(active.key, active.tip || options.tip || {});
       this.setData({
         coachVisible: true,
-        coachRect: rect,
+        coachRect: measurable ? rect : null,
         coachTitle: tip.title,
         coachDesc: tip.desc,
-        coachStepText: tip.stepText
+        coachStepText: tip.stepText,
+        coachPendingText: measurable ? "" : pendingText
       });
     },
     handleCoachNext() {
-      this.setData({ coachVisible: false, coachRect: null });
+      this.setData({ coachVisible: false, coachRect: null, coachPendingText: "" });
     },
     advanceCoach(fromStep) {
       const current = fromStep || (this.activeCoachStep() || {}).key;
