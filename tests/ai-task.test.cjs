@@ -620,3 +620,35 @@ test('a typo in AI_DAILY_LIMIT falls back to the default instead of disabling th
  const first=await fn({action:'createInspectionTask',payload:{requestId:'x',projectId:'p',issueDrafts:[{id:'p0',imagePath:'cloud://env/inspection-images/user/owner/p0.png'}]}});
  assert.equal(first.success,true,'默认值下第一条应当放行');
 });
+
+test('同步识图路径也受每日额度约束',async()=>{
+ // analyzeInspection 是旧版客户端在用的同步路径。此前它既没有额度闸，
+ // 也没有入参校验——直接调用可以无限次触发付费识别。
+ const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test',AI_DAILY_LIMIT:'1'},
+  modules:{axios:{post:async()=>response([])},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},
+  console:{log(){},warn(){},error(){},info(){}}});
+ const photo=(i)=>({id:'p'+i,imagePath:'cloud://env/inspection-images/user/owner/p'+i+'.png'});
+ const first=await fn({action:'analyzeInspection',payload:{projectId:'p',issueDrafts:[photo(0)]}});
+ assert.equal(first.success,true,'第一条应当放行');
+ const second=await fn({action:'analyzeInspection',payload:{projectId:'p',issueDrafts:[photo(1)]}});
+ assert.equal(second.success,false,'额度用尽后同步路径也必须被拦');
+ assert.match(second.message,/今日 AI 识别次数已达上限/);
+});
+
+test('同步识图路径不接受外部图片地址，也不接受超量照片',async()=>{
+ const h=harness();h.table('projects').set('p',{_id:'p',ownerOpenId:'owner',deleted:false});
+ const fn=h.load('ai',{env:{AI_API_KEY:'isolated-test',AI_BASE_URL:'https://not-called.invalid',AI_MODEL:'test'},
+  modules:{axios:{post:async()=>response([])},'tencentcloud-sdk-nodejs':{hunyuan:{v20230901:{Client:class{}}}}},
+  console:{log(){},warn(){},error(){},info(){}}});
+ // resolveImageUrl 会原样放行 http(s)，等于让模型服务商去抓任意网址
+ const external=await fn({action:'analyzeInspection',payload:{projectId:'p',
+   issueDrafts:[{id:'x',imagePath:'https://example.com/whatever.jpg'}]}});
+ assert.equal(external.success,false,'外部图片地址必须拒绝');
+ assert.match(external.message,/未上传|不属于当前用户/);
+ // 张数上限与异步路径保持一致
+ const many=await fn({action:'analyzeInspection',payload:{projectId:'p',
+   issueDrafts:Array.from({length:21},(_,i)=>({id:'p'+i,imagePath:`cloud://env/inspection-images/user/owner/p${i}.png`}))}});
+ assert.equal(many.success,false);
+ assert.match(many.message,/超过20张/);
+});

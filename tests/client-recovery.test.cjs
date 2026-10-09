@@ -1454,3 +1454,27 @@ test('the actual capture-page voice gesture drops an upward-cancelled take and k
  assert.equal(transcribed,1);
  assert.equal(page.data.form.issueDrafts[0].voiceText,'现场说明');
 });
+
+test('转写结果不会因为草稿所有权已交出去而丢失',()=>{
+ // 松手后转写是异步的，用户可能已经点「标注」把所有权交给了标注页
+ // （onHide 里 ownsDraft=false）。此时 persistDraft() 会谎报成功却不写盘——
+ // 转写文字消失，且 isTranscribing 永远停在 true，这条照片彻底卡死：
+ // 不能继续、不能删、不能换、不能重录。
+ const page=fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/inspection/create/index.js'),'utf8');
+ assert.match(page,/persistTranscription\(issueId, patch\)/,'要有专门的回写路径');
+ assert.match(page,/if \(this\.ownsDraft !== false\) \{\s*this\.persistDraft\(\);\s*return;\s*\}/,
+   '还持有草稿时走常规保存');
+ assert.match(page,/updateIssueDraft\(this\.data\.sessionKey, issueId, patch\)/,
+   '失所有权时必须定向合并，既不丢结果也不覆盖标注页写的内容');
+ // 成功与失败两条路径都要回写（失败也要复位 isTranscribing）
+ // 成功与失败两条路径各一处（定义本身不带 this. 前缀，不计入）
+ const calls=(page.match(/this\.persistTranscription\(/g)||[]).length;
+ assert.equal(calls,2,`转写的成功与失败路径都要回写，实际 ${calls} 处`);
+});
+
+test('重新进入页面会清掉不可能再有人推进的转写中状态',()=>{
+ const page=fs.readFileSync(path.resolve(__dirname,'../miniprogram/pages/inspection/create/index.js'),'utf8');
+ const restore=page.slice(page.indexOf('restoreDraft() {'),page.indexOf('restoreDraft() {')+900);
+ assert.match(restore,/item\.isTranscribing \? \{ \.\.\.item, isTranscribing: false \} : item/,
+   '转写请求是内存里的 Promise，页面重建后不可能还有人推进它，必须复位');
+});

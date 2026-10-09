@@ -217,3 +217,14 @@ test('the capture page clears its delayed coach retry on unload',()=>{
   const unload=page.slice(page.indexOf('onUnload() {'));
   assert.match(unload.slice(0,200),/clearTimeout\(this\.coachRetryTimer\)/,'离开页面要把定时器清掉');
 });
+
+test('引导指卡片内的按钮时，会先把那张卡片展开',()=>{
+  // 「标注」「按住说话」挂在卡片展开体里，而追加照片后只有最后一张自动展开。
+  // 高亮目标固定在 index 0；不展开的话目标不存在，引导会退化成
+  // 整屏遮罩 +「先拍一张照片」——明明已经有照片。
+  const page=read('miniprogram/pages/inspection/create/index.js');
+  assert.match(page,/ensureCoachTargetExpanded\(\)/,'要有展开保障');
+  assert.match(page,/isCoachStep\("captureAnnotate"\)\s*&&\s*!isCoachStep\("captureVoice"\)|isCoachStep\("captureAnnotate"\)\s*\|\|/,
+    '只在需要指这两个按钮的步骤上展开');
+  assert.match(page,/i === 0 \? true : open/,'展开第一张即可，不要动其他卡片的开合状态');
+});

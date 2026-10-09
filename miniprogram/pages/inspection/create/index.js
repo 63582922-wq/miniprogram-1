@@ -1,5 +1,6 @@
 const { listProjects } = require("../../../services/project");
 const { coachData, coachMethodsMulti } = require("../../../utils/coach-page");
+const { isCoachStep } = require("../../../utils/coach");
 const {
   analyzeInspection,
   createInspectionTask,
@@ -11,7 +12,7 @@ const { transcribeVoiceFile, mergeSpeechText, formatSpeechError } = require("../
 const { decodeReturnContext, returnToContext } = require("../../../utils/router");
 const { runWithConcurrency } = require("../../../utils/async");
 const { keepLocalFile, uploadDraftMedia } = require("../../../services/inspection-media");
-const { readDraft, writeDraft, patchDraft } = require("../../../utils/inspection-draft");
+const { readDraft, writeDraft, patchDraft, updateIssueDraft } = require("../../../utils/inspection-draft");
 const { identity, buildManualReviewItems, getPhotoDisplayPath } = require("../../../utils/inspection-model");
 const { isCloudFileId, resolveCloudFileUrls } = require("../../../services/cloud-media");
 
@@ -449,6 +450,7 @@ Page({
     // 草稿恢复完、照片渲染出来之后再同步一次，避免用「还没有照片」的旧前提下判断。
     // syncCoach 自己会判断页面是否还在，这里不必再挡一层。
     this.coachRetryTimer = setTimeout(() => this.syncCoach(), 1200);
+    this.ensureCoachTargetExpanded();
     if(this.initializing)return;
     this.ownsDraft = true;
     this.suspendDraftOnHide = false;
@@ -606,6 +608,14 @@ Page({
 
     const cached = readDraft(this.data.sessionKey);
     const cachedForm = extractDraftForm(cached);
+    // 转写请求是内存里的 Promise，页面重建后不可能还有人在推进它。
+    // 残留的 isTranscribing=true 会让这条照片永久卡住：不能继续、不能删、
+    // 不能换、不能重录。所以重新进入页面时一律复位。
+    if (cachedForm && (cachedForm.issueDrafts || []).some((item) => item.isTranscribing)) {
+      cachedForm.issueDrafts = cachedForm.issueDrafts.map((item) => (
+        item.isTranscribing ? { ...item, isTranscribing: false } : item
+      ));
+    }
     const cachedReturnContext = extractDraftReturnContext(cached);
     if (cachedForm && this.explicitProjectId && cachedForm.projectId !== this.explicitProjectId) {
       this.setData({projectLoadError:"草稿与当前项目不一致，请返回重新选择",sessionKey:""});
@@ -1184,6 +1194,36 @@ Page({
     this.setData({recordCancelArmed:this.recordStartY-event.touches[0].clientY>60});
   },
   handleRecordCancel(){this.recordPressActive=false;this.recordGesture=(this.recordGesture||0)+1;this.recordCancelled=true;recorderManager.stop();},
+  /**
+   * 回写转写结果。
+   *
+   * 自己还持有草稿时走常规的整份保存；所有权已交给标注页/核对页时，
+   * 只把这条照片的转写字段合并回存储——既不动别人写的内容，也不丢结果。
+   */
+  persistTranscription(issueId, patch) {
+    if (this.ownsDraft !== false) {
+      this.persistDraft();
+      return;
+    }
+    try {
+      updateIssueDraft(this.data.sessionKey, issueId, patch);
+    } catch (error) {
+      console.error("[capture] 转写结果合并失败", error);
+    }
+  },
+  /**
+   * 引导要指「标注」「按住说话」时，确保那张照片的卡片是展开的。
+   *
+   * 这两个按钮挂在卡片展开体里，而追加照片后只有**最后一张**自动展开。
+   * 高亮目标固定在 index 0；用户拍第二张后第一张收起，目标就不存在了，
+   * 引导会退化成整屏遮罩 +「先拍一张照片」——明明已经有照片。
+   */
+  ensureCoachTargetExpanded() {
+    if (!isCoachStep("captureAnnotate") && !isCoachStep("captureVoice")) return;
+    const states = this.data.issueExpandedStates || [];
+    if (!states.length || states[0]) return;
+    this.setData({ issueExpandedStates: states.map((open, i) => (i === 0 ? true : open)) });
+  },
   async handleIssueTranscription(issueId, tempFilePath, duration, fileID = "") {
     try {
       const result = await transcribeVoiceFile(tempFilePath, {
@@ -1215,7 +1255,22 @@ Page({
         issueDraftCount: issueDrafts.length,
         nextActionLabel: getNextActionLabel(issueDrafts)
       });
-      this.persistDraft();
+      // 转写是异步的，期间用户可能已经点「标注」把草稿所有权交给了标注页
+      // （onHide 里 ownsDraft=false）。那种情况下 persistDraft() 会**谎报成功
+      // 却不写盘**，转写文字直接消失，而且这条照片的 isTranscribing 永远停在
+      // true——「下一步」一直提示"请等语音转写完成"、菜单里删不掉也换不了照片，
+      // 整条记录报废。
+      // 所以失所有权时改为**定向合并这一条照片的转写字段**：既不整份覆盖
+      // 标注页写下的内容，也不丢结果。
+      this.persistTranscription(issueId, {
+        isTranscribing: false,
+        voiceFilePath: tempFilePath,
+        voiceDuration: duration,
+        voiceStorageFileId: result.fileID || "",
+        voiceFileId: result.fileID || "",
+        speechError: "",
+        voiceText: mergeSpeechText((this.data.form.issueDrafts.find(item => item.id === issueId) || {}).voiceText, result.text, true)
+      });
       wx.showToast({
         title: "转写完成",
         icon: "success"
@@ -1241,7 +1296,15 @@ Page({
         issueDraftCount: issueDrafts.length,
         nextActionLabel: getNextActionLabel(issueDrafts)
       });
-      this.persistDraft();
+      // 失败也必须落盘：isTranscribing 要复位，否则这条照片会永久卡住。
+      // 同样走定向合并，避免在失所有权时整份覆盖标注页的内容。
+      this.persistTranscription(issueId, {
+        isTranscribing: false,
+        voiceFilePath: tempFilePath,
+        voiceDuration: duration,
+        voiceStorageFileId: error.fileID || "",
+        speechError: `${formatSpeechError(error).message}。录音已保留，可重试或直接输入。`
+      });
       const speechError = formatSpeechError(error);
       wx.showToast({
         title: speechError.message,

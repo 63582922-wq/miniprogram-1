@@ -53,6 +53,12 @@ Page({
     editModalValue2: "",
     editModalValue3: ""
   },
+  onHide() {
+    if (this.navigateTimer) { clearTimeout(this.navigateTimer); this.navigateTimer = null; }
+  },
+  onUnload() {
+    if (this.navigateTimer) { clearTimeout(this.navigateTimer); this.navigateTimer = null; }
+  },
   onShow() {
     // 资料来自云端请求，元素要等它回来才渲染。这里在加载完成后**再同步一次**：
     // 只靠 syncCoach 内部的重试，慢网络下仍然可能先一步放弃。
@@ -326,7 +332,10 @@ Page({
         title: "设置已保存",
         icon: "success"
       });
-      setTimeout(() => {
+      // 保存成功后才延迟跳转。用户可能在这 600ms 内点返回——
+      // 不清理的话定时器仍会触发，把已经退到上一页的用户强行带走。
+      if (this.navigateTimer) clearTimeout(this.navigateTimer);
+      this.navigateTimer = setTimeout(() => {
         if (isCoachActive("settingsSave")) {
           this.advanceCoach();
           wx.redirectTo({

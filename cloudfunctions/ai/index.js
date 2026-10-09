@@ -1810,6 +1810,30 @@ exports.main = async (event) => {
           return { success: false, message: access.message };
         }
 
+        // 这条同步路径是旧版客户端在用的，此前**既没有额度闸，也没有入参校验**：
+        // 直接调用可以无限次触发付费的视觉识别，张数也没有上限；
+        // 又因为 resolveImageUrl 会原样放行 http(s) 地址，还能让模型服务商
+        // 去抓任意网址——等于把一个免费的「抓任意链接并描述」服务挂在账号持有人账上。
+        // 异步路径（createInspectionTask → createAnalysisTask）本来就有这两道闸，
+        // 这里补齐，两条路径口径一致。
+        const quota = await assertDailyAiQuota(OPENID);
+        if (!quota.ok) {
+          return { success: false, message: quota.message };
+        }
+        if (!Array.isArray(payload.issueDrafts) || payload.issueDrafts.length > 20) {
+          return { success: false, message: "照片数据不完整或超过20张" };
+        }
+        try {
+          payload.issueDrafts.forEach((photo) => {
+            if (!photo.imagePath) throw new Error("照片尚未上传");
+            // 只接受归属于自己的云存储路径：外部 http(s) 地址一律拒绝
+            assertMedia(photo.imagePath, OPENID);
+            assertMedia(photo.annotatedImagePath, OPENID);
+          });
+        } catch (error) {
+          return { success: false, message: error.message || "照片校验未通过" };
+        }
+
         // 带上调用者身份：图片归属校验需要它（见 resolveImageUrl）。
         // 草稿里的 imagePath 来自客户端，不能仅凭项目归属就假定图片也是本人的。
         const securedPayload = Object.assign({}, payload, { requesterOpenId: OPENID });
@@ -1817,6 +1841,24 @@ exports.main = async (event) => {
         try {
           const modelResult = await analyzeInspectionWithModel(enhancedPayload);
           const memoryAlerts = buildMemoryAlerts(enhancedPayload, modelResult.items);
+          // 记一次用量：每日额度是数 ai_tasks 当天的行数，而这条同步路径
+          // 原本不落任何记录——只加闸不记账的话，闸门永远不会关上。
+          // 写失败不影响这次结果（已经付过费了），但要留下日志。
+          try {
+            await db.collection(AI_TASK_COLLECTION).add({
+              data: {
+                openId: OPENID,
+                projectId: enhancedPayload.projectId || "",
+                status: "success",
+                kind: "sync",
+                batchObservations: {},
+                createdAt: Date.now(),
+                expiresAt: Date.now() + AI_TASK_TTL_MS
+              }
+            });
+          } catch (usageError) {
+            console.warn("[ai] 同步识图用量记录写入失败", usageError);
+          }
           return {
             success: true,
             data: {

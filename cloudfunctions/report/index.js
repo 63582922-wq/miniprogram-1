@@ -134,6 +134,11 @@ async function buildReportData(payload, trustedRead = false) {
   return {
     success: true,
     data: {
+      // 告知客户端这是哪种访问方式。detail 一直带这个字段，build 却没带，
+      // 于是「历史记录 → 整理并生成报告」打开后 isOwner 恒为 false，
+      // 页面显示成「你正在查看他人分享的巡查报告」，也没有发布/转发入口——
+      // 承诺的「生成报告」什么也没生成。
+      accessMode: trustedRead ? "shared" : "owner",
       inspectionId: inspection.data._id,
       projectId: projectRow._id,
       title: `${projectRow.name}巡查报告`,

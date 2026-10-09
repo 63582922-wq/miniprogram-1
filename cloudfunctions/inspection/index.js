@@ -160,7 +160,11 @@ async function refreshProjectLastInspection(projectId, openId) {
   }
   const latestInspection = await db.collection("inspections").where({
     projectId,
-    deleted: false
+    deleted: false,
+    // 排除半成品：提交中途失败会留下 status:"preparing" 的行，
+    // 它比最后一次成功的巡查更新，会让项目卡片显示一个错误日期。
+    // 其余所有列表都排除 preparing，这里也要一致。
+    status: _.neq("preparing")
   }).orderBy("createdAt", "desc").limit(1).get();
   const lastInspectionAt = latestInspection.data && latestInspection.data[0]
     ? latestInspection.data[0].createdAt
