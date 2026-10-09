@@ -26,7 +26,7 @@
   h1{font-size:44pt;line-height:1.14;font-weight:300;letter-spacing:-.02em;margin:0}
   h2{font-size:27pt;line-height:1.24;font-weight:300;letter-spacing:-.015em;margin:0}
   h3{font-size:12pt;font-weight:400;letter-spacing:.2em;color:var(--accent);margin:0}
-  .lead{font-size:12.5pt;line-height:1.85;color:var(--ink2);margin:0;font-weight:300}
+  .lead{font-size:13.5pt;line-height:1.9;color:var(--ink2);margin:0;font-weight:300}
   .note{font-size:10pt;line-height:1.8;color:var(--ink3);margin:0;font-weight:300}
   .push{margin-top:auto}
   .foot{display:flex;justify-content:space-between;font-size:8pt;
@@ -50,16 +50,23 @@
   .step .n{font-size:9pt;color:var(--accent);margin-top:2.5mm}
   .step .t{font-size:11pt;font-weight:400;margin-top:1.5mm}
 
-  .cards{display:flex;gap:5mm;margin-top:7mm}
-  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:5mm;padding:5.5mm}
-  .card .k{font-size:8.5pt;letter-spacing:.16em;color:var(--accent)}
-  .card .t{font-size:12pt;font-weight:400;margin-top:3mm;line-height:1.4}
-  .card .d{font-size:9.5pt;line-height:1.7;color:var(--ink2);margin-top:2.5mm;font-weight:300}
+  .cards{display:flex;gap:6mm;margin-top:9mm}
+  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:6mm;padding:8mm 7mm}
+  .card .k{font-size:9pt;letter-spacing:.18em;color:var(--accent)}
+  .card .t{font-size:14pt;font-weight:400;margin-top:4mm;line-height:1.45}
+  .card .d{font-size:10.5pt;line-height:1.85;color:var(--ink2);margin-top:3.5mm;font-weight:300}
 
-  .rules{margin-top:6mm}
-  .rules .r{display:flex;gap:5mm;align-items:baseline;padding:3mm 0;border-top:1px solid var(--hair)}
-  .rules .r b{font-size:11pt;width:34mm;flex:none;font-weight:400}
-  .rules .r span{font-size:10pt;color:var(--ink2);line-height:1.7;font-weight:300}
+  .rules{margin-top:8mm}
+  .rules .r{display:flex;gap:5mm;align-items:baseline;padding:5mm 0;border-top:1px solid var(--hair)}
+  .rules .r b{font-size:12pt;width:36mm;flex:none;font-weight:400}
+  .rules .r span{font-size:11pt;color:var(--ink2);line-height:1.75;font-weight:300}
+
+  .ba{display:flex;align-items:center;gap:6mm;background:#fff;border:1px solid var(--hair);
+      border-radius:6mm;padding:7mm 8mm}
+  .ba__col{flex:1}
+  .ba__k{font-size:8.5pt;letter-spacing:.18em;color:var(--ink3)}
+  .ba__v{font-size:11.5pt;line-height:1.8;font-weight:300;margin-top:3mm}
+  .ba__arrow{font-size:16pt;color:var(--ink3);flex:none}
 
   .qr{display:flex;align-items:center;gap:8mm}
   .qr img{width:42mm;height:42mm;background:#fff;padding:3mm;display:block;flex:none}
@@ -140,7 +147,7 @@
 <div class="p">
   <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 豆</span><span>02</span></div>
   <h2 style="margin-top:11mm">AI 是替你写字的那只手</h2>
-  <p class="lead" style="margin-top:5mm;max-width:158mm">
+  <p class="lead" style="margin-top:7mm;max-width:160mm">
     现场手脏、光线暗、没空打字——那些要一个字一个字写的说明，让它先写一版。
     不想用也行：选「仅手动填写」，照片和录音就不会发给第三方，流程一样完整。
   </p>
@@ -167,6 +174,18 @@
     <div class="r"><b>AI 写的必须你确认</b><span>结果都标「待核对」，你不确认就不进报告。</span></div>
     <div class="r"><b>它只打草稿</b><span>不编造看不出的问题，不判合格与否，不替你认定责任。</span></div>
     <div class="r"><b>拿主意的始终是你</b><span>报告是你要发出去的，每条都能亲手改。</span></div>
+  </div>
+
+  <div class="ba" style="margin-top:9mm">
+    <div class="ba__col">
+      <div class="ba__k">你在现场说</div>
+      <div class="ba__v">「厨房这块砖敲着空，声音发闷，大概三十公分。」</div>
+    </div>
+    <div class="ba__arrow">→</div>
+    <div class="ba__col">
+      <div class="ba__k" style="color:var(--accent)">报告里写着</div>
+      <div class="ba__v">厨房墙面瓷砖空鼓，敲击有明显空响，范围约 30cm。</div>
+    </div>
   </div>
 
   <div class="push"></div>
