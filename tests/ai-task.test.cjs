@@ -346,7 +346,10 @@ test('text organization autofills only source-grounded fields without sending an
  assert.equal(done.data.status,'success');assert.equal(calls,1);
  assert.doesNotMatch(JSON.stringify(sent),/image_url|cloud:\/\/|p0\.png/);
  const item=done.data.analysis.items[0];
- assert.equal(item.description,note,'the text model must not paraphrase the inspector\'s original words');assert.equal(item.area,'次卧');assert.equal(item.responsiblePartyName,'王工');
+ // 描述改为允许模型重新整理成书面表述（说/写的都是口语，能直接进报告的是书面语）；
+ // 但原话必须原样留档——任何一条都能回溯到用户到底说了什么。
+ assert.equal(item.description,'次卧窗台收口不平整');
+ assert.equal(item.sourceQuote,note,'原话必须原样保留，重新整理不能牺牲可追溯性');assert.equal(item.area,'次卧');assert.equal(item.responsiblePartyName,'王工');
  assert.equal(item.category,'');assert.equal(item.suggestion,'','text organization must not produce remediation advice');assert.equal(item.originalText,note);
  assert.equal(item.needsReview,true);assert.equal(item.sourcePhotoId,'p0');assert.equal(item.evidenceSource,'note');
  await fn({action:'advanceInspectionTask',payload:{taskId:created.data.taskId}});assert.equal(calls,1);
@@ -359,14 +362,17 @@ test('text normalization preserves uncertainty and omitted words; cannot borrow 
   {sourceQuote:a,description:'开裂',area:'次卧',responsiblePartyName:'李工',evidence:{area:'次卧',responsiblePartyName:'由李工负责补胶'}},
   {sourceQuote:b,responsiblePartyName:'李工',evidence:{responsiblePartyName:'由李工负责补胶'}}
  ]);
- assert.equal(items[0].description,a);assert.equal(items[0].responsiblePartyName,'');assert.equal(items[1].responsiblePartyName,'李工');
+ assert.equal(items[0].description,'开裂','有模型给的书面表述时采用它');
+ assert.equal(items[0].sourceQuote,a,'原话原样留档');
+ assert.equal(items[0].responsiblePartyName,'');assert.equal(items[1].responsiblePartyName,'李工');
  const omitted=normalizeTextItems({voiceText:a+b},[{sourceQuote:b}]);
  assert.equal(omitted.length,1);assert.equal(omitted[0].description,a+b);assert.equal(omitted[0].textExtractionFallback,true);
  const inferred=normalizeTextItems({voiceText:'木工在现场，疑似需要他负责。'},[{sourceQuote:'木工在现场，疑似需要他负责。',responsiblePartyName:'木工',evidence:{responsiblePartyName:'木工在现场，疑似需要他负责。'}}]);
  assert.equal(inferred[0].responsiblePartyName,'');
  for(const negative of ['王工不负责补胶。','补胶不由王工处理。','不是开裂，无需王工处理。']) {
   const item=normalizeTextItems({voiceText:negative},[{sourceQuote:negative,description:'开裂',responsiblePartyName:'王工',evidence:{responsiblePartyName:negative}}])[0];
-  assert.equal(item.responsiblePartyName,'');assert.equal(item.description,negative);
+  assert.equal(item.responsiblePartyName,'','否定语气下绝不猜责任方');
+  assert.equal(item.sourceQuote,negative,'原话原样留档');
  }
 });
 
@@ -651,4 +657,62 @@ test('同步识图路径不接受外部图片地址，也不接受超量照片',
    issueDrafts:Array.from({length:21},(_,i)=>({id:'p'+i,imagePath:`cloud://env/inspection-images/user/owner/p${i}.png`}))}});
  assert.equal(many.success,false);
  assert.match(many.message,/超过20张/);
+});
+
+test('用户随口说的话，AI 要能拆出区域、分类、等级',()=>{
+ // 用户不会按字段说话。说「客厅那面墙裂了」时，「分类：墙面」要靠推断——
+ // 值自然不可能原样出现在原话里。此前归一化要求 value 必须是原话的逐字片段，
+ // 于是推断在结构上就不可能发生。
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ const note='嗯就是客厅那面墙好像裂了，看着挺严重的';
+ const items=normalizeTextItems({id:'p',voiceText:note},[{
+   sourceQuote:note,
+   description:'客厅墙面存在裂缝',
+   area:'客厅', category:'墙面/油漆', severity:'major',
+   evidence:{description:'客厅那面墙好像裂了',area:'客厅那面墙',category:'那面墙好像裂了',severity:'看着挺严重的'}
+ }]);
+ const item=items[0];
+ assert.equal(item.area,'客厅','区域可以直接来自原话');
+ assert.equal(item.category,'墙面/油漆','分类允许基于原话推断，不必逐字出现');
+ assert.equal(item.severity,'major','用户说了「挺严重的」，等级应当据此判断');
+ assert.equal(item.description,'客厅墙面存在裂缝','口语整理成能进报告的书面表述');
+ assert.equal(item.sourceQuote,note,'原话原样留档');
+});
+
+test('推断可以，替人定责不行',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ // 提到工种不等于责任归属：报告是发给业主与施工方的正式文件，
+ // 猜错责任方就是替人定罪。
+ const cases=[
+   {note:'客厅墙裂了，木工在现场、疑似需要他负责。',area:'客厅'},
+   {note:'客厅墙裂了，是施工方的问题。',area:'客厅'},
+   {note:'客厅墙裂了，这个应该是瓦工弄的。',area:'客厅'}
+ ];
+ for(const {note,area} of cases){
+   const items=normalizeTextItems({id:'p',voiceText:note},[{
+     sourceQuote:note, description:'客厅墙面存在裂缝', area, category:'墙面',
+     responsiblePartyName:'木工',
+     // 依据必须是真实原话片段——这条不能松，所以按各自的原话给
+     evidence:{area, category:'墙', responsiblePartyName:note}
+   }]);
+   assert.equal(items[0].responsiblePartyName,'',`「${note}」不该推断出责任方`);
+   assert.equal(items[0].responsibleParty,'pending');
+   // 区域/分类不受影响，仍然可以基于原话推断
+   assert.equal(items[0].area,area);
+   assert.equal(items[0].category,'墙面','分类可以推断，不必逐字出现在原话里');
+ }
+});
+
+test('等级只接受系统认的三档，没有程度线索就给一般',()=>{
+ const {normalizeTextItems}=require('../cloudfunctions/ai/text-organizer');
+ const note='墙角有点脏';
+ const build=(severity,evidence)=>({sourceQuote:note,description:'墙角存在污染',severity,
+   evidence:{severity:evidence}});
+ for(const bad of ['serious','高','',undefined]){
+   const items=normalizeTextItems({id:'p',voiceText:note},[build(bad,'有点脏')]);
+   assert.equal(items[0].severity,'normal',`非法等级 ${bad} 必须回落到 normal`);
+ }
+ // 有依据才采纳推断出的等级
+ const noEvidence=normalizeTextItems({id:'p',voiceText:note},[{sourceQuote:note,severity:'critical',evidence:{}}]);
+ assert.equal(noEvidence[0].severity,'normal','没有原话依据的等级不予采纳');
 });
