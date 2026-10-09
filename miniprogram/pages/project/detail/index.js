@@ -5,6 +5,7 @@ const { listDrafts, writeDraft, readDraft, discardDraft } = require("../../../ut
 const { cancelInspectionTask } = require("../../../services/inspection");
 const { keepLocalFile } = require("../../../services/inspection-media");
 const { identity } = require("../../../utils/inspection-model");
+const { coachData, coachMethods } = require("../../../utils/coach-page");
 
 function choosePhotoFiles(sourceType) {
   let platform = "";
@@ -27,6 +28,7 @@ function choosePhotoFiles(sourceType) {
 
 Page({
   data: {
+    ...coachData(),
     loading:true,loadError:"",
     projectId: "",drafts:[],
     project: {},
@@ -42,6 +44,7 @@ Page({
     });
   },
   onShow() {
+    this.syncCoach();
     if (this.data.projectId) {
       this.loadDetail();
     } else {
@@ -84,6 +87,7 @@ Page({
       });
     } finally{if (generation === this.detailLoadGeneration) this.setData({loading:false});}
   },
+  ...coachMethods("projectDetailStart","#coach-start-record"),
   goEdit() {
     wx.navigateTo({
       url: `/pages/project/form/index?projectId=${this.data.projectId}`
@@ -91,6 +95,7 @@ Page({
   },
   goInspectionCreate() {
     if (this.data.loading || this.data.loadError) return;
+    this.advanceCoach();
     this.setData({captureChoiceOpen:true});
   },
   closeCaptureChoice() { this.setData({captureChoiceOpen:false}); },

@@ -65,6 +65,7 @@
   </view>
 
   <view class="footer-actions footer-actions--fixed">
-    <button class="ui-button-reset primary-button review-submit {{submitting ? 'ui-disabled ui-loading' : ''}}" loading="{{submitting}}" disabled="{{submitting}}" hover-class="is-pressed" aria-label="确认当前核对内容并生成微信报告" bindtap="handleAcceptAllAndSubmit">{{submitting ? '正在保存并生成报告…' : '确认内容并生成报告'}}</button>
+    <button class="ui-button-reset primary-button review-submit {{submitting ? 'ui-disabled ui-loading' : ''}}" id="coach-review-submit" loading="{{submitting}}" disabled="{{submitting}}" hover-class="is-pressed" aria-label="确认当前核对内容并生成微信报告" bindtap="handleAcceptAllAndSubmit">{{submitting ? '正在保存并生成报告…' : '确认内容并生成报告'}}</button>
   </view>
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

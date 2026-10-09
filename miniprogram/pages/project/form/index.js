@@ -1,10 +1,11 @@
 const { getProjectDetail, saveProject } = require("../../../services/project");
 const { PROJECT_STATUS_OPTIONS } = require("../../../constants/status");
 const { markGuideStep } = require("../../../utils/guide");
+const { coachData, coachMethods } = require("../../../utils/coach-page");
 const { identity } = require("../../../utils/inspection-model");
 const KEY="projectCreateDraftV2";
 Page({
-  data:{projectId:"",pageTitle:"新建项目",isSaving:false,submissionLocked:false,
+  data:{...coachData(),projectId:"",pageTitle:"新建项目",isSaving:false,submissionLocked:false,
     projectStatusOptions:PROJECT_STATUS_OPTIONS,projectStatusIndex:0,
     form:{name:"",address:"",clientName:"",clientPhone:"",description:"",status:"active"}},
   async onLoad(query){
@@ -31,6 +32,8 @@ Page({
       if(d && d.form){this.requestId=d.requestId;this.setData({form:d.form,submissionLocked:!!d.submitted});}
     }
   },
+  onShow(){this.syncCoach();},
+  ...coachMethods("projectCreateForm","#coach-project-save"),
   onHide(){this.saveDraft();},
   onUnload(){this.saveDraft();},
   saveDraft(){
@@ -58,6 +61,7 @@ Page({
       }
       this.saved=true;if(!this.data.projectId)wx.removeStorageSync(this.draftKey);
       markGuideStep("projectCreated",true);
+      this.advanceCoach();
       wx.redirectTo({url:"/pages/project/detail/index?projectId="+encodeURIComponent(savedId)});
     }catch(e){wx.showModal({title:"保存尚未确认",content:(e.message||"网络异常")+"。重试将继续同一次保存，不会重复创建。",showCancel:false});}
     finally{this.setData({isSaving:false});}

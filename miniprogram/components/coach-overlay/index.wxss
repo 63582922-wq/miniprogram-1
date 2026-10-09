@@ -1,0 +1,83 @@
+@import "../../styles/precision-a.wxss";
+
+/* 0×0 的定位锚点：本身不挡任何点击，四块遮罩与气泡各自 fixed 定位。 */
+.coach {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 950;
+}
+
+.coach__mask {
+  position: fixed;
+  background: var(--a-scrim);
+}
+
+/* 高亮框只描边、不填充，也不拦截点击——用户点的是底下的真实按钮。 */
+.coach__ring {
+  position: fixed;
+  box-sizing: border-box;
+  border: 2px solid var(--a-accent);
+  border-radius: var(--a-radius-control);
+  background: transparent;
+  pointer-events: none;
+}
+
+.coach__tip {
+  position: fixed;
+  box-sizing: border-box;
+  padding: var(--a-space-3);
+  border-radius: var(--a-radius-object);
+  background: var(--a-paper);
+  box-shadow: 0 8rpx 32rpx rgba(25, 24, 22, .22);
+}
+
+.coach__step {
+  color: var(--a-muted);
+  font-size: var(--a-type-micro);
+  letter-spacing: 0.08em;
+}
+
+.coach__title {
+  margin-top: var(--a-space-1);
+  color: var(--a-ink);
+  font-size: var(--a-type-action);
+  font-weight: var(--a-weight-emphasis);
+}
+
+.coach__desc {
+  margin-top: var(--a-space-1);
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+  line-height: 1.7;
+}
+
+.coach__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--a-space-2);
+  margin-top: var(--a-space-3);
+}
+
+.coach__skip {
+  width: auto !important;
+  flex: none;
+  margin: 0 !important;
+  padding: 0 var(--a-space-1) !important;
+  color: var(--a-muted);
+  font-size: var(--a-type-caption);
+}
+
+.coach__next {
+  flex: 1;
+  width: auto !important;
+  min-height: var(--a-hit);
+  margin: 0 !important;
+  padding: 0 var(--a-space-3) !important;
+  background: var(--a-accent) !important;
+  color: var(--a-accent-ink) !important;
+  font-size: var(--a-type-action);
+  line-height: 1.35;
+}

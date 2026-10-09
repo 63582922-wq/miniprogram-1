@@ -6,6 +6,7 @@ const { decodeReturnContext, returnToContext } = require("../../../utils/router"
 const { markGuideStep } = require("../../../utils/guide");
 const { getWindowInfo } = require("../../../utils/system");
 const { createReportShareToken, revokeReportShareToken } = require("../../../services/report");
+const { coachData, coachMethods } = require("../../../utils/coach-page");
 
 /** 严重度：由重到轻，用于摘要卡与分布条的固定顺序 */
 const SEVERITY_KEYS = ["critical", "major", "normal"];
@@ -376,6 +377,7 @@ function fixedHeaderHeight() {
 
 Page({
   data: {
+    ...coachData(),
     reportId: "",
     inspectionId: "",
     /** 收件人从分享链接带过来的只读凭据 */
@@ -421,6 +423,7 @@ Page({
   },
   async onShow() {
     await this.loadReport();
+    this.syncCoach();
   },
   onUnload() {
     this.reportPreviewGeneration = (this.reportPreviewGeneration || 0) + 1;
@@ -591,6 +594,7 @@ Page({
     groups[index] = {...groups[index],image:"",imagePreviewError:true};
     this.setData({"report.issueGroups":groups});
   },
+  ...coachMethods("reportShare","#coach-report-share"),
   async loadReport() {
     const generation = (this.reportPreviewGeneration || 0) + 1;
     this.reportPreviewGeneration = generation;
@@ -740,6 +744,7 @@ Page({
   },
 
   onShareAppMessage() {
+    this.advanceCoach();
     // 微信转发直接进入当前只读在线报告；报告本身就是交付物。
     if (!this.data.reportId || this.data.report?.shareState==="revoked") {
       return {

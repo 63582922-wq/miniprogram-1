@@ -21,7 +21,7 @@
         </view></view>
         <view class="capture-photo-actions">
           <button class="ui-button-reset photo-processing-mode {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" data-id="{{item.id}}" data-index="{{index}}" bindtap="recognizePhoto"><text>{{item.aiRecognized ? '重新识图' : 'AI识图'}}</text></button>
-          <button class="ui-button-reset photo-processing-mode" data-index="{{index}}" bindtap="openAnnotate"><image class="capture-section__action-icon" src="/images/icons/annotation-rectangle.svg" mode="aspectFit"/><text>标注{{item.annotationCount ? ' · '+item.annotationCount : ''}}</text></button>
+          <button class="ui-button-reset photo-processing-mode" id="{{index === 0 ? 'coach-annotate' : ''}}" data-index="{{index}}" bindtap="openAnnotate"><image class="capture-section__action-icon" src="/images/icons/annotation-rectangle.svg" mode="aspectFit"/><text>标注{{item.annotationCount ? ' · '+item.annotationCount : ''}}</text></button>
         </view>
         <view wx:if="{{item.aiRecognized}}" class="capture-ai-result"><view wx:for="{{item.aiIssues}}" wx:for-item="problem" wx:key="*this">{{problem}}</view><text wx:if="{{!item.aiIssues.length}}">未识别到明确问题，可直接补充说明。</text></view>
         <view class="issue-draft-card__editor">
@@ -39,10 +39,10 @@
       </view>
     </view>
   </view>
-  <view wx:if="{{form.issueDrafts.length < 20}}" class="capture-section__picker-actions">
+  <view wx:if="{{form.issueDrafts.length < 20}}" id="coach-pick-photo" class="capture-section__picker-actions">
     <button class="ui-button-reset secondary-button {{pickingImages || analyzing ? 'ui-disabled' : ''}}" disabled="{{pickingImages || analyzing}}" loading="{{pickingImages}}" hover-class="is-pressed" bindtap="chooseImages"><image class="capture-section__action-icon" src="/images/icons/icon-gallery.svg" mode="aspectFit" /><text>继续添加</text></button>
   </view>
-  <view wx:if="{{form.issueDrafts.length}}" class="footer-actions footer-actions--fixed"><button class="ui-button-reset primary-button {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" bindtap="handleContinueReview">{{nextActionLabel}}</button></view>
+  <view wx:if="{{form.issueDrafts.length}}" id="coach-continue" class="footer-actions footer-actions--fixed"><button class="ui-button-reset primary-button {{analyzing || pickingImages ? 'ui-disabled' : ''}}" disabled="{{analyzing || pickingImages}}" bindtap="handleContinueReview">{{nextActionLabel}}</button></view>
   <view wx:if="{{photoChoiceOpen}}" class="photo-choice-mask" catchtap="deferPhotoProcessing">
     <view class="photo-choice-panel" catchtap="ignoreTap">
       <view class="photo-choice-title ui-sheet-title">{{photoChoiceIds.length > 1 ? '这 '+photoChoiceIds.length+' 张照片怎么整理？' : '这张照片怎么整理？'}}</view>
@@ -64,4 +64,5 @@
       <button wx:else class="ui-button-reset analyze-panel__cancel" bindtap="handleCancelAnalyze">返回记录</button>
     </view>
   </view>
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

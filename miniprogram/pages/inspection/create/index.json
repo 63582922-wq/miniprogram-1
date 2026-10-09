@@ -4,6 +4,7 @@
     "annotation-canvas": "/components/annotation-canvas/index",
     "app-tab-bar": "/custom-tab-bar/index",
     "empty-state": "/components/empty-state/index",
-    "page-nav-bar": "/components/page-nav-bar/index"
+    "page-nav-bar": "/components/page-nav-bar/index",
+    "coach-overlay": "/components/coach-overlay/index"
   }
 }

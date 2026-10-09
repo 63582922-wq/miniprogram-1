@@ -1,4 +1,5 @@
 const { listProjects } = require("../../../services/project");
+const { coachData, coachMethodsMulti } = require("../../../utils/coach-page");
 const {
   analyzeInspection,
   createInspectionTask,
@@ -293,6 +294,7 @@ function choosePhotoFiles({ count = 1, sourceType = ["album", "camera"] } = {}) 
 
 Page({
   data: {
+    ...coachData(),
     projects: [],
     projectIndex: 0,
     currentProjectNameText: "请选择项目",
@@ -443,6 +445,7 @@ Page({
     }, 0);
   },
   async onShow() {
+    this.syncCoach();
     if(this.initializing)return;
     this.ownsDraft = true;
     this.suspendDraftOnHide = false;
@@ -743,6 +746,20 @@ Page({
     });
     this.persistDraft();
   },
+  /**
+   * 现场记录页有 4 个引导步骤，依次点亮：
+   * 添加照片 → 标注 → 按住说话 → 进入核对。
+   * 后三步的目标元素要等到有照片才存在，所以每步都带 ready 判断。
+   */
+  ...coachMethodsMulti([
+    { key: "capturePickPhoto", selector: "#coach-pick-photo" },
+    { key: "captureAnnotate", selector: "#coach-annotate",
+      ready() { return Boolean((this.data.form.issueDrafts || []).length); } },
+    { key: "captureVoice", selector: "#coach-voice",
+      ready() { return Boolean((this.data.form.issueDrafts || []).length); } },
+    { key: "captureContinue", selector: "#coach-continue",
+      ready() { return Boolean((this.data.form.issueDrafts || []).length); } }
+  ]),
   chooseImages(event = {}) {
     if (this.data.pickingImages) return;
     if(!this.data.sessionKey || !this.data.form.projectId || this.data.loadingProjects || this.data.projectLoadError){wx.showToast({title:"请先确认记录所属项目",icon:"none"});return;}
@@ -822,6 +839,9 @@ Page({
       } else {
         wx.showToast({title:`已添加${list.length}张照片`,icon:"success"});
       }
+      // 照片到手，引导推进到「在照片上圈出问题位置」
+      page.advanceCoach("capturePickPhoto");
+      page.syncCoach();
     };
 
     const handlePickerFail = (error, sourceType) => {
@@ -1071,6 +1091,7 @@ Page({
     wx.showActionSheet({itemList:actions.map(action=>action.label),success:result=>actions[result.tapIndex]?.run()});
   },
   async handleContinueReview() {
+    this.advanceCoach("captureContinue");
     if(this.data.transcribingIssueId||this.data.form.issueDrafts.some(photo=>photo.isTranscribing)){
       wx.showToast({title:'请等语音转写完成',icon:'none'});return;
     }
@@ -1100,6 +1121,7 @@ Page({
     });
   },
   handleRecordTouchStart(event) {
+    this.advanceCoach("captureVoice");
     this.recordPressActive=true;
     this.recordGesture=(this.recordGesture||0)+1;
     this.recordStartY=event.touches?.[0]?.clientY||0;
@@ -1260,6 +1282,8 @@ Page({
       return;
     }
 
+    // 用户已经找到「标注」了，引导推进到「写说明或按住说话」
+    this.advanceCoach("captureAnnotate");
     this.persistDraft();
     this.suspendDraftOnHide = true;
     wx.navigateTo({

@@ -4,7 +4,8 @@ const { uploadUserFile } = require("../../services/cloud");
 const { resolveCloudFileUrls, isCloudFileId } = require("../../services/cloud-media");
 const { getCurrentUser, updateProfile } = require("../../services/user");
 const { markGuideStep } = require("../../utils/guide");
-const { isCoachStep, moveCoach, stopCoach, buildCoachTip } = require("../../utils/coach");
+const { coachData, coachMethods } = require("../../utils/coach-page");
+const { isCoachStep: isCoachActive } = require("../../utils/coach");
 const { getInspectorName } = require("../../utils/report-identity");
 
 function getUploadExtension(filePath = "") {
@@ -39,11 +40,7 @@ Page({
     },
     isSaving: false,
     dirty: false,
-    coachTipVisible: false,
-    coachTipTitle: "",
-    coachTipDesc: "",
-    coachHighlightSave: false,
-    coachTargetLabel: "保存设置",
+    ...coachData(),
     editingField: "",
     editModalTitle: "",
     editModalLabel1: "",
@@ -58,50 +55,11 @@ Page({
   },
   onShow() {
     if(!this.loaded)this.loadSettings();
+    this.syncCoach();
   },
-  syncCoachTip() {
-    const active = isCoachStep("settingsSave");
-    const tip = buildCoachTip("settingsSave", {
-      tailHint: "基础信息会自动带入后续在线报告。"
-    });
-    this.setData({
-      coachTipVisible: active,
-      coachTipTitle: tip.title,
-      coachTipDesc: "请点击底部高亮按钮「保存设置」。",
-      coachHighlightSave: active,
-      coachTargetLabel: "保存设置"
-    }, () => {
-      if (active) {
-        this.ensureCoachTargetVisible();
-      }
-    });
-  },
-  ensureCoachTargetVisible() {
-    const query = wx.createSelectorQuery();
-    query.select("#coach-save-target").boundingClientRect();
-    query.selectViewport().scrollOffset();
-    query.exec((result = []) => {
-      const rect = result[0];
-      const viewport = result[1];
-      if (!rect || !viewport) {
-        return;
-      }
-      const windowHeight = getWindowInfo().windowHeight || 0;
-      const safeBottom = windowHeight - 180;
-      if (rect.bottom <= safeBottom) {
-        return;
-      }
-      const scrollTop = Math.max(0, (viewport.scrollTop || 0) + (rect.bottom - safeBottom) + 20);
-      wx.pageScrollTo({
-        scrollTop,
-        duration: 220
-      });
-    });
-  },
-  handleCoachSkip() {
-    stopCoach();
-    this.syncCoachTip();
-  },
+  ...coachMethods("settingsSave", "#coach-save-target", {
+    tip: { tailHint: "基础信息会自动带入后续在线报告。" }
+  }),
   noop() {},
   handleBackTap() {
     if (!this.data.dirty) {
@@ -367,8 +325,8 @@ Page({
         icon: "success"
       });
       setTimeout(() => {
-        if (isCoachStep("settingsSave")) {
-          moveCoach("projectCreateForm");
+        if (isCoachActive("settingsSave")) {
+          this.advanceCoach();
           wx.redirectTo({
             url: "/pages/project/form/index"
           });

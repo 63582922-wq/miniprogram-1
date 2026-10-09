@@ -19,4 +19,5 @@
     </view>
     <view class="footer-actions" id="coach-save-target"><button class="ui-button-reset primary-button {{isSaving || loading || logoUploading ? 'ui-disabled' : ''}} {{isSaving ? 'ui-loading' : ''}}" disabled="{{isSaving || loading || logoUploading}}" loading="{{isSaving}}" bindtap="handleSubmit">{{logoUploading ? 'LOGO 上传中' : isSaving ? '正在保存' : '保存资料'}}</button></view>
   </block>
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

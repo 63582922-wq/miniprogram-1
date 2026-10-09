@@ -11,7 +11,7 @@
       <view wx:if="{{project.description}}" class="project-hero__meta">{{project.description}}</view>
     </view>
 
-    <button class="ui-button-reset primary-button project-hero__action" bindtap="goInspectionCreate"><image class="project-hero__action-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />开始现场记录</button>
+    <button class="ui-button-reset primary-button project-hero__action" id="coach-start-record" bindtap="goInspectionCreate"><image class="project-hero__action-icon" src="/images/icons/icon-tab-camera.svg" mode="aspectFit" />开始现场记录</button>
 
     <view wx:if="{{drafts.length}}" class="project-section">
       <view class="project-section__head">
@@ -40,4 +40,5 @@
     </view>
   </view>
   <view wx:if="{{capturePicking}}" class="capture-saving-mask"><view class="capture-saving-panel"><view class="capture-saving-indicator"></view><text>正在保存照片…</text></view></view>
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

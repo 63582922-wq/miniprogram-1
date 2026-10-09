@@ -9,6 +9,7 @@ const { getSettings } = require("../../../services/settings");
 const { getCurrentUser } = require("../../../services/user");
 const { resolveCloudFileUrls, isCloudFileId } = require("../../../services/cloud-media");
 const { getInspectorName } = require("../../../utils/report-identity");
+const { coachData, coachMethods } = require("../../../utils/coach-page");
 
 function buildIssueGroups(issues = [], photos = []) {
   const map = new Map();
@@ -67,6 +68,7 @@ function buildIssueGroups(issues = [], photos = []) {
 }
 Page({
   async onShow(){
+    this.syncCoach();
     const generation=(this.identityLoadGeneration||0)+1;
     this.identityLoadGeneration=generation;
     try{
@@ -99,7 +101,7 @@ Page({
   },
   handleIdentityLogoError(){this.setData({"reportIdentity.logoPreviewUrl":"",identityLogoError:true});},
   editReportIdentity(){wx.navigateTo({url:"/pages/settings/index"});},
-  data:{summaryEdited:false,reviewNeedsAttention:false,reviewStalePhotoIds:[],draftKey:"",sessionKey:"",returnContext:null,form:null,reportIdentity:{companyName:"",companyPhone:"",companyAddress:"",logoFileId:"",logoPreviewUrl:"",inspectorName:"",inspectorPhone:""},identityError:"",identityLogoError:false,mediaLoadError:"",mediaLoadGeneration:0,originalIssues:[],issues:[],issueGroups:[],summary:{},submitting:false,submissionLocked:false},
+  data:{...coachData(),summaryEdited:false,reviewNeedsAttention:false,reviewStalePhotoIds:[],draftKey:"",sessionKey:"",returnContext:null,form:null,reportIdentity:{companyName:"",companyPhone:"",companyAddress:"",logoFileId:"",logoPreviewUrl:"",inspectorName:"",inspectorPhone:""},identityError:"",identityLogoError:false,mediaLoadError:"",mediaLoadGeneration:0,originalIssues:[],issues:[],issueGroups:[],summary:{},submitting:false,submissionLocked:false},
   onLoad(query) {
     const key=query.sessionKey || query.draftKey, draft=readDraft(key);
     if(!draft.form){wx.showModal({title:"记录不存在",content:"请返回现场记录恢复草稿",showCancel:false});return;}
@@ -239,6 +241,7 @@ Page({
     }});
   },
   handleAcceptAllAndSubmit(){if(typeof wx.vibrateShort==='function')wx.vibrateShort({type:'light'});return this.handleSubmit();},
+  ...coachMethods("reviewPublish","#coach-review-submit"),
   async handleSubmit(){
     if(this.data.submitting){wx.showToast({title:"正在保存，请稍候",icon:"none"});return;}
     if(!this.data.form){wx.showModal({title:"记录尚未就绪",content:"没有读取到本次核对内容。返回现场记录恢复草稿后再试。",showCancel:false});return;}
@@ -312,6 +315,8 @@ Page({
       markGuideStep("inspectionSubmitted",true);this.published=true;finishDraft(this.data.sessionKey);
       if(this.data.draftKey!==this.data.sessionKey)wx.removeStorageSync(this.data.draftKey);
       const context=encodeReturnContext(this.data.returnContext);
+      // 报告已生成，引导推进到「转发给业主」
+      this.advanceCoach();
       wx.redirectTo({
         url:"/pages/report/detail/index?reportId="+report._id+(context?"&returnContext="+context:""),
         fail:error=>{

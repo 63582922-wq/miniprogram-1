@@ -9,5 +9,6 @@
     <view class="field"><view class="field-label">项目说明</view><textarea class="field-textarea" value="{{form.description}}" disabled="{{submissionLocked}}" data-field="description" bindinput="handleInput" maxlength="2000" auto-height placeholder-class="ui-placeholder" /></view>
   </view>
   <view wx:if="{{submissionLocked}}" class="precision-state">提交内容已保留。请继续保存以确认结果，避免创建重复项目。</view>
-  <view class="footer-actions"><button class="ui-button-reset primary-button {{isSaving ? 'ui-disabled ui-loading' : ''}}" loading="{{isSaving}}" disabled="{{isSaving}}" bindtap="handleSubmit">{{submissionLocked ? '继续保存' : '保存项目'}}</button></view>
+  <view class="footer-actions" id="coach-project-save"><button class="ui-button-reset primary-button {{isSaving ? 'ui-disabled ui-loading' : ''}}" loading="{{isSaving}}" disabled="{{isSaving}}" bindtap="handleSubmit">{{submissionLocked ? '继续保存' : '保存项目'}}</button></view>
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>

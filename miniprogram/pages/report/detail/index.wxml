@@ -133,6 +133,7 @@
     <button
       wx:if="{{isOwner && report.shareToken && report.shareState !== 'revoked'}}"
       class="ui-button-reset report-action-button report-action-button--primary report-action-button--share"
+      id="coach-report-share"
       open-type="share"
     >转发这份报告</button>
     <button wx:elif="{{isOwner}}" class="ui-button-reset report-action-button report-action-button--primary" bindtap="manageShare">生成可转发链接</button>
@@ -203,4 +204,5 @@
     <view class="section-title">暂无报告数据</view>
     <view class="section-subtitle">请先确认巡查问题，再生成报告。</view>
   </view>
+  <coach-overlay visible="{{coachVisible}}" rect="{{coachRect}}" title="{{coachTitle}}" desc="{{coachDesc}}" stepText="{{coachStepText}}" bind:next="handleCoachNext" bind:skip="handleCoachSkip" />
 </view>
