@@ -53,6 +53,17 @@
   .dark .lead{color:#C6BFB2} .dark .note{color:#8B8375}
   .dark h1,.dark h2{color:var(--paper)}
 
+  /* 品牌标：封面用大号图标 + 字标，内页页眉用小号 */
+  .brandbig{display:flex;align-items:center;gap:6mm}
+  .brandbig img{width:19mm;height:19mm;border-radius:5mm;display:block}
+  .brandbig .w{font-size:20pt;font-weight:600;letter-spacing:.22em}
+  .headlogo{display:flex;align-items:center;gap:3.5mm}
+  .headlogo img{width:7mm;height:7mm;border-radius:2mm;display:block}
+
+  /* 步骤图标：与数字并列，做图文搭配 */
+  .it .ico{width:9mm;height:9mm;flex:none;margin-top:.6mm;opacity:.9}
+  .it .n{margin-right:1mm}
+
   .qr{display:flex;align-items:center;gap:9mm}
   .qr img{width:46mm;height:46mm;background:#fff;padding:3mm;display:block}
   .qr .t{font-size:15pt;font-weight:600}
@@ -65,7 +76,11 @@
 <div class="p dark">
   <div class="glow"></div><div class="glow2"></div>
   <div class="inner">
-    <div class="top" style="color:#8B8375"><span>尺 包</span><span>现场记录 · 精准标注 · 清楚交付</span></div>
+    <div class="top" style="color:#8B8375"><span></span><span>现场记录 · 精准标注 · 清楚交付</span></div>
+    <div class="brandbig" style="margin-top:8mm">
+      <img src="assets/chibao-icon.png" alt="尺包">
+      <div class="w" style="color:#FCF9F5">尺 包</div>
+    </div>
     <div class="push"></div>
     <h1>拍完现场，<br>报告就好了。</h1>
     <p class="lead" style="margin-top:9mm;max-width:120mm">
@@ -84,21 +99,26 @@
 
 <!-- 解决什么 -->
 <div class="p">
-  <div class="top"><span>尺 包</span><span>01</span></div>
-  <h2 style="margin-top:14mm">现场记录最烦的<br>是这三件事</h2>
+  <div class="top"><span class="headlogo"><img src="assets/chibao-icon.png" alt="">尺 包</span><span>01</span></div>
+  <h2 style="margin-top:14mm">现场拍了一堆照片，<br>最后得变成一份报告</h2>
+
+  <p class="lead" style="margin-top:9mm;max-width:150mm">
+    照片不是报告。中间那一步——挑问题、配文字、编号、排版，
+    做成一份能发给业主的正式文件——最费时间。
+  </p>
 
   <div class="list">
     <div class="it"><div class="n">1</div><div>
-      <div class="x">说不清是哪一处</div>
-      <div class="y">照片发一大堆，对方不知道你说的是哪个位置、该谁处理。</div>
+      <div class="x">以前只能自己做</div>
+      <div class="y">导照片、一张张配说明、编号、分区分类、排版，做成一份 PDF。一份一两个小时。</div>
     </div></div>
     <div class="it"><div class="n">2</div><div>
-      <div class="x">现场手脏，打字费劲</div>
-      <div class="y">光线暗、戴手套，一个字一个字敲太慢。</div>
+      <div class="x">文件还留一堆麻烦</div>
+      <div class="y">占手机内存，换手机就找不到；发出去收不回来，也怕对方看到别的项目。</div>
     </div></div>
     <div class="it"><div class="n">3</div><div>
-      <div class="x">回来还要做报告</div>
-      <div class="y">导照片、配文字、编号、排版，一份一两个小时，项目一多更压人。</div>
+      <div class="x">尺包把这一步接过去了</div>
+      <div class="y">现场拍完顺手圈一下、说两句，报告自己排好。<em style="font-style:normal;color:var(--accent)">不用自己做 PDF，报告就在线上。</em></div>
     </div></div>
   </div>
 
@@ -108,19 +128,19 @@
 
 <!-- 怎么解决 -->
 <div class="p">
-  <div class="top"><span>尺 包</span><span>02</span></div>
+  <div class="top"><span class="headlogo"><img src="assets/chibao-icon.png" alt="">尺 包</span><span>02</span></div>
   <h2 style="margin-top:14mm">五步，都在现场做完</h2>
 
   <div class="list">
-    <div class="it"><div class="n">1</div><div>
+    <div class="it"><div class="n">1</div><img class="ico" src="assets/icon-tab-camera.svg" alt=""><div>
       <div class="x">拍照片</div><div class="y">按项目拍照，或从相册选。</div></div></div>
-    <div class="it"><div class="n">2</div><div>
+    <div class="it"><div class="n">2</div><img class="ico" src="assets/annotation-rectangle.svg" alt=""><div>
       <div class="x">圈出问题位置</div><div class="y">在照片上框一下，系统自动编号，报告里编号与照片一一对应。</div></div></div>
-    <div class="it"><div class="n">3</div><div>
+    <div class="it"><div class="n">3</div><img class="ico" src="assets/icon-mic.svg" alt=""><div>
       <div class="x">按住说话</div><div class="y">松开自动转成文字，也可以打字。</div></div></div>
-    <div class="it"><div class="n">4</div><div>
+    <div class="it"><div class="n">4</div><img class="ico" src="assets/icon-note.svg" alt=""><div>
       <div class="x">核对一遍</div><div class="y">逐条确认、随手改，你不确认就不会进报告。</div></div></div>
-    <div class="it"><div class="n">5</div><div>
+    <div class="it"><div class="n">5</div><img class="ico" src="assets/icon-arrow-right.svg" alt=""><div>
       <div class="x">转发给业主</div><div class="y">发个只读链接，对方点开就看，不用登录。</div></div></div>
   </div>
 
@@ -130,21 +150,21 @@
 
 <!-- 还能给什么 -->
 <div class="p">
-  <div class="top"><span>尺 包</span><span>03</span></div>
-  <h2 style="margin-top:14mm">顺带解决的</h2>
+  <div class="top"><span class="headlogo"><img src="assets/chibao-icon.png" alt="">尺 包</span><span>03</span></div>
+  <h2 style="margin-top:14mm">所以，省掉了什么</h2>
 
   <div class="list">
     <div class="it"><div class="n">1</div><div>
-      <div class="x">不用做文件</div>
-      <div class="y">报告在线上，随时打开就是最新那份。换手机、换微信都还在，照片也不占你的手机。</div>
+      <div class="x">不用做 PDF</div>
+      <div class="y">报告在线上，随时打开就是最新那份。填一次公司抬头，之后每份自动带上。</div>
     </div></div>
     <div class="it"><div class="n">2</div><div>
-      <div class="x">发出去能收回</div>
-      <div class="y">只读链接随时可撤销，旧链接立即失效；对方看不到你其他任何记录。</div>
+      <div class="x">不占手机内存</div>
+      <div class="y">照片上传后本机副本自动清掉；换手机、换微信，报告都还在。</div>
     </div></div>
     <div class="it"><div class="n">3</div><div>
-      <div class="x">事后有据可查</div>
-      <div class="y">报告有编号、有出具时间，谁在什么时候确认过什么，都留得住。</div>
+      <div class="x">发出去还能收回</div>
+      <div class="y">只读链接随时可撤销，旧链接立即失效；对方看不到你其他任何记录。</div>
     </div></div>
   </div>
 
