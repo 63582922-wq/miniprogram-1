@@ -1,5 +1,9 @@
-:host{display:block;position:sticky;top:0;z-index:50;margin:var(--a-space-page-bleed) calc(-1 * var(--a-page-inset)) 0}
-.page-nav-bar{display:block;background:var(--a-paper);box-sizing:border-box;color:var(--a-ink);font-family:var(--a-font-body)}
+:host{display:block;margin:var(--a-space-page-bleed) calc(-1 * var(--a-page-inset)) 0}
+/* position:sticky 会创建层叠上下文。此前它挂在 :host 上，把组件内部的隐私弹窗
+   （z-index:999）困在宿主的 z-index:50 里，对外实际只有 50——压不过页面里
+   90/91 的遮罩，「同意并继续」会被盖住点不动。粘性挪到内层后宿主不再建上下文，
+   999 才真正作用于页面。 */
+.page-nav-bar{position:sticky;top:0;z-index:50;display:block;background:var(--a-paper);box-sizing:border-box;color:var(--a-ink);font-family:var(--a-font-body)}
 .page-nav-bar__content{position:relative;display:flex;align-items:center;gap:var(--a-space-2);box-sizing:border-box;min-width:0}
 .page-nav-bar__heading{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:var(--a-space-1);min-width:0;pointer-events:none;text-align:center}
 .page-nav-bar__back{min-width:calc(var(--a-hit) * 2);min-height:var(--a-hit-compact);box-sizing:border-box;padding:0 var(--a-space-2);display:flex;align-items:center;justify-content:center;gap:var(--a-space-1);background:transparent;color:var(--a-ink);border:0;font-size:var(--a-type-body);font-weight:var(--a-weight-medium);margin:0;flex-shrink:0;line-height:1.35}
