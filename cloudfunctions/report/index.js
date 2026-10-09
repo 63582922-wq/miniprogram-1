@@ -274,11 +274,33 @@ async function saveReport(payload) {
   const id=requestKey("report",OPENID,payload.inspectionId);
   // One publication per inspection; no later client payload can mutate the snapshot.
   let existing=null;try{existing=(await db.collection("reports").doc(id).get()).data;}catch(e){}
-  const published=existing || await reserve(db.collection("reports"),id,hash(snapshot),{
-    ...data,...snapshot,status:"published",publicationStatus:"published",snapshotVersion:2,snapshot,
-    publishedAt:now,shareState:"active"
-  });
-  if(published.deleted)throw new Error("报告已删除");
+  let published;
+  if(existing && existing.deleted){
+    // 用户删过这份报告，之后又在同一次记录上重新生成——这是明确要求把它拿回来。
+    //
+    // 原先这里直接抛「报告已删除」，用户就再没有出路：报告的 _id 由
+    // openid + inspectionId 决定，是确定性的，所以每次重新生成都会命中
+    // 同一份已删报告，永远失败。删掉报告等于这次记录再也发不出去。
+    //
+    // 复活时必须**换掉分享 token**：删除本身就撤回了此前发出去的链接
+    // （读取处会挡 deleted，而链接指的还是那个 token），
+    // 沿用旧 token 会让那些已经作废的链接悄悄恢复访问。
+    const revivedToken=`${SHARE_TOKEN_PREFIX}${crypto.randomBytes(16).toString("hex")}`;
+    await db.collection("reports").doc(id).update({data:{
+      ...data,...snapshot,status:"published",publicationStatus:"published",snapshotVersion:2,snapshot,
+      publishedAt:now,shareState:"active",shareToken:revivedToken,
+      deleted:false,updatedAt:now,updatedBy:OPENID
+    }});
+    published={...existing,...data,...snapshot,status:"published",publicationStatus:"published",
+      snapshotVersion:2,snapshot,publishedAt:now,shareState:"active",shareToken:revivedToken,
+      deleted:false,updatedAt:now,updatedBy:OPENID};
+  }else{
+    published=existing || await reserve(db.collection("reports"),id,hash(snapshot),{
+      ...data,...snapshot,status:"published",publicationStatus:"published",snapshotVersion:2,snapshot,
+      publishedAt:now,shareState:"active"
+    });
+    if(published.deleted)throw new Error("报告已删除");
+  }
   await db.collection("inspections").doc(payload.inspectionId).update({data:{reportId:id,updatedAt:now,updatedBy:OPENID}});
   return {success:true,data:{...published.snapshot,...published}};
 }

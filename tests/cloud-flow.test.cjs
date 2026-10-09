@@ -456,3 +456,43 @@ test('a project without a client contact adds no client fields to the report',as
  assert.equal(built.data.clientName,'');
  assert.equal(built.data.clientPhone,'');
 });
+
+test('删掉报告后重新生成：能发出来，且旧分享链接必须失效',async()=>{
+ // 报告的 _id 由 openid + inspectionId 决定，是确定性的。
+ // 原先保存时撞上已删报告会直接抛「报告已删除」——于是同一份记录
+ // 删过一次就再也发不出去，用户没有任何出路。
+ const h=fixture(),confirm=h.load('inspection'),p=payload();
+ h.table('users').set('u',{openId:'owner',nickname:'巡查员',phone:'010-00000000',deleted:false});
+ const first=await confirm({action:'confirm',payload:p});
+ const report=h.load('report');
+ const built=await report({action:'build',payload:{inspectionId:first.data.inspectionId}});
+ const pub=await report({action:'save',payload:{...built.data,requestId:'publish'}});
+ assert.equal(pub.success,true);
+ const r=pub.data,oldToken=r.shareToken;
+ assert.ok(oldToken,'发布时应生成分享 token');
+
+ // 删除
+ assert.equal((await report({action:'remove',payload:{reportId:r._id}})).success,true);
+ assert.equal((await report({action:'detail',payload:{reportId:r._id}})).success,false,'删除后不该还能读');
+ // 旧链接随之失效
+ h.as('recipient');
+ assert.equal((await report({action:'detail',payload:{reportId:r._id,shareToken:oldToken}})).success,false,
+   '删除后旧分享链接必须失效');
+
+ // 重新生成同一份记录
+ h.as('owner');
+ const rebuilt=await report({action:'build',payload:{inspectionId:first.data.inspectionId}});
+ const again=await report({action:'save',payload:{...rebuilt.data,requestId:'publish-2'}});
+ assert.equal(again.success,true,'删掉报告后应该还能重新生成——原先这里永远失败');
+
+ // 换新 token；旧链接不能借尸还魂
+ const newToken=again.data.shareToken;
+ assert.ok(newToken&&newToken!==oldToken,'重新生成必须换分享 token，否则作废的旧链接会恢复访问');
+ // 换成接收者身份再验链接——所有者本来就能读自己的报告，与 token 无关，
+ // 留在 owner 身份下断言等于什么都没测。
+ h.as('recipient');
+ assert.equal((await report({action:'detail',payload:{reportId:again.data._id,shareToken:newToken}})).success,true,
+   '新链接应当可用');
+ assert.equal((await report({action:'detail',payload:{reportId:again.data._id,shareToken:oldToken}})).success,false,
+   '旧 token 不该因为报告复活而重新生效');
+});
