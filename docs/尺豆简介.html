@@ -6,9 +6,9 @@
 <style>
   @page{ size:210mm 297mm; margin:0; }
   :root{
-    --ink:#17160F; --ink2:#544F45; --ink3:#948C7C;
-    --paper:#FCF9F5; --tint:#F4EDE3; --hair:#E4DACB;
-    --accent:#C2452A; --gold:#B08A52;
+    --ink:#3B2E26; --ink2:#7A6759; --ink3:#A8968A;
+    --paper:#FFF9F3; --tint:#FFF1E4; --hair:#F0DFCE;
+    --accent:#E06030; --accent2:#F08A5D; --gold:#E0A860;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:#fff}
@@ -17,12 +17,12 @@
   .p{width:210mm;height:297mm;padding:24mm 21mm;background:var(--paper);
      page-break-after:always;display:flex;flex-direction:column;position:relative;overflow:hidden}
   .p:last-child{page-break-after:auto}
-  .dark{background:var(--ink);color:var(--paper)}
+  .dark{background:#2E2119;color:#FFF6EC}
   .tint{background:var(--tint)}
   .glow{position:absolute;width:175mm;height:175mm;border-radius:50%;right:-60mm;top:-60mm;
-        background:radial-gradient(circle at 45% 45%,rgba(194,69,42,.5),rgba(194,69,42,0) 62%)}
+        background:radial-gradient(circle at 45% 45%,rgba(224,96,48,.55),rgba(194,69,42,0) 62%)}
   .glow2{position:absolute;width:150mm;height:150mm;border-radius:50%;left:-62mm;bottom:-72mm;
-         background:radial-gradient(circle at 50% 50%,rgba(176,138,82,.3),rgba(176,138,82,0) 64%)}
+         background:radial-gradient(circle at 50% 50%,rgba(224,168,96,.34),rgba(176,138,82,0) 64%)}
   .inner{position:relative;height:100%;display:flex;flex-direction:column}
   .top{display:flex;justify-content:space-between;align-items:center;
        font-size:8.5pt;letter-spacing:.28em;color:var(--ink3);font-weight:600}
@@ -36,7 +36,11 @@
   .list{margin-top:11mm}
   .it{display:flex;gap:7mm;padding:8mm 0;border-top:1px solid var(--hair);align-items:flex-start}
   .it:last-child{border-bottom:1px solid var(--hair)}
-  .it .n{font-size:26pt;font-weight:600;line-height:1;color:var(--accent);flex:none;width:13mm;letter-spacing:-.03em}
+  /* 数字做成实心圆徽章——比光秃秃的数字可爱，也更像 App 里的风格 */
+  .it .n{font-size:16pt;font-weight:700;line-height:1;color:#fff;flex:none;
+         width:12mm;height:12mm;border-radius:50%;background:var(--accent);
+         display:flex;align-items:center;justify-content:center;
+         box-shadow:0 2mm 4mm rgba(224,96,48,.22)}
   .it .ico{width:8.5mm;height:8.5mm;flex:none;margin-top:.5mm;opacity:.85}
   .it .x{font-size:15pt;font-weight:600;line-height:1.45}
   .it .y{font-size:11pt;line-height:1.8;color:var(--ink2);margin-top:2.5mm}
@@ -46,7 +50,7 @@
   .cmp .big{font-size:50pt;font-weight:600;line-height:1;letter-spacing:-.04em;margin-top:5mm}
   .cmp .d{font-size:10.5pt;line-height:1.8;color:var(--ink2);margin-top:4mm}
   .cards{display:flex;gap:6mm;margin-top:10mm}
-  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:4mm;padding:7mm}
+  .card{flex:1;background:#fff;border:1px solid var(--hair);border-radius:6mm;padding:7mm}
   .card .k{font-size:9pt;letter-spacing:.18em;color:var(--accent);font-weight:600}
   .card .t{font-size:14pt;font-weight:600;margin-top:4mm;line-height:1.4}
   .card .d{font-size:10pt;line-height:1.8;color:var(--ink2);margin-top:3mm}
@@ -63,7 +67,7 @@
   .qr .d{font-size:10pt;line-height:1.8;color:var(--ink3);margin-top:3mm}
   .dark .qr .d{color:#8B8375}
   .who{display:flex;flex-wrap:wrap;gap:3mm;margin-top:6mm}
-  .who span{font-size:10.5pt;padding:2.5mm 5mm;border:1px solid var(--hair);border-radius:99mm;color:var(--ink2)}
+  .who span{font-size:10.5pt;padding:2.8mm 5.5mm;border:1.5px solid var(--hair);border-radius:99mm;color:var(--ink2);background:#fff}
 </style>
 </head>
 <body>
@@ -95,7 +99,7 @@
   <div class="top"><span class="brandline"><img src="assets/chidou-icon.png" alt="">尺 包</span><span>01</span></div>
   <h2 style="margin-top:12mm">现场记录，<br>最容易吃亏的三个地方</h2>
   <img src="assets/现场-吊顶标注.jpg" alt="现场照片"
-       style="width:100%;display:block;margin-top:9mm;border-radius:3mm">
+       style="width:100%;display:block;margin-top:9mm;border-radius:6mm">
 
   <div class="list" style="margin-top:7mm">
     <div class="it"><div class="n">1</div><div>
