@@ -78,16 +78,8 @@
   /* 封面与尾页 */
   .cover{ padding:0; }
   .cover .bg{ position:absolute; inset:0; background:var(--ink); }
-  .cover .glow{
-    position:absolute; right:-30mm; top:-40mm; width:190mm; height:190mm;
-    border-radius:50%;
-    background:radial-gradient(circle at 40% 40%, rgba(194,69,42,.55), rgba(194,69,42,0) 62%);
-  }
-  .cover .glow2{
-    position:absolute; left:-40mm; bottom:-60mm; width:170mm; height:170mm;
-    border-radius:50%;
-    background:radial-gradient(circle at 50% 50%, rgba(176,138,82,.34), rgba(176,138,82,0) 64%);
-  }
+  .cover
+  .cover
   .cover .inner{ position:relative; height:100%; padding:22mm 20mm;
                  display:flex; flex-direction:column; color:var(--paper); }
   .cover h1{ font-size:50pt; color:var(--paper); }
@@ -109,7 +101,7 @@
 
 <!-- 1 ── 封面 -->
 <div class="slide cover">
-  <div class="bg"></div><div class="glow"></div><div class="glow2"></div>
+  <div class="bg"></div>
   <div class="inner">
     <div class="brand">尺 豆</div>
     <div class="push"></div>
@@ -228,7 +220,7 @@
 
 <!-- 6 ── 尾页 + 二维码 -->
 <div class="slide dark cover" style="padding:0">
-  <div class="bg"></div><div class="glow" style="right:auto;left:-50mm;top:-50mm"></div>
+  <div class="bg"></div>
   <div class="inner" style="padding:20mm">
     <div class="brand" style="font-size:11pt">尺 豆</div>
     <div class="push"></div>
