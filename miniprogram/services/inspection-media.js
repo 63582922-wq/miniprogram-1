@@ -1,4 +1,5 @@
 const { uploadUserFile } = require("./cloud");
+const { collectLocalMediaPaths, releaseLocalMedia, sweepOrphanLocalMedia } = require("../utils/local-media");
 
 function keepLocalFile(path) {
   if (!path || path.startsWith("cloud://") || (wx.env && path.startsWith(wx.env.USER_DATA_PATH + "/"))) return Promise.resolve(path || "");
@@ -146,4 +147,4 @@ async function uploadDraftMedia(form, onProgress = () => {}, concurrency = 3) {
   next.images = next.issueDrafts.map(p => p.imagePath).filter(Boolean);
   return next;
 }
-module.exports = { keepLocalFile, uploadDraftMedia };
+module.exports = { keepLocalFile, uploadDraftMedia, collectLocalMediaPaths, releaseLocalMedia, sweepOrphanLocalMedia };

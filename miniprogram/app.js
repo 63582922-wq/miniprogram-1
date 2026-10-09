@@ -1,5 +1,7 @@
 const { loginAndBootstrapUser } = require("./services/user");
 const { setupPrivacyListener } = require("./utils/privacy");
+const { sweepOrphanLocalMedia } = require("./utils/local-media");
+const { listDrafts, readDraft, currentOwner } = require("./utils/inspection-draft");
 const { PRIVACY_CONSENT_KEY } = require("./utils/privacy-consent");
 const {
   getCloudEnvId,
@@ -21,8 +23,22 @@ App({
     bootError: null
   },
 
+  /**
+   * 清掉不再被任何草稿引用的本机照片。
+   *
+   * 现场照片落盘在手机上，而旧版本从不删除它们，会随使用次数一直涨。
+   * 必须等拿到用户身份后再跑：草稿按 openId 归属，身份未知时所有草稿都读不出来，
+   * 「没有草稿引用它」会对每一张照片都成立，把正在编辑的草稿照片一起删掉。
+   */
+  sweepLocalMedia() {
+    if (!currentOwner()) return;
+    sweepOrphanLocalMedia(listDrafts().map((d) => readDraft(d.sessionKey)), {
+      identityConfirmed: true
+    }).catch(() => {});
+  },
   async onLaunch() {
     setupPrivacyListener();
+    setTimeout(() => this.sweepLocalMedia(), 6000);
     if (!wx.cloud) {
       this.showFatal(
         "请更新微信",

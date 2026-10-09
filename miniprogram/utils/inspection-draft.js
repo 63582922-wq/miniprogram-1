@@ -17,6 +17,8 @@
  */
 
 const DRAFT_FORM_KEYS = ["projectId", "projectName", "title", "note", "issueDrafts"];
+const { releaseLocalMedia } = require("./local-media");
+
 function currentOwner() {
   try { return getApp().globalData.userInfo.openId || ""; } catch (_) { return ""; }
 }
@@ -175,6 +177,9 @@ function patchDraft(sessionKey, patch) {
 
 function finishDraft(sessionKey) {
   if (!sessionKey) return;
+  // 先取出草稿再清 storage。照片在本机是真实占空间的文件，云端已有副本，
+  // 这时候释放才安全（此前从不释放，会随使用次数无限增长）。
+  releaseLocalMedia(readDraft(sessionKey));
   wx.setStorageSync(sessionKey + ":complete", true);
   wx.removeStorageSync(sessionKey);
   wx.setStorageSync(indexKey(), (wx.getStorageSync(indexKey()) || []).filter(d => d.sessionKey !== sessionKey));
