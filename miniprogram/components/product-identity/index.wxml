@@ -1,8 +1,8 @@
 <view class="product-identity-spacer" aria-hidden="true"></view>
 <view class="product-identity" style="padding-top:{{statusBarHeight}}px;padding-right:{{capsuleSafeWidth}}px">
-  <image class="product-identity__mark" src="/images/brand/chibao-icon-v1.png" mode="aspectFit" aria-label="尺包" />
+  <image class="product-identity__mark" src="/images/brand/chidou-icon-v1.png" mode="aspectFit" aria-label="尺豆" />
   <view class="product-identity__copy">
-    <view class="product-identity__name">尺包</view>
+    <view class="product-identity__name">尺豆</view>
   </view>
   <view wx:if="{{title}}" class="product-identity__title" style="top:{{statusBarHeight}}px;left:{{capsuleSafeWidth}}px;right:{{capsuleSafeWidth}}px">{{title}}</view>
 </view>

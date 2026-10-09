@@ -262,7 +262,7 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.doesNotMatch(productIdentity, /报告分享/);
   assert.match(welcomeMarkup, /现场记录 · 精准标注 · 清楚交付/);
   assert.match(welcomeMarkup, /<page-nav-bar root="\{\{true\}\}"/);
-  assert.equal((welcomeMarkup.match(/welcome-wordmark">尺包/g) || []).length, 1);
+  assert.equal((welcomeMarkup.match(/welcome-wordmark">尺豆/g) || []).length, 1);
   assert.match(welcomeMarkup, /<checkbox-group[^>]+bindchange="handleAgreeChange"/);
   assert.match(welcomeMarkup, /<button class="(?:ui-button-reset )?welcome-link"/);
   assert.match(appStyles, /button,input,textarea\{font-family:var\(--a-font-body\);font-weight:var\(--a-weight-regular\)\}/);
@@ -408,7 +408,7 @@ test("global visual contract keeps one paper, ink and vermilion system", () => {
   assert.match(report, /\.issue-group__media\s*\{[\s\S]*?background:\s*transparent/);
   assert.match(fs.readFileSync(path.resolve(__dirname,'../miniprogram/components/report-section/index.wxss'),'utf8'), /\.report-section\s*\{[^}]*background:\s*transparent/);
   assert.doesNotMatch(report, /page-break-(?:before|after|inside)|@page\s*\{/);
-  assert.doesNotMatch(reportMarkup, /毫厘智管|尺包|report-product-signature/);
+  assert.doesNotMatch(reportMarkup, /毫厘智管|尺豆|report-product-signature/);
   assert.match(reportMarkup, /wx:for="\{\{group\.markers\}\}" wx:for-item="marker"/);
   assert.match(reportMarkup, /previewGroup\.annotatedImage \? 'is-baked'/);
   assert.match(reportMarkup, /!previewGroup\.annotatedImage \|\| issue\.viewerKey === previewGroup\.activeIssueId/);

@@ -56,7 +56,7 @@
 ## 资产
 
 - ~~`miniprogram/images/brand/haoli-symbol-v8.svg`~~：可编辑的界面主符号。**已随 2026-10-01 品牌更名下架**，文件不再存在于仓库。
-- ~~`miniprogram/images/brand/haoli-symbol-v8.png`~~：小程序界面使用的 1024px 光栅版本。**同上，已下架**；界面现使用 `miniprogram/images/brand/chibao-icon-v1.png`。
+- ~~`miniprogram/images/brand/haoli-symbol-v8.png`~~：小程序界面使用的 1024px 光栅版本。**同上，已下架**；界面现使用 `miniprogram/images/brand/chidou-icon-v1.png`。
 - ~~`miniprogram/images/brand/haoli-miniapp-icon-v8-1024.png`~~：应用图标候选。**同上，已下架**。
 - v8 之前的探索稿统一保存在 `docs/brand/archive/`，不进入正式小程序资源包，也不得在新页面继续引用。
 - 完整名称由原生文字「毫厘智管」呈现，确保中文可读；正式定稿前不宣称为定制字形。

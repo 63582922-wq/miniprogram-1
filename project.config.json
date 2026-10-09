@@ -45,7 +45,7 @@
     "disableSWC": true
   },
   "appid": "wxf30ba9025bea84ab",
-  "projectname": "chibao",
+  "projectname": "chidou",
   "libVersion": "3.7.3",
   "cloudfunctionTemplateRoot": "cloudfunctionTemplate/",
   "condition": {
