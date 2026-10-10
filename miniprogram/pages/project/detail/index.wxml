@@ -26,6 +26,16 @@
       </view>
     </view>
 
+    <view wx:if="{{reports.length}}" class="project-section">
+      <view class="project-section__head">
+        <view class="project-section__label">历史报告</view>
+        <view class="project-section__hint">{{reports.length}} 份</view>
+      </view>
+      <button class="ui-button-reset project-plain-row project-plain-row--last" wx:for="{{reports}}" wx:key="_id" data-report="{{item._id}}" bindtap="openReport">
+        <view class="project-plain-row__content"><view class="project-plain-row__title">{{item.title}}</view><view class="project-plain-row__meta">{{item.timeText}}</view></view>
+      </button>
+    </view>
+
     <button class="ui-button-reset project-gallery-link" bindtap="goGallery">查看全部照片<text class="project-gallery-link__count">{{featurePhotoCount}} 张</text><image class="project-gallery-link__icon" src="/images/icons/icon-arrow-right.svg" mode="aspectFit" /></button>
 
 

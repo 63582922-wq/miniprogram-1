@@ -30,7 +30,7 @@ Page({
   data: {
     ...coachData(),
     loading:true,loadError:"",
-    projectId: "",drafts:[],
+    projectId: "",drafts:[],reports:[],
     project: {},
     recentInspectionExpanded: false,
     recentReportExpanded: false,
@@ -63,11 +63,19 @@ Page({
       if(!result.project || result.project._id !== this.data.projectId)throw new Error("项目不存在或无权限，请返回重试");
       const drafts = listDrafts(this.data.projectId).map(d=>({...d,timeText:formatDateTime(d.updatedAt)}));
       const inspections = (result.inspections || []).filter(item => !item.deleted);
-      const reports = (result.reports || []).filter(item => !item.deleted);
+      // 这个项目的历史报告。listReports 早就带回来了，但之前只算不用——
+      // 项目详情页看不到「这个工地一共出过几份报告」，只能回报告 tab 里翻。
+      const reports = (result.reports || [])
+        .filter(item => !item.deleted)
+        .map(item => ({
+          ...item,
+          timeText: formatDateTime(item.publishedAt || item.createdAt || item.generatedAt)
+        }));
       const galleryPhotos = galleryResult && Array.isArray(galleryResult.photos) ? galleryResult.photos : [];
       if (generation !== this.detailLoadGeneration) return;
       this.setData({
         drafts,
+        reports,
         projectTitleClass: usesEditorialTypeface(result.project && result.project.name) ? "" : "project-hero__title--ui",
         project: {
           ...(result.project || {}),
@@ -195,6 +203,17 @@ Page({
       }catch(error){wx.showToast({title:error.message||'删除失败，请重试',icon:'none'});}
       finally{this.deletingDraft=false;}
     }});
+  },
+  openReport(event) {
+    const reportId = event.currentTarget.dataset.report;
+    if (!reportId) return;
+    wx.navigateTo({
+      url: `/pages/report/detail/index?reportId=${reportId}&returnContext=${encodeReturnContext({
+        projectId: this.data.projectId,
+        projectName: this.data.project.name || "",
+        returnTarget: "projectDetail"
+      })}`
+    });
   },
   goGallery() {
     wx.navigateTo({
