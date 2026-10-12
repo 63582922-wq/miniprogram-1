@@ -122,3 +122,7 @@
 .coach__skip::after {
   border: 0;
 }
+
+/* 纯压暗、不含可点内容的遮罩：放过触摸。宁可引导少挡一层，
+   也不能因为提示没渲染出来就把用户困在一块灰屏里。 */
+.coach__mask--passthrough{pointer-events:none}

@@ -8,8 +8,12 @@
     <view class="coach__mask" style="left:{{masks.bottom.left}}px;top:{{masks.bottom.top}}px;width:{{masks.bottom.width}}px;height:{{masks.bottom.height}}px"></view>
     <view class="coach__ring" style="left:{{hole.left}}px;top:{{hole.top}}px;width:{{hole.width}}px;height:{{hole.height}}px;border-radius:{{ringRadius}}"></view>
   </block>
-  <!-- 目标还不存在（例如还没有照片）：整屏压暗，只讲清楚下一步做什么 -->
-  <view wx:else class="coach__mask" style="left:0;top:0;right:0;bottom:0"></view>
+  <!-- 目标还不存在（例如还没有照片）：整屏压暗，只讲清楚下一步做什么。
+       这一块**必须放过触摸**（coach__mask--passthrough）：它只是压暗，
+       没有任何可点的东西。早前它是一块能吃事件的普通遮罩，一旦提示因为
+       任何原因没渲染出来，用户就只剩一块灰色、什么都点不了，
+       只能返回；而引导状态存在 storage 里，退出去重进还是一样。 -->
+  <view wx:else class="coach__mask coach__mask--passthrough" style="left:0;top:0;right:0;bottom:0"></view>
 
   <view class="coach__tip {{hole ? '' : 'coach__tip--centered'}}" style="{{tipStyle}}">
     <view wx:if="{{stepText}}" class="coach__step">{{stepText}}</view>

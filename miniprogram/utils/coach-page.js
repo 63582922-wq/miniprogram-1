@@ -1,4 +1,4 @@
-const { isCoachStep, moveCoach, stopCoach, buildCoachTip, getNextCoachStep, getCoachState } = require("./coach");
+const { COACH_STEPS, isCoachStep, moveCoach, stopCoach, buildCoachTip, getNextCoachStep, getCoachState } = require("./coach");
 
 /**
  * 页面接入高亮引导的最小接口。
@@ -162,8 +162,13 @@ function coachMethods(stepKey, targetSelector, options = {}) {
       if (!state.active) return;
       const current = state.step;
       const key = fromStep || stepKey;
-      if (current && key && key !== current) return;
-      const next = getNextCoachStep(current || key);
+      // 用户跳着操作时，不能「对不上就不动」——那样引导会永远推进不了，
+      // 一直停在 active，页面上就剩一块找不到目标的灰色遮罩，什么都点不了，
+      // 而且状态存在 storage 里，退出重进依旧。必须保证只能往前走：
+      // 既然这个动作已经做完了，它之前的步骤就都是过时的，直接跳到它之后。
+      const next = getNextCoachStep(
+        current && key && COACH_STEPS.indexOf(key) > COACH_STEPS.indexOf(current) ? key : (current || key)
+      );
       if (next) {
         moveCoach(next);
       } else {
