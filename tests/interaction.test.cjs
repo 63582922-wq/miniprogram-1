@@ -216,3 +216,56 @@ test('引导必须有寿命：过期自动作废，且推进不能续命',()=>{
    assert.equal(coach.getCoachState().active,true,'可以重新开始');
  } finally { Date.now=realNow; }
 });
+
+/**
+ * 账号持有人的原话，逐字写进测试：
+ *   「首次登录的用户才会弹出引导，已经登录使用过的就不弹这个引导了」
+ *
+ * 三层意思，一条都不能少：
+ *   ① 全新的用户        → 弹
+ *   ② 已经看过引导的    → 不弹（而且标记落下后不再回头）
+ *   ③ 手上已经有项目的  → 不弹，且逐步引导也必须就此结束
+ */
+test('首次使用才弹引导，用过的永不弹',()=>{
+ const {loadPage}=require('./page-harness.cjs');
+ const storage={};
+ const navigated=[];
+ const WX={getStorageSync:k=>(k in storage?storage[k]:''),setStorageSync:(k,v)=>{storage[k]=v;},
+   removeStorageSync:k=>{delete storage[k];},navigateTo:o=>navigated.push(o.url),
+   showToast:()=>{},showModal:()=>{},getWindowInfo:()=>({statusBarHeight:20,windowWidth:375,windowHeight:667,safeArea:{top:20,bottom:667}}),
+   getSystemInfoSync:()=>({statusBarHeight:20,windowWidth:375,windowHeight:667,platform:'ios'}),
+   getMenuButtonBoundingClientRect:()=>({top:24,left:280,width:80,height:32})};
+ global.wx=WX;
+
+ function mount(projects){
+   for(const k of Object.keys(storage))delete storage[k];
+   navigated.length=0;
+   const {page}=loadPage('project/list',{
+     '../../../services/project':{listProjects:async()=>({list:projects,hasMore:false})},
+     '../../../services/report':{listReports:async()=>({list:[]})},
+     '../../../utils/coach-page':{coachData:()=>({}),coachMethods:()=>({})}
+   },WX);
+   page.setData({projectList:projects});
+   return page;
+ }
+
+ // ① 全新用户：没有任何项目、没看过 → 弹
+ let page=mount([]);
+ page.autoOpenGuideOnce();
+ assert.equal(navigated.length,1,'首次使用必须弹引导');
+ assert.match(navigated[0],/onboarding/);
+
+ // ② 已经看过：标记落下后不再弹
+ navigated.length=0;page.autoOpenGuideOnce();
+ assert.equal(navigated.length,0,'看过之后不能再弹');
+
+ // ③ 手上已经有项目 → 不弹，而且逐步引导要一并结束
+ const coach=require('../miniprogram/utils/coach.js');
+ page=mount([{_id:'p1',name:'示例小区'}]);
+ coach.startCoach(coach.COACH_STEPS[0]);
+ assert.equal(coach.getCoachState().active,true,'前提：先把逐步引导置于进行中');
+ page.autoOpenGuideOnce();
+ assert.equal(navigated.length,0,'有项目的老用户不能弹引导页');
+ assert.equal(coach.getCoachState().active,false,
+   '有项目就说明用过了，逐步引导必须结束——不能只挡住引导页、放任气泡继续冒');
+});
