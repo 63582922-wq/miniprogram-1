@@ -172,3 +172,47 @@ test('用过一次就不再弹引导：有项目就必须永久结束',()=>{
  // 而且确实引入了 stopCoach
  assert.match(src,/require\("\.\.\/\.\.\/\.\.\/utils\/coach"\)/,'要引入 coach 工具');
 });
+
+test('引导必须有寿命：过期自动作废，且推进不能续命',()=>{
+ // 这是引导反复出问题的结构性原因：active 一旦写进 storage 就永久有效。
+ // 用户没按顺序走完（跳着做、中途退出），它就一直躺着，隔几天打开还在弹。
+ // 此前三次修复都在改「怎么推进」，没人问过「它会过期吗」。
+ const store={};
+ global.wx={getStorageSync:k=>store[k],setStorageSync:(k,v)=>{store[k]=v;},removeStorageSync:k=>{delete store[k];}};
+ delete require.cache[require.resolve('../miniprogram/utils/coach.js')];
+ const coach=require('../miniprogram/utils/coach.js');
+
+ const realNow=Date.now;
+ try{
+   // ① 刚启动：有效
+   coach.startCoach(coach.COACH_STEPS[0]);
+   assert.equal(coach.getCoachState().active,true,'刚启动应有效');
+
+   // ② 两天后仍在窗口内
+   Date.now=()=>realNow()+2*24*60*60*1000;
+   assert.equal(coach.getCoachState().active,true,'两天内仍然有效');
+
+   // ③ 关键：推进不能把起始时间往后挪，否则慢慢走就永远不过期
+   coach.moveCoach(coach.COACH_STEPS[1]);
+   Date.now=()=>realNow()+2*24*60*60*1000;
+   assert.equal(coach.getCoachState().active,true,'推进后仍在窗口内');
+   Date.now=()=>realNow()+4*24*60*60*1000;
+   assert.equal(coach.getCoachState().active,false,
+     '推进不能续命——起始时间必须保持第一次启动的那一刻');
+
+   // ④ 过期后 storage 也要被清干净，不留 active:true 的残骸
+   //    注意先把时钟拨回来，否则 startCoach 会拿「+4 天」当起始时间，永远不过期
+   Date.now=realNow;
+   coach.startCoach(coach.COACH_STEPS[0]);
+   Date.now=()=>realNow()+4*24*60*60*1000;
+   coach.getCoachState();
+   const raw=store['onboardingCoachStateV1'];
+   assert.equal(raw.active,false,'过期后要写回 active:false，不能留残骸');
+   assert.equal(raw.startedAt,0,'起始时间要一并清零');
+
+   // ⑤ 过期之后重新走引导页，能正常重新开始
+   Date.now=realNow;
+   coach.startCoach(coach.COACH_STEPS[0]);
+   assert.equal(coach.getCoachState().active,true,'可以重新开始');
+ } finally { Date.now=realNow; }
+});

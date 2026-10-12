@@ -104,13 +104,38 @@ const COACH_META = {
   }
 };
 
+/**
+ * 引导最多活这么久。
+ *
+ * 这是这套引导反复出问题的**结构性原因**：active 一旦写进 storage 就永久有效。
+ * 用户没按顺序走完 9 步（跳着做、中途退出、换设备），它就一直躺在那里，
+ * 隔几天打开还在弹。此前三次修复都在改「怎么推进」，没有一次触及「它会过期吗」——
+ * 所以修完一处又冒一处。
+ *
+ * 逐步引导的定位是**首次上手这几天的临时帮助**，不是常驻功能。
+ * 过了这个窗口，无论走到哪一步都作废。
+ */
+const COACH_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+function beginCoachState(step) {
+  const prev = readCoachStorage(COACH_STATE_KEY) || {};
+  // 已经在进行中的，保留原来的起始时间，不要因为 push 一次就续命
+  const startedAt = Number(prev.startedAt) || 0;
+  return { active: true, step: step || "", startedAt: startedAt || Date.now() };
+}
+
 function getCoachState() {
   const state = readCoachStorage(COACH_STATE_KEY) || {};
   const step = COACH_STEPS.includes(state.step) ? state.step : "";
-  return {
-    active: Boolean(state.active && step),
-    step
-  };
+  if (!(state.active && step)) return { active: false, step: "" };
+  const startedAt = Number(state.startedAt) || 0;
+  if (!startedAt || Date.now() - startedAt > COACH_MAX_AGE_MS) {
+    // 过期就作废。这里直接写回、不走 setCoachState——
+    // 那条路会再调回 getCoachState，成了递归。
+    writeCoachStorage(COACH_STATE_KEY, { active: false, step: "", startedAt: 0 });
+    return { active: false, step: "" };
+  }
+  return { active: true, step };
 }
 
 function setCoachState(nextState = {}) {
@@ -123,23 +148,18 @@ function setCoachState(nextState = {}) {
 }
 
 function startCoach(step) {
-  return setCoachState({
-    active: true,
-    step: step || ""
-  });
+  return setCoachState(beginCoachState(step));
 }
 
 function moveCoach(step) {
-  return setCoachState({
-    active: true,
-    step: step || ""
-  });
+  return setCoachState(beginCoachState(step));
 }
 
 function stopCoach() {
   return setCoachState({
     active: false,
-    step: ""
+    step: "",
+    startedAt: 0
   });
 }
 
