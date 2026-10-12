@@ -43,10 +43,18 @@ function uploadReportFile(filePath, fileName) {
   return uploadUserFile(filePath, "reports", fileName);
 }
 
-function deleteReport(reportId) {
+/**
+ * 删除报告。
+ *
+ * @param {string} reportId
+ * @param {boolean} withRecord 是否连这次巡查记录（含照片）一起删。
+ *   报告只是巡查的一次「发布」，照片存在 inspections 里，删报告默认不动底稿——
+ *   所以删对了还能重新生成报告。要不要连底稿一起销毁，交给用户当场决定。
+ */
+function deleteReport(reportId, withRecord) {
   return callCloud("report", {
     action: "remove",
-    payload: { reportId }
+    payload: { reportId, withRecord: withRecord === true }
   });
 }
 

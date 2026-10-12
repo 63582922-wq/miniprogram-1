@@ -195,19 +195,36 @@ Page({
       const confirmResult = await new Promise((resolve) => {
         wx.showModal({
           title: "删除报告",
-          content: `确定删除“${reportTitle}”吗？删除后不能恢复。`,
-          confirmText: "删除",
+          content: `删除“${reportTitle}”？\n\n现场照片保存在这次巡查记录里，报告只是它的一次发布。选「只删报告」的话，照片留着，之后还能重新生成；选「连照片一起删」，这次记录就彻底删掉了。`,
+          confirmText: "只删报告",
           confirmColor: "#FF3B30",
-          cancelText: "取消",
+          cancelText: "连照片一起删",
           success: resolve
         });
       });
 
-      if (!confirmResult.confirm) {
+      // showModal 只有两个按钮，所以把「取消」当第三个选项用：
+      // 确认 = 只删报告；取消 = 再问一次要不要连记录一起删。
+      if (!confirmResult.confirm && !confirmResult.cancel) {
         return;
       }
+      let withRecord = false;
+      if (!confirmResult.confirm) {
+        const wipe = await new Promise(resolve => {
+          wx.showModal({
+            title: "连现场照片一起删？",
+            content: "这次巡查的照片会从「查看全部照片」里消失，且不能恢复。报告本身也会一并删除。",
+            confirmText: "一起删掉",
+            confirmColor: "#FF3B30",
+            cancelText: "算了，不删了",
+            success: resolve
+          });
+        });
+        if (!wipe.confirm) return;
+        withRecord = true;
+      }
 
-      await deleteReport(reportId);
+      await deleteReport(reportId, withRecord);
       wx.showToast({
         title: "已删除",
         icon: "success"

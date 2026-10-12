@@ -496,3 +496,37 @@ test('删掉报告后重新生成：能发出来，且旧分享链接必须失�
  assert.equal((await report({action:'detail',payload:{reportId:again.data._id,shareToken:oldToken}})).success,false,
    '旧 token 不该因为报告复活而重新生效');
 });
+
+test('删报告默认不动底稿；选了「连照片一起删」才连巡查记录一起删',async()=>{
+ // 报告只是巡查的一次「发布」，照片存在 inspections.photos 里，
+ // 「查看全部照片」正是从那里读的。所以删报告默认不该动底稿——
+ // 删错了还能重新生成；要不要连底稿一起销毁，由用户当场决定。
+ const h=fixture(),confirm=h.load('inspection'),p=payload();
+ h.table('users').set('u',{openId:'owner',nickname:'巡查员',phone:'010-00000000',deleted:false});
+ const first=await confirm({action:'confirm',payload:p});
+ const inspectionId=first.data.inspectionId;
+ const report=h.load('report');
+ const built=await report({action:'build',payload:{inspectionId}});
+ const pub=await report({action:'save',payload:{...built.data,requestId:'publish'}});
+
+ // ① 默认：只删报告
+ await report({action:'remove',payload:{reportId:pub.data._id}});
+ const kept=h.table('inspections').get(inspectionId);
+ assert.notEqual(kept.deleted,true,'默认删除不该把巡查记录也标记为已删');
+ assert.equal(kept.reportId,'','只删报告时要解除关联');
+ assert.equal([...h.table('inspection_items').values()].filter(i=>i.deleted===true).length,0,
+   '默认删除不该动问题条目');
+ // 照片还在，所以重建能拿到
+ const rebuilt=await report({action:'build',payload:{inspectionId}});
+ assert.equal(rebuilt.success,true,'底稿还在，应该还能重新生成报告');
+
+ // ② 选了连记录一起删
+ const pub2=await report({action:'save',payload:{...rebuilt.data,requestId:'publish-2'}});
+ assert.equal(pub2.success,true);
+ await report({action:'remove',payload:{reportId:pub2.data._id,withRecord:true}});
+ assert.equal(h.table('inspections').get(inspectionId).deleted,true,
+   '选了连记录一起删时，巡查记录必须被标记为已删——照片随之从「查看全部照片」消失');
+ const items=[...h.table('inspection_items').values()].filter(i=>i.inspectionId===inspectionId);
+ assert.ok(items.length>0,'前提：这次巡查本来有问题条目');
+ assert.ok(items.every(i=>i.deleted===true),'问题条目也要一并软删');
+});

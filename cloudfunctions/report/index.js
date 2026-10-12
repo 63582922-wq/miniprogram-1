@@ -663,14 +663,37 @@ async function removeReport(payload) {
   if (report.data.inspectionId) {
     try {
       const inspection = await db.collection("inspections").doc(report.data.inspectionId).get();
-      if (inspection.data && inspection.data.reportId === payload.reportId) {
-        await db.collection("inspections").doc(report.data.inspectionId).update({
-          data: {
-            reportId: "",
-            updatedAt: now,
-            updatedBy: OPENID
+      if (inspection.data) {
+        // 「连记录一起删」：这次巡查本身连同它的照片、问题一起软删。
+        // 照片存在 inspections.photos 里，「查看全部照片」正是从那里读的，
+        // 所以把巡查标记为已删，照片自然就不出现了。
+        if (payload.withRecord === true) {
+          await db.collection("inspections").doc(report.data.inspectionId).update({
+            data: {
+              deleted: true,
+              reportId: "",
+              updatedAt: now,
+              updatedBy: OPENID
+            }
+          });
+          const items = await all(db.collection("inspection_items")
+            .where({ inspectionId: report.data.inspectionId }));
+          for (const item of items) {
+            if (item.deleted === true) continue;
+            await db.collection("inspection_items").doc(item._id).update({
+              data: { deleted: true, updatedAt: now, updatedBy: OPENID }
+            });
           }
-        });
+        } else if (inspection.data.reportId === payload.reportId) {
+          // 默认只删报告：底稿留着，之后还能重新生成（重新生成会换新的分享 token）。
+          await db.collection("inspections").doc(report.data.inspectionId).update({
+            data: {
+              reportId: "",
+              updatedAt: now,
+              updatedBy: OPENID
+            }
+          });
+        }
       }
     } catch (error) {
     }
