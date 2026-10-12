@@ -151,3 +151,24 @@ test('引导推进只能向前，跳着操作也要能走完',()=>{
  page.advanceCoach(coach.COACH_STEPS[4]);
  assert.notEqual(coach.getCoachState().step,before,'跳着做也要往前走，不能原地不动');
 });
+
+test('用过一次就不再弹引导：有项目就必须永久结束',()=>{
+ // 账号持有人说得很明白：「我不是首次登录，只要首次登录过就不再跳出这个引导」。
+ // 逐步引导的终止条件原本只绑在「走完第 9 步」和「点了跳过」上，
+ // 跳着操作就会让 active 永远停在 true，于是每次进首页都弹。
+ // 判定必须放在 ONBOARDING_SEEN_KEY 早退**之前**——老用户那个标记早就落下了。
+ const fs=require('fs');
+ const src=fs.readFileSync('miniprogram/pages/project/list/index.js','utf8');
+ const start=src.indexOf('autoOpenGuideOnce(){');
+ assert.ok(start>0,'autoOpenGuideOnce 定义必须存在（注意别匹配到调用处）');
+ const body=src.slice(start,src.indexOf('\n  },',start));
+ const atEarlyReturn=body.indexOf('ONBOARDING_SEEN_KEY))return');
+ const atStop=body.indexOf('stopCoach()');
+ assert.ok(atStop>0,'有项目时要结束引导');
+ assert.ok(atStop<atEarlyReturn,
+   'stopCoach 必须在 ONBOARDING_SEEN_KEY 早退之前，否则老用户永远走不到这一句');
+ assert.match(body,/if\(\(this\.data\.projectList\|\|\[\]\)\.length\)stopCoach\(\)/,
+   '判定条件要写清是「已有项目」');
+ // 而且确实引入了 stopCoach
+ assert.match(src,/require\("\.\.\/\.\.\/\.\.\/utils\/coach"\)/,'要引入 coach 工具');
+});

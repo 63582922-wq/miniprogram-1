@@ -1,5 +1,6 @@
 const { listProjects, deleteProject } = require("../../../services/project");
 const { isGuideCompleted } = require("../../../utils/guide");
+const { stopCoach } = require("../../../utils/coach");
 // 向导看没看过。onboarding 页在退出时写这个标记，此前没有任何地方读它——
 // 于是「首次自动进入」这件事一直没生效。
 const ONBOARDING_SEEN_KEY = "onboardingSeenV1";
@@ -22,6 +23,15 @@ Page({
    * 进入前就把标记落下——否则用户中途退出，下次启动还会再弹一次。
    */
   autoOpenGuideOnce(){
+    // 手上有项目，就说明早就用过了——逐步引导到此为止，之后永不再出现。
+    //
+    // 这一段**必须**放在下面那个早退之前：老用户的 ONBOARDING_SEEN_KEY
+    // 在第一次启动时就落下了，写在早退之后等于永远不执行。
+    //
+    // 逐步引导（coach）的终止条件原本只绑在「走完第 9 步」和「点了跳过」上，
+    // 任何一次跳着操作都会让 active 永远停在 true，于是每次进来都弹——
+    // 这就是「我不是首次登录，为什么还一直弹引导」的原因。
+    if((this.data.projectList||[]).length)stopCoach();
     if(wx.getStorageSync(ONBOARDING_SEEN_KEY))return;
     if(isGuideCompleted()||(this.data.projectList||[]).length){
       wx.setStorageSync(ONBOARDING_SEEN_KEY,true);
